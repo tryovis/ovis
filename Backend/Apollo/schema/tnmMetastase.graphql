@@ -1,0 +1,92 @@
+module.exports = `
+
+    extend type Query {
+        getTnmMetastases(limit: Int, continueFromID: String, filter: String): [tnm]
+        getTnmCount(group: tnmGrouping!, filter: String): [ctnm]
+        getTnmBodyMap(art: art, filter: String): [CountedBy]
+        getTNMMetastasisTable(limit: Int, continueFromID: String, filter: String): [distantmetastases]
+    }
+
+    type tnm {
+        total: String
+        Nu: String
+        _id: String
+        preN: String
+        sNu: String
+        UICC: String
+        preM: String
+        Nb: String
+        T: String
+        type: String
+        tnmOccurrenceDate: Float
+        N: String
+        sNb: String
+        M: String
+        sN: String
+        RClass: String
+        preT: String
+        V: String
+        y: String
+        multipleT: String
+        version: String
+        L: String
+        Pn: String
+        S: String
+        tumorID: String
+        patID: String
+        a: String
+        r: String
+        TGroup: Int
+        NGroup: Int
+        MGroup: Int
+    }
+
+    type ctnm {
+        T: String
+        N: String
+        M: String
+        count: Int
+    }
+
+        type distantmetastases {
+        tumorID: String
+        metastasisLocation: String
+        _id: String
+        metastasisDate: Float
+        type: art
+        spread: String
+    }
+
+    input tnmGrouping {
+        type: tnmType!
+        T:  detail!
+        N: detail!
+        M: detail!
+        tnmOccurrenceDate: EventFilter!
+
+    }
+
+    enum detail {
+        group
+        groupnull
+        detail
+        detailnull
+        hide
+    }
+
+    enum tnmType {
+        total,
+        clinical,
+        progress,
+        pathological,
+        definitive,
+        tbc,
+        tbp
+    }
+
+    enum art {
+        synchron
+        metachron
+        all
+    }
+`

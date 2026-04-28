@@ -1,0 +1,2 @@
+docker run -it --rm   -w /app/mgDB   -v /home/OVIS/ovis/Backend/Data-Import/ONKOSTAR:/app/mgDB   -v /home/OVIS/ovis/Backend/Apollo:/app   -v ovis_node_modules:/app/node_modules   -u root   ovis-ovis-backend-apollo   node mdbConnect.mjs all
+

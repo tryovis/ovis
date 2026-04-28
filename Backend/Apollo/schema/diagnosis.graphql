@@ -1,0 +1,139 @@
+module.exports = `
+
+    extend type Query {
+        getFirstAssessment(limit: Int, continueFromID: String, filter: String): [Diagnosis]
+        getDiagnosisHistologyTable(limit: Int, continueFromID: String, filter: String): [DiagnosisHistologyTable]
+        getPatientCohortAgeChart(filter: String): [PatientAgeChart]
+        getQuicktoolsBasicsIcd10: [String]
+        getQuicktoolsBasicsHistology: [String]
+        getPatientCohortHistoryTable(limit: Int, continueFromID: String, filter: String): [PatientCohort]
+    }
+
+    type PatientAgeChart {
+        ageAtDiagnosis: Int 
+        count: Int 
+    }
+    
+    type DiagnosisHistologyTable {
+        _id: String
+        tumorID: String
+        ICDO_histologyCode: String
+        ICDO_histologyCodeText: String
+        ICDO_histologyDate: Float
+        ICDO_source: String
+        ICDO_mixedTumor: Boolean
+        ICDO_grading: String
+        ICDO_Nb: String
+        ICDO_Nu: String
+        ICDO_sNb: String
+        ICDO_sNu: String
+    }
+
+    type Diagnosis {
+         _id: String
+        patID: String 
+        tumorID: String
+        diagnosisDate: Float 
+        reportID: String 
+        reportDate: Float
+        ICD: ICD10 
+        ICDO: [ICDO] 
+        vitalState: String 
+        centerCase: String 
+        PathologicalTNM_RClass: String 
+        primaryCase: String 
+        PathologicalTNM_T: String 
+        gender: String 
+        ageAtDiagnosis: Int 
+        diagnosisReason: String 
+        diagnosisAssurance: String 
+        consultationType: String 
+        side: String 
+        menopauseState: String 
+        PathologicalTNM_UICC: String
+        patientCase: String
+        therapyType: String 
+        ECOG: String
+        Metastasis:String
+        organizationalUnit: String
+        internal: String
+        rareCancer: Boolean
+        sclc: String
+        oz: oz
+    }
+
+    type PatientCohort {
+        _id: String
+        patID: String
+        tumorID: String
+        diagnosisDate: Float
+        ICD: ICD10
+        ICDO: ICDO 
+        ageAtDiagnosis: Int
+        reportID: String
+    }
+
+    type oz {
+        breast: Boolean
+        viszeralHcc: Boolean
+        viszeralBiliaer: Boolean
+        viszeralDarm: Boolean
+        viszeralMagen: Boolean
+        viszeralSpeiseroehre: Boolean
+        viszeralAnal: Boolean
+        viszeralPankreas: Boolean
+        viszeralzentrum: Boolean
+        gynCervix: Boolean
+        gynOvarium: Boolean
+        gynTube: Boolean
+        gynPeritoneal: Boolean
+        gynGesamt: Boolean
+        uroProstata: Boolean
+        uroNiere: Boolean
+        uroHarnblase: Boolean
+        uroHoden: Boolean
+        uroPenis: Boolean
+        uroGesamt: Boolean
+        hautGesamt: Boolean
+        khtMundhoehle: Boolean
+        khtNasenhauptUndNebenhoehlen: Boolean
+        khtRachen: Boolean
+        khtLarynx: Boolean
+        khtSpeicheldruesen: Boolean
+        khtSonstige: Boolean
+        khtGesamt: Boolean
+        lung: Boolean
+        mesotheliom: Boolean
+        thyroid: Boolean
+        haemAkut: Boolean
+        haemLymphPlasma: Boolean
+        haemMdsMpn: Boolean
+        haemSonstige: Boolean
+        haemGesamt: Boolean
+        sarcomaWeichgewebe: Boolean
+        sarcomaKnochen: Boolean
+        sarcomaGist: Boolean
+        sarcomaGesamt: Boolean
+    }
+
+
+    type ICDO {
+        localizationCode: String
+        localizationCodeText : String
+        histologyCode : String
+        histologyCodeText : String
+        histologyDate: Float
+        grading: String
+        mixedTumor: Boolean
+        source: String
+    }
+
+    type ICD10 {
+        ICD10: String
+        ICD10_3: String
+        ICD10Text: String
+        ICD10Group: String
+        ICD10GroupText: String
+    }
+    
+    `

@@ -1,0 +1,12 @@
+version: '3.8'
+
+services:
+  fhir-converter:
+    build: .
+    network_mode: "host"
+    volumes:
+      - ./output:/app/output
+    environment:
+      - FHIR_SERVER_URL=${FHIR_SERVER_URL}
+      - FHIR_USERNAME=${FHIR_USERNAME}
+      - FHIR_PASSWORD=${FHIR_PASSWORD} 

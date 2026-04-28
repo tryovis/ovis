@@ -1,0 +1,10 @@
+FROM docker:24.0-cli
+
+# Install minimal runtime dependencies for bootstrap tasks
+RUN apk add --no-cache curl ca-certificates jq && update-ca-certificates
+
+# Work directory (harmless, not used for secrets)
+WORKDIR /workspace
+
+# Default shell; overridden by explicit commands in tests
+CMD ["sh"]

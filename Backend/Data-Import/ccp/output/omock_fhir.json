@@ -1,0 +1,1975 @@
+{
+  "patient": [
+    {
+      "area": null,
+      "patID": "5199922db38c244476b2dcea7454c267",
+      "postalCode": null,
+      "countryCode": null,
+      "vitalDate": "2024-07-20T00:00:00.000Z",
+      "vitalState": "Verstorben (Tumorbedingt: Ja)",
+      "birthDate": "1993-07-13T00:00:00.000Z",
+      "gender": "m",
+      "firstName": null,
+      "lastName": null
+    },
+    {
+      "area": null,
+      "patID": "661a36399912266fcaf167b82f8345e5",
+      "postalCode": null,
+      "countryCode": null,
+      "vitalDate": "2021-08-23T00:00:00.000Z",
+      "vitalState": "Verstorben (Tumorbedingt: Ja)",
+      "birthDate": "1980-07-03T00:00:00.000Z",
+      "gender": "m",
+      "firstName": null,
+      "lastName": null
+    },
+    {
+      "area": null,
+      "patID": "6a291b9b371133df7aeb0afaa55c5b8c",
+      "postalCode": null,
+      "countryCode": null,
+      "vitalDate": "1800-01-01T00:00:00.000Z",
+      "vitalState": "lebend",
+      "birthDate": "1992-12-26T00:00:00.000Z",
+      "gender": "m",
+      "firstName": null,
+      "lastName": null
+    }
+  ],
+  "consultation": [],
+  "diagnostic": [],
+  "histology": [
+    {
+      "ICDO_histologyDate": "2024-04-02T00:00:00.000Z",
+      "ICDO_histologyDescription": "Noduläres_malignes_Melanom_(NM)",
+      "ICDO_histologyCode": "8721/3",
+      "grading": "T",
+      "tumorID": "tnm13bb0ddbdf658392"
+    },
+    {
+      "ICDO_histologyDate": "2024-04-02T00:00:00.000Z",
+      "ICDO_histologyDescription": "Noduläres_malignes_Melanom_(NM)",
+      "ICDO_histologyCode": "8721/3",
+      "grading": "T",
+      "tumorID": "tnm305ba624f2aa84b2"
+    },
+    {
+      "ICDO_histologyDate": "2024-04-02T00:00:00.000Z",
+      "ICDO_histologyDescription": "Noduläres_malignes_Melanom_(NM)",
+      "ICDO_histologyCode": "8721/3",
+      "grading": "T",
+      "tumorID": "tnm77d6db820a5df31b"
+    },
+    {
+      "ICDO_histologyDate": "2024-03-02T00:00:00.000Z",
+      "ICDO_histologyDescription": "Noduläres_malignes_Melanom_(NM)-pathologie",
+      "ICDO_histologyCode": "8722/3-pathologie",
+      "grading": "T",
+      "tumorID": "tnm13bb0ddbdf658392"
+    },
+    {
+      "ICDO_histologyDate": "2024-03-02T00:00:00.000Z",
+      "ICDO_histologyDescription": "Noduläres_malignes_Melanom_(NM)-pathologie",
+      "ICDO_histologyCode": "8722/3-pathologie",
+      "grading": "T",
+      "tumorID": "tnm305ba624f2aa84b2"
+    },
+    {
+      "ICDO_histologyDate": "2024-03-02T00:00:00.000Z",
+      "ICDO_histologyDescription": "Noduläres_malignes_Melanom_(NM)-pathologie",
+      "ICDO_histologyCode": "8722/3-pathologie",
+      "grading": "T",
+      "tumorID": "tnm77d6db820a5df31b"
+    },
+    {
+      "ICDO_histologyDate": "2023-07-19T00:00:00.000Z",
+      "ICDO_histologyDescription": "unklar",
+      "ICDO_histologyCode": "8721/3",
+      "grading": "T",
+      "tumorID": "tnm13bb0ddbdf658392"
+    },
+    {
+      "ICDO_histologyDate": "2023-07-19T00:00:00.000Z",
+      "ICDO_histologyDescription": "unklar",
+      "ICDO_histologyCode": "8721/3",
+      "grading": "T",
+      "tumorID": "tnm305ba624f2aa84b2"
+    },
+    {
+      "ICDO_histologyDate": "2023-07-19T00:00:00.000Z",
+      "ICDO_histologyDescription": "unklar",
+      "ICDO_histologyCode": "8721/3",
+      "grading": "T",
+      "tumorID": "tnm77d6db820a5df31b"
+    },
+    {
+      "ICDO_histologyDate": "2021-06-12T00:00:00.000Z",
+      "ICDO_histologyDescription": "Morphologie_Freitext4",
+      "ICDO_histologyCode": "8140/3",
+      "grading": "1",
+      "tumorID": "tnm0be3aeef64e1ed09"
+    },
+    {
+      "ICDO_histologyDate": "2021-06-12T00:00:00.000Z",
+      "ICDO_histologyDescription": "Morphologie_Freitext4",
+      "ICDO_histologyCode": "8140/3",
+      "grading": "1",
+      "tumorID": "tnm87e8e5f54c4728fb"
+    },
+    {
+      "ICDO_histologyDate": "2021-04-03T00:00:00.000Z",
+      "ICDO_histologyDescription": "Morphologie_Freitext2",
+      "ICDO_histologyCode": "8140/3",
+      "grading": "1",
+      "tumorID": "tnm0be3aeef64e1ed09"
+    },
+    {
+      "ICDO_histologyDate": "2021-04-03T00:00:00.000Z",
+      "ICDO_histologyDescription": "Morphologie_Freitext2",
+      "ICDO_histologyCode": "8140/3",
+      "grading": "1",
+      "tumorID": "tnm87e8e5f54c4728fb"
+    },
+    {
+      "ICDO_histologyDate": "2021-03-14T00:00:00.000Z",
+      "ICDO_histologyDescription": "Morphologie_Freitext0",
+      "ICDO_histologyCode": "8147/3",
+      "grading": "1",
+      "tumorID": "tnm0be3aeef64e1ed09"
+    },
+    {
+      "ICDO_histologyDate": "2021-03-14T00:00:00.000Z",
+      "ICDO_histologyDescription": "Morphologie_Freitext0",
+      "ICDO_histologyCode": "8147/3",
+      "grading": "1",
+      "tumorID": "tnm87e8e5f54c4728fb"
+    },
+    {
+      "ICDO_histologyDate": "2021-04-09T00:00:00.000Z",
+      "ICDO_histologyDescription": "Morphologie_Freitext3",
+      "ICDO_histologyCode": "8140/3",
+      "grading": "1",
+      "tumorID": "tnm0be3aeef64e1ed09"
+    },
+    {
+      "ICDO_histologyDate": "2021-04-09T00:00:00.000Z",
+      "ICDO_histologyDescription": "Morphologie_Freitext3",
+      "ICDO_histologyCode": "8140/3",
+      "grading": "1",
+      "tumorID": "tnm87e8e5f54c4728fb"
+    },
+    {
+      "ICDO_histologyDate": "2021-08-11T00:00:00.000Z",
+      "ICDO_histologyDescription": "Morphologie_Freitext5",
+      "ICDO_histologyCode": "8140/3",
+      "grading": "1",
+      "tumorID": "tnm0be3aeef64e1ed09"
+    },
+    {
+      "ICDO_histologyDate": "2021-08-11T00:00:00.000Z",
+      "ICDO_histologyDescription": "Morphologie_Freitext5",
+      "ICDO_histologyCode": "8140/3",
+      "grading": "1",
+      "tumorID": "tnm87e8e5f54c4728fb"
+    }
+  ],
+  "metastasis": [
+    {
+      "metastasisDate": "2024-03-02",
+      "metastasisLocation": "HEP",
+      "tumorID": "tnm13bb0ddbdf658392"
+    },
+    {
+      "metastasisDate": "2024-03-02",
+      "metastasisLocation": "HEP",
+      "tumorID": "tnm305ba624f2aa84b2"
+    },
+    {
+      "metastasisDate": "2024-03-02",
+      "metastasisLocation": "HEP",
+      "tumorID": "tnm77d6db820a5df31b"
+    },
+    {
+      "metastasisDate": "2024-03-02",
+      "metastasisLocation": "GEN",
+      "tumorID": "tnm13bb0ddbdf658392"
+    },
+    {
+      "metastasisDate": "2024-03-02",
+      "metastasisLocation": "GEN",
+      "tumorID": "tnm305ba624f2aa84b2"
+    },
+    {
+      "metastasisDate": "2024-03-02",
+      "metastasisLocation": "GEN",
+      "tumorID": "tnm77d6db820a5df31b"
+    },
+    {
+      "metastasisDate": "2024-03-02",
+      "metastasisLocation": "PUL",
+      "tumorID": "tnm13bb0ddbdf658392"
+    },
+    {
+      "metastasisDate": "2024-03-02",
+      "metastasisLocation": "PUL",
+      "tumorID": "tnm305ba624f2aa84b2"
+    },
+    {
+      "metastasisDate": "2024-03-02",
+      "metastasisLocation": "PUL",
+      "tumorID": "tnm77d6db820a5df31b"
+    },
+    {
+      "metastasisDate": "2024-03-02",
+      "metastasisLocation": "ADR",
+      "tumorID": "tnm13bb0ddbdf658392"
+    },
+    {
+      "metastasisDate": "2024-03-02",
+      "metastasisLocation": "ADR",
+      "tumorID": "tnm305ba624f2aa84b2"
+    },
+    {
+      "metastasisDate": "2024-03-02",
+      "metastasisLocation": "ADR",
+      "tumorID": "tnm77d6db820a5df31b"
+    },
+    {
+      "metastasisDate": "2024-03-02",
+      "metastasisLocation": "OSS",
+      "tumorID": "tnm13bb0ddbdf658392"
+    },
+    {
+      "metastasisDate": "2024-03-02",
+      "metastasisLocation": "OSS",
+      "tumorID": "tnm305ba624f2aa84b2"
+    },
+    {
+      "metastasisDate": "2024-03-02",
+      "metastasisLocation": "OSS",
+      "tumorID": "tnm77d6db820a5df31b"
+    },
+    {
+      "metastasisDate": "2024-03-02",
+      "metastasisLocation": "PER",
+      "tumorID": "tnm13bb0ddbdf658392"
+    },
+    {
+      "metastasisDate": "2024-03-02",
+      "metastasisLocation": "PER",
+      "tumorID": "tnm305ba624f2aa84b2"
+    },
+    {
+      "metastasisDate": "2024-03-02",
+      "metastasisLocation": "PER",
+      "tumorID": "tnm77d6db820a5df31b"
+    },
+    {
+      "metastasisDate": "2024-03-02",
+      "metastasisLocation": "OTH",
+      "tumorID": "tnm13bb0ddbdf658392"
+    },
+    {
+      "metastasisDate": "2024-03-02",
+      "metastasisLocation": "OTH",
+      "tumorID": "tnm305ba624f2aa84b2"
+    },
+    {
+      "metastasisDate": "2024-03-02",
+      "metastasisLocation": "OTH",
+      "tumorID": "tnm77d6db820a5df31b"
+    },
+    {
+      "metastasisDate": "2024-03-02",
+      "metastasisLocation": "SKI",
+      "tumorID": "tnm13bb0ddbdf658392"
+    },
+    {
+      "metastasisDate": "2024-03-02",
+      "metastasisLocation": "SKI",
+      "tumorID": "tnm305ba624f2aa84b2"
+    },
+    {
+      "metastasisDate": "2024-03-02",
+      "metastasisLocation": "SKI",
+      "tumorID": "tnm77d6db820a5df31b"
+    },
+    {
+      "metastasisDate": "2024-03-02",
+      "metastasisLocation": "BRA",
+      "tumorID": "tnm13bb0ddbdf658392"
+    },
+    {
+      "metastasisDate": "2024-03-02",
+      "metastasisLocation": "BRA",
+      "tumorID": "tnm305ba624f2aa84b2"
+    },
+    {
+      "metastasisDate": "2024-03-02",
+      "metastasisLocation": "BRA",
+      "tumorID": "tnm77d6db820a5df31b"
+    },
+    {
+      "metastasisDate": "2024-03-02",
+      "metastasisLocation": "MAR",
+      "tumorID": "tnm13bb0ddbdf658392"
+    },
+    {
+      "metastasisDate": "2024-03-02",
+      "metastasisLocation": "MAR",
+      "tumorID": "tnm305ba624f2aa84b2"
+    },
+    {
+      "metastasisDate": "2024-03-02",
+      "metastasisLocation": "MAR",
+      "tumorID": "tnm77d6db820a5df31b"
+    },
+    {
+      "metastasisDate": "2023-07-19",
+      "metastasisLocation": "ADR",
+      "tumorID": "tnm13bb0ddbdf658392"
+    },
+    {
+      "metastasisDate": "2023-07-19",
+      "metastasisLocation": "ADR",
+      "tumorID": "tnm305ba624f2aa84b2"
+    },
+    {
+      "metastasisDate": "2023-07-19",
+      "metastasisLocation": "ADR",
+      "tumorID": "tnm77d6db820a5df31b"
+    },
+    {
+      "metastasisDate": "2024-03-02",
+      "metastasisLocation": "LYM",
+      "tumorID": "tnm13bb0ddbdf658392"
+    },
+    {
+      "metastasisDate": "2024-03-02",
+      "metastasisLocation": "LYM",
+      "tumorID": "tnm305ba624f2aa84b2"
+    },
+    {
+      "metastasisDate": "2024-03-02",
+      "metastasisLocation": "LYM",
+      "tumorID": "tnm77d6db820a5df31b"
+    },
+    {
+      "metastasisDate": "2024-03-02",
+      "metastasisLocation": "PLE",
+      "tumorID": "tnm13bb0ddbdf658392"
+    },
+    {
+      "metastasisDate": "2024-03-02",
+      "metastasisLocation": "PLE",
+      "tumorID": "tnm305ba624f2aa84b2"
+    },
+    {
+      "metastasisDate": "2024-03-02",
+      "metastasisLocation": "PLE",
+      "tumorID": "tnm77d6db820a5df31b"
+    },
+    {
+      "metastasisDate": "2023-07-19",
+      "metastasisLocation": "OTH",
+      "tumorID": "tnm13bb0ddbdf658392"
+    },
+    {
+      "metastasisDate": "2023-07-19",
+      "metastasisLocation": "OTH",
+      "tumorID": "tnm305ba624f2aa84b2"
+    },
+    {
+      "metastasisDate": "2023-07-19",
+      "metastasisLocation": "OTH",
+      "tumorID": "tnm77d6db820a5df31b"
+    },
+    {
+      "metastasisDate": "2021-04-15",
+      "metastasisLocation": "OSS",
+      "tumorID": "tnm0be3aeef64e1ed09"
+    },
+    {
+      "metastasisDate": "2021-04-15",
+      "metastasisLocation": "OSS",
+      "tumorID": "tnm87e8e5f54c4728fb"
+    },
+    {
+      "metastasisDate": "2021-04-15",
+      "metastasisLocation": "PUL",
+      "tumorID": "tnm0be3aeef64e1ed09"
+    },
+    {
+      "metastasisDate": "2021-04-15",
+      "metastasisLocation": "PUL",
+      "tumorID": "tnm87e8e5f54c4728fb"
+    },
+    {
+      "metastasisDate": "2021-08-11",
+      "metastasisLocation": "PUL",
+      "tumorID": "tnm0be3aeef64e1ed09"
+    },
+    {
+      "metastasisDate": "2021-08-11",
+      "metastasisLocation": "PUL",
+      "tumorID": "tnm87e8e5f54c4728fb"
+    },
+    {
+      "metastasisDate": "2021-06-12",
+      "metastasisLocation": "PUL",
+      "tumorID": "tnm0be3aeef64e1ed09"
+    },
+    {
+      "metastasisDate": "2021-06-12",
+      "metastasisLocation": "PUL",
+      "tumorID": "tnm87e8e5f54c4728fb"
+    },
+    {
+      "metastasisDate": "2021-03-15",
+      "metastasisLocation": "BRA",
+      "tumorID": "tnm0be3aeef64e1ed09"
+    },
+    {
+      "metastasisDate": "2021-03-15",
+      "metastasisLocation": "BRA",
+      "tumorID": "tnm87e8e5f54c4728fb"
+    }
+  ],
+  "tumorboard": [
+    {
+      "occurrenceDate": "2024-03-02",
+      "tumorID": "tnm13bb0ddbdf658392"
+    },
+    {
+      "occurrenceDate": "2024-03-02",
+      "tumorID": "tnm305ba624f2aa84b2"
+    },
+    {
+      "occurrenceDate": "2024-03-02",
+      "tumorID": "tnm77d6db820a5df31b"
+    }
+  ],
+  "molecularMarker": [],
+  "diagnosis": [
+    {
+      "tumorID": "tnma89685c8439fe163",
+      "diagnosisDate": "2000-01-01T00:00:00.000Z",
+      "ICDO_localizationCode": "C12.1",
+      "ICD_ICD10": "C12.1",
+      "ICD_ICD10Text": null,
+      "diagnosisReason": null,
+      "side": null,
+      "patID": "5199922db38c244476b2dcea7454c267"
+    },
+    {
+      "tumorID": "tnmff3c11d0c5c735e1",
+      "diagnosisDate": "2001-01-01T00:00:00.000Z",
+      "ICDO_localizationCode": "C13.1",
+      "ICD_ICD10": "C13.1",
+      "ICD_ICD10Text": null,
+      "diagnosisReason": null,
+      "side": null,
+      "patID": "5199922db38c244476b2dcea7454c267"
+    },
+    {
+      "tumorID": "tnm13bb0ddbdf658392",
+      "diagnosisDate": "2024-03-02T00:00:00.000Z",
+      "ICDO_localizationCode": "C44.5",
+      "ICD_ICD10": "C43.4",
+      "ICD_ICD10Text": "Malignes_Melanom_oberer_Rücken_mittig-pathologie",
+      "diagnosisReason": "2-pathologie",
+      "side": null,
+      "patID": "5199922db38c244476b2dcea7454c267",
+      "ICDO_histologyCode": "8722/3",
+      "ICDO_histologyDescription": "Noduläres_malignes_Melanom_(NM)",
+      "ICDO_histologyDate": "2024-03-02T00:00:00.000Z"
+    },
+    {
+      "tumorID": "tnm305ba624f2aa84b2",
+      "diagnosisDate": "2024-03-02T00:00:00.000Z",
+      "ICDO_localizationCode": "C44.5",
+      "ICD_ICD10": "C43.4",
+      "ICD_ICD10Text": "Malignes_Melanom_oberer_Rücken_mittig-pathologie",
+      "diagnosisReason": "2-pathologie",
+      "side": null,
+      "patID": "5199922db38c244476b2dcea7454c267",
+      "ICDO_histologyCode": "8722/3",
+      "ICDO_histologyDescription": "Noduläres_malignes_Melanom_(NM)",
+      "ICDO_histologyDate": "2024-03-02T00:00:00.000Z"
+    },
+    {
+      "tumorID": "tnm77d6db820a5df31b",
+      "diagnosisDate": "2024-03-02T00:00:00.000Z",
+      "ICDO_localizationCode": "C44.5",
+      "ICD_ICD10": "C43.4",
+      "ICD_ICD10Text": "Malignes_Melanom_oberer_Rücken_mittig-pathologie",
+      "diagnosisReason": "2-pathologie",
+      "side": null,
+      "patID": "5199922db38c244476b2dcea7454c267",
+      "ICDO_histologyCode": "8722/3",
+      "ICDO_histologyDescription": "Noduläres_malignes_Melanom_(NM)",
+      "ICDO_histologyDate": "2024-03-02T00:00:00.000Z"
+    },
+    {
+      "tumorID": "tnm0be3aeef64e1ed09",
+      "diagnosisDate": "2021-03-12T00:00:00.000Z",
+      "ICDO_localizationCode": "C61.0",
+      "ICD_ICD10": "C61",
+      "ICD_ICD10Text": "Primaertumor_Diagnosetext0",
+      "diagnosisReason": "Klinisch ohne tumorspezifische Diagnostik (nur körperliche Untersuchung)",
+      "side": "Links",
+      "patID": "661a36399912266fcaf167b82f8345e5",
+      "ICDO_histologyCode": "8140/3",
+      "ICDO_histologyDescription": "Morphologie_Freitext0",
+      "ICDO_histologyDate": "2021-03-14T00:00:00.000Z"
+    },
+    {
+      "tumorID": "tnm87e8e5f54c4728fb",
+      "diagnosisDate": "2021-03-12T00:00:00.000Z",
+      "ICDO_localizationCode": "C61.0",
+      "ICD_ICD10": "C61",
+      "ICD_ICD10Text": "Primaertumor_Diagnosetext0",
+      "diagnosisReason": "Klinisch ohne tumorspezifische Diagnostik (nur körperliche Untersuchung)",
+      "side": "Links",
+      "patID": "661a36399912266fcaf167b82f8345e5",
+      "ICDO_histologyCode": "8140/3",
+      "ICDO_histologyDescription": "Morphologie_Freitext0",
+      "ICDO_histologyDate": "2021-03-14T00:00:00.000Z"
+    }
+  ],
+  "status": [
+    {
+      "occurrenceDate": "2024-03-02T00:00:00.000Z",
+      "tumorID": "tnm13bb0ddbdf658392",
+      "status": "ECOG",
+      "type": "Nur begrenzte Selbstversorgung möglich; ist 50% oder mehr der Wachzeit an Bett oder Stuhl gebunden (30 - 40 % nach Karnofsky)"
+    },
+    {
+      "occurrenceDate": "2024-03-02T00:00:00.000Z",
+      "tumorID": "tnm305ba624f2aa84b2",
+      "status": "ECOG",
+      "type": "Nur begrenzte Selbstversorgung möglich; ist 50% oder mehr der Wachzeit an Bett oder Stuhl gebunden (30 - 40 % nach Karnofsky)"
+    },
+    {
+      "occurrenceDate": "2024-03-02T00:00:00.000Z",
+      "tumorID": "tnm77d6db820a5df31b",
+      "status": "ECOG",
+      "type": "Nur begrenzte Selbstversorgung möglich; ist 50% oder mehr der Wachzeit an Bett oder Stuhl gebunden (30 - 40 % nach Karnofsky)"
+    },
+    {
+      "occurrenceDate": "2023-07-19T00:00:00.000Z",
+      "tumorID": "tnm13bb0ddbdf658392",
+      "status": "ECOG",
+      "type": "Normale, uneingeschränkte Aktivität wie vor der Erkrankung (90 - 100 % nach Karnofsky)"
+    },
+    {
+      "occurrenceDate": "2023-07-19T00:00:00.000Z",
+      "tumorID": "tnm305ba624f2aa84b2",
+      "status": "ECOG",
+      "type": "Normale, uneingeschränkte Aktivität wie vor der Erkrankung (90 - 100 % nach Karnofsky)"
+    },
+    {
+      "occurrenceDate": "2023-07-19T00:00:00.000Z",
+      "tumorID": "tnm77d6db820a5df31b",
+      "status": "ECOG",
+      "type": "Normale, uneingeschränkte Aktivität wie vor der Erkrankung (90 - 100 % nach Karnofsky)"
+    },
+    {
+      "occurrenceDate": "2021-06-12T00:00:00.000Z",
+      "tumorID": "tnm0be3aeef64e1ed09",
+      "status": "ECOG",
+      "type": "Nur begrenzte Selbstversorgung möglich; ist 50% oder mehr der Wachzeit an Bett oder Stuhl gebunden (30 - 40 % nach Karnofsky)"
+    },
+    {
+      "occurrenceDate": "2021-06-12T00:00:00.000Z",
+      "tumorID": "tnm87e8e5f54c4728fb",
+      "status": "ECOG",
+      "type": "Nur begrenzte Selbstversorgung möglich; ist 50% oder mehr der Wachzeit an Bett oder Stuhl gebunden (30 - 40 % nach Karnofsky)"
+    },
+    {
+      "occurrenceDate": "2021-08-11T00:00:00.000Z",
+      "tumorID": "tnm0be3aeef64e1ed09",
+      "status": "ECOG",
+      "type": "Normale, uneingeschränkte Aktivität wie vor der Erkrankung (90 - 100 % nach Karnofsky)"
+    },
+    {
+      "occurrenceDate": "2021-08-11T00:00:00.000Z",
+      "tumorID": "tnm87e8e5f54c4728fb",
+      "status": "ECOG",
+      "type": "Normale, uneingeschränkte Aktivität wie vor der Erkrankung (90 - 100 % nach Karnofsky)"
+    }
+  ],
+  "kaplanMeier": [],
+  "progress": [
+    {
+      "occurrenceDate": "2023-07-30",
+      "overallAssessment": "Fehlende Angabe",
+      "metastasisState": "Fehlende Angabe",
+      "tumorState": "Tumorreste Residualtumor Progress",
+      "lymphNodeState": "unbekannt",
+      "tumorID": "tnm13bb0ddbdf658392"
+    },
+    {
+      "occurrenceDate": "2023-07-30",
+      "overallAssessment": "Fehlende Angabe",
+      "metastasisState": "Fehlende Angabe",
+      "tumorState": "Tumorreste Residualtumor Progress",
+      "lymphNodeState": "unbekannt",
+      "tumorID": "tnm305ba624f2aa84b2"
+    },
+    {
+      "occurrenceDate": "2023-07-30",
+      "overallAssessment": "Fehlende Angabe",
+      "metastasisState": "Fehlende Angabe",
+      "tumorState": "Tumorreste Residualtumor Progress",
+      "lymphNodeState": "unbekannt",
+      "tumorID": "tnm77d6db820a5df31b"
+    },
+    {
+      "occurrenceDate": "2023-07-19",
+      "overallAssessment": "Progression",
+      "metastasisState": "Neu aufgetretene Fernmetastase(n) bzw. Metastasenrezidiv",
+      "tumorState": "Kein Tumor nachweisbar",
+      "lymphNodeState": "Kein Lymphknotenbefall nachweisbar",
+      "tumorID": "tnm13bb0ddbdf658392"
+    },
+    {
+      "occurrenceDate": "2023-07-19",
+      "overallAssessment": "Progression",
+      "metastasisState": "Neu aufgetretene Fernmetastase(n) bzw. Metastasenrezidiv",
+      "tumorState": "Kein Tumor nachweisbar",
+      "lymphNodeState": "Kein Lymphknotenbefall nachweisbar",
+      "tumorID": "tnm305ba624f2aa84b2"
+    },
+    {
+      "occurrenceDate": "2023-07-19",
+      "overallAssessment": "Progression",
+      "metastasisState": "Neu aufgetretene Fernmetastase(n) bzw. Metastasenrezidiv",
+      "tumorState": "Kein Tumor nachweisbar",
+      "lymphNodeState": "Kein Lymphknotenbefall nachweisbar",
+      "tumorID": "tnm77d6db820a5df31b"
+    },
+    {
+      "occurrenceDate": "2021-06-12",
+      "overallAssessment": "Vollremission (complete remission, CR)",
+      "metastasisState": "Keine Fernmetastasen nachweisbar",
+      "tumorState": "Kein Tumor nachweisbar",
+      "lymphNodeState": "Kein Lymphknotenbefall nachweisbar",
+      "tumorID": "tnm0be3aeef64e1ed09"
+    },
+    {
+      "occurrenceDate": "2021-06-12",
+      "overallAssessment": "Vollremission (complete remission, CR)",
+      "metastasisState": "Keine Fernmetastasen nachweisbar",
+      "tumorState": "Kein Tumor nachweisbar",
+      "lymphNodeState": "Kein Lymphknotenbefall nachweisbar",
+      "tumorID": "tnm87e8e5f54c4728fb"
+    },
+    {
+      "occurrenceDate": "2021-08-11",
+      "overallAssessment": "Vollremission (complete remission, CR)",
+      "metastasisState": "Keine Fernmetastasen nachweisbar",
+      "tumorState": "Kein Tumor nachweisbar",
+      "lymphNodeState": "Kein Lymphknotenbefall nachweisbar",
+      "tumorID": "tnm0be3aeef64e1ed09"
+    },
+    {
+      "occurrenceDate": "2021-08-11",
+      "overallAssessment": "Vollremission (complete remission, CR)",
+      "metastasisState": "Keine Fernmetastasen nachweisbar",
+      "tumorState": "Kein Tumor nachweisbar",
+      "lymphNodeState": "Kein Lymphknotenbefall nachweisbar",
+      "tumorID": "tnm87e8e5f54c4728fb"
+    }
+  ],
+  "tnm": [
+    {
+      "occurrenceDate": "2002-01-01T00:00:00.000Z",
+      "y": "y",
+      "r": "r",
+      "preT": null,
+      "T": null,
+      "preN": "p",
+      "N": "0",
+      "preM": "p",
+      "M": "1",
+      "UICC": "IB",
+      "multipleT": "m1",
+      "S": null,
+      "Pn": null,
+      "V": "V1",
+      "L": "L0",
+      "tumorID": "tnm078ff8405ab9036d",
+      "type": "pathologisch",
+      "Version": "8",
+      "total": "rypN0pM1"
+    },
+    {
+      "occurrenceDate": "2024-03-31T00:00:00.000Z",
+      "y": "9",
+      "r": "9",
+      "preT": "p",
+      "T": "1a",
+      "preN": "p",
+      "N": "0",
+      "preM": "p",
+      "M": "0",
+      "UICC": "IB2",
+      "multipleT": null,
+      "S": "S3",
+      "Pn": "Pn1",
+      "V": "V2",
+      "L": "L1",
+      "tumorID": "tnm13bb0ddbdf658392",
+      "type": "pathologisch",
+      "Version": "8",
+      "total": "99pT1apN0pM0"
+    },
+    {
+      "occurrenceDate": "2023-07-15T00:00:00.000Z",
+      "y": "y",
+      "r": "r",
+      "preT": "u",
+      "T": "1",
+      "preN": "c",
+      "N": "0",
+      "preM": "c",
+      "M": "0",
+      "UICC": "II",
+      "multipleT": "m1",
+      "S": "SX",
+      "Pn": "PnX",
+      "V": "Vx",
+      "L": "L0",
+      "tumorID": "tnm1f2568dd6a1a755a",
+      "type": "klinisch",
+      "Version": "8",
+      "total": "ryuT1cN0cM0"
+    },
+    {
+      "occurrenceDate": "2024-05-29T00:00:00.000Z",
+      "y": "y",
+      "r": "r",
+      "preT": "u",
+      "T": "1a",
+      "preN": "c",
+      "N": "0",
+      "preM": "c",
+      "M": "0",
+      "UICC": "IB",
+      "multipleT": "m1",
+      "S": "SX",
+      "Pn": "PnX",
+      "V": "Vx",
+      "L": "L0",
+      "tumorID": "tnm305ba624f2aa84b2",
+      "type": "klinisch",
+      "Version": "8-pathologie",
+      "total": "ryuT1acN0cM0"
+    },
+    {
+      "occurrenceDate": "2024-03-31T00:00:00.000Z",
+      "y": "9",
+      "r": "9",
+      "preT": "p",
+      "T": "1a",
+      "preN": "p",
+      "N": "0",
+      "preM": null,
+      "M": null,
+      "UICC": "IB2",
+      "multipleT": null,
+      "S": null,
+      "Pn": null,
+      "V": null,
+      "L": null,
+      "tumorID": "tnm77d6db820a5df31b",
+      "type": "pathologisch",
+      "Version": "8-pathologie",
+      "total": "99pT1apN0"
+    },
+    {
+      "occurrenceDate": "2024-04-02T00:00:00.000Z",
+      "y": "y",
+      "r": "r",
+      "preT": "u",
+      "T": "1a",
+      "preN": "c",
+      "N": "0",
+      "preM": "c",
+      "M": "0",
+      "UICC": "IB",
+      "multipleT": "m1",
+      "S": "SX",
+      "Pn": "PnX",
+      "V": "Vx",
+      "L": "L0",
+      "tumorID": "tnm867a4e90627c6b14",
+      "type": "klinisch",
+      "Version": "8",
+      "total": "ryuT1acN0cM0"
+    },
+    {
+      "occurrenceDate": "2000-01-01T00:00:00.000Z",
+      "y": "y",
+      "r": "r",
+      "preT": null,
+      "T": null,
+      "preN": "p",
+      "N": "0",
+      "preM": "p",
+      "M": "1",
+      "UICC": "IB",
+      "multipleT": "m1",
+      "S": null,
+      "Pn": null,
+      "V": "V1",
+      "L": "L0",
+      "tumorID": "tnma89685c8439fe163",
+      "type": "pathologisch",
+      "Version": "8",
+      "total": "rypN0pM1"
+    },
+    {
+      "occurrenceDate": "2001-01-01T00:00:00.000Z",
+      "y": "y",
+      "r": "r",
+      "preT": null,
+      "T": null,
+      "preN": "p",
+      "N": "0",
+      "preM": "p",
+      "M": "1",
+      "UICC": "IB",
+      "multipleT": "m1",
+      "S": null,
+      "Pn": null,
+      "V": "V1",
+      "L": "L0",
+      "tumorID": "tnmff3c11d0c5c735e1",
+      "type": "pathologisch",
+      "Version": "8",
+      "total": "rypN0pM1"
+    },
+    {
+      "occurrenceDate": "2021-03-16T00:00:00.000Z",
+      "y": "y",
+      "r": "r",
+      "preT": "c",
+      "T": "4e",
+      "preN": "c",
+      "N": "(sn)(mol+)",
+      "preM": "c",
+      "M": "2(cy-)",
+      "UICC": null,
+      "multipleT": "2",
+      "S": "SX",
+      "Pn": "PnX",
+      "V": "VX",
+      "L": "LX",
+      "tumorID": "tnm0be3aeef64e1ed09",
+      "type": "klinisch",
+      "Version": "6",
+      "total": "rycT4ecN(sn)(mol+)cM2(cy-)"
+    },
+    {
+      "occurrenceDate": "2021-06-13T00:00:00.000Z",
+      "y": "y",
+      "r": "r",
+      "preT": "c",
+      "T": "4e",
+      "preN": "c",
+      "N": "(sn)(mol+)",
+      "preM": "c",
+      "M": "2(cy-)",
+      "UICC": "0",
+      "multipleT": "TNM_m_Symbol4",
+      "S": "SX",
+      "Pn": "PnX",
+      "V": "VX",
+      "L": "LX",
+      "tumorID": "tnm30a0252c6258d237",
+      "type": "klinisch",
+      "Version": "6",
+      "total": "rycT4ecN(sn)(mol+)cM2(cy-)"
+    },
+    {
+      "occurrenceDate": "2021-04-04T00:00:00.000Z",
+      "y": "y",
+      "r": "r",
+      "preT": "p",
+      "T": "4e",
+      "preN": "p",
+      "N": "(sn)(mol+)",
+      "preM": "p",
+      "M": "2(cy-)",
+      "UICC": "0",
+      "multipleT": "TNM_m_Symbol2",
+      "S": "SX",
+      "Pn": "PnX",
+      "V": "VX",
+      "L": "LX",
+      "tumorID": "tnm78ea3a6f301252c7",
+      "type": "pathologisch",
+      "Version": "6",
+      "total": "rypT4epN(sn)(mol+)pM2(cy-)"
+    },
+    {
+      "occurrenceDate": "1991-03-16T00:00:00.000Z",
+      "y": "y",
+      "r": "r",
+      "preT": "p",
+      "T": "4e",
+      "preN": "p",
+      "N": "(sn)(mol+)",
+      "preM": "p",
+      "M": "2(cy-)",
+      "UICC": null,
+      "multipleT": "2",
+      "S": "SX",
+      "Pn": "PnX",
+      "V": "VX",
+      "L": "LX",
+      "tumorID": "tnm87e8e5f54c4728fb",
+      "type": "pathologisch",
+      "Version": "6",
+      "total": "rypT4epN(sn)(mol+)pM2(cy-)"
+    },
+    {
+      "occurrenceDate": "2021-04-12T00:00:00.000Z",
+      "y": "y",
+      "r": "r",
+      "preT": "c",
+      "T": "4e",
+      "preN": "c",
+      "N": "(sn)(mol+)",
+      "preM": "c",
+      "M": "2(cy-)",
+      "UICC": "2",
+      "multipleT": "TNM_m_Symbol3",
+      "S": "SX",
+      "Pn": "PnX",
+      "V": "VX",
+      "L": "LX",
+      "tumorID": "tnm91bca0081c8703d7",
+      "type": "klinisch",
+      "Version": "6",
+      "total": "rycT4ecN(sn)(mol+)cM2(cy-)"
+    },
+    {
+      "occurrenceDate": "2021-08-11T00:00:00.000Z",
+      "y": "y",
+      "r": "r",
+      "preT": "c",
+      "T": "4e",
+      "preN": "c",
+      "N": "(sn)(mol+)",
+      "preM": "c",
+      "M": "2(cy-)",
+      "UICC": "0",
+      "multipleT": "TNM_m_Symbol5",
+      "S": "SX",
+      "Pn": "PnX",
+      "V": "VX",
+      "L": "LX",
+      "tumorID": "tnme7dbc7e34cca39cc",
+      "type": "klinisch",
+      "Version": "6",
+      "total": "rycT4ecN(sn)(mol+)cM2(cy-)"
+    }
+  ],
+  "therapy": [
+    {
+      "therapyID": "syst4431a53a7c17c776",
+      "intention": null,
+      "occurrenceDate": null,
+      "therapyEndDate": null,
+      "protocol": null,
+      "surgeryContext": null,
+      "generalType": "systemic",
+      "subType": "CH HO",
+      "localRState": null,
+      "totalDose": null,
+      "terminationReason": null,
+      "tumorID": "tnm13bb0ddbdf658392",
+      "substance": "Keine Angabe zur Substanz"
+    },
+    {
+      "therapyID": "syst4431a53a7c17c776",
+      "intention": null,
+      "occurrenceDate": null,
+      "therapyEndDate": null,
+      "protocol": null,
+      "surgeryContext": null,
+      "generalType": "systemic",
+      "subType": "CH HO",
+      "localRState": null,
+      "totalDose": null,
+      "terminationReason": null,
+      "tumorID": "tnm305ba624f2aa84b2",
+      "substance": "Keine Angabe zur Substanz"
+    },
+    {
+      "therapyID": "syst4431a53a7c17c776",
+      "intention": null,
+      "occurrenceDate": null,
+      "therapyEndDate": null,
+      "protocol": null,
+      "surgeryContext": null,
+      "generalType": "systemic",
+      "subType": "CH HO",
+      "localRState": null,
+      "totalDose": null,
+      "terminationReason": null,
+      "tumorID": "tnm77d6db820a5df31b",
+      "substance": "Keine Angabe zur Substanz"
+    },
+    {
+      "therapyID": "syst742fb5385573884c",
+      "intention": null,
+      "occurrenceDate": null,
+      "therapyEndDate": null,
+      "protocol": null,
+      "surgeryContext": null,
+      "generalType": "systemic",
+      "subType": "Immun- und Antikörpertherapie",
+      "localRState": null,
+      "totalDose": null,
+      "terminationReason": null,
+      "tumorID": "tnm13bb0ddbdf658392",
+      "substance": "Keine Angabe zur Substanz"
+    },
+    {
+      "therapyID": "syst742fb5385573884c",
+      "intention": null,
+      "occurrenceDate": null,
+      "therapyEndDate": null,
+      "protocol": null,
+      "surgeryContext": null,
+      "generalType": "systemic",
+      "subType": "Immun- und Antikörpertherapie",
+      "localRState": null,
+      "totalDose": null,
+      "terminationReason": null,
+      "tumorID": "tnm305ba624f2aa84b2",
+      "substance": "Keine Angabe zur Substanz"
+    },
+    {
+      "therapyID": "syst742fb5385573884c",
+      "intention": null,
+      "occurrenceDate": null,
+      "therapyEndDate": null,
+      "protocol": null,
+      "surgeryContext": null,
+      "generalType": "systemic",
+      "subType": "Immun- und Antikörpertherapie",
+      "localRState": null,
+      "totalDose": null,
+      "terminationReason": null,
+      "tumorID": "tnm77d6db820a5df31b",
+      "substance": "Keine Angabe zur Substanz"
+    },
+    {
+      "therapyID": "syst8a3cb31f0a337a45",
+      "intention": null,
+      "occurrenceDate": null,
+      "therapyEndDate": null,
+      "protocol": null,
+      "surgeryContext": null,
+      "generalType": "systemic",
+      "subType": "Hormontherapie",
+      "localRState": null,
+      "totalDose": null,
+      "terminationReason": null,
+      "tumorID": "tnm13bb0ddbdf658392",
+      "substance": "Keine Angabe zur Substanz"
+    },
+    {
+      "therapyID": "syst8a3cb31f0a337a45",
+      "intention": null,
+      "occurrenceDate": null,
+      "therapyEndDate": null,
+      "protocol": null,
+      "surgeryContext": null,
+      "generalType": "systemic",
+      "subType": "Hormontherapie",
+      "localRState": null,
+      "totalDose": null,
+      "terminationReason": null,
+      "tumorID": "tnm305ba624f2aa84b2",
+      "substance": "Keine Angabe zur Substanz"
+    },
+    {
+      "therapyID": "syst8a3cb31f0a337a45",
+      "intention": null,
+      "occurrenceDate": null,
+      "therapyEndDate": null,
+      "protocol": null,
+      "surgeryContext": null,
+      "generalType": "systemic",
+      "subType": "Hormontherapie",
+      "localRState": null,
+      "totalDose": null,
+      "terminationReason": null,
+      "tumorID": "tnm77d6db820a5df31b",
+      "substance": "Keine Angabe zur Substanz"
+    },
+    {
+      "therapyID": "systa2a4bf6db2175758",
+      "intention": "palliativ",
+      "occurrenceDate": null,
+      "therapyEndDate": null,
+      "protocol": "Atezolizumab_Bevacizumab",
+      "surgeryContext": "O",
+      "generalType": "systemic",
+      "subType": "CIZ",
+      "localRState": null,
+      "totalDose": null,
+      "terminationReason": null,
+      "tumorID": "tnm13bb0ddbdf658392",
+      "substance": "A00AA00"
+    },
+    {
+      "therapyID": "systa2a4bf6db2175758",
+      "intention": "palliativ",
+      "occurrenceDate": null,
+      "therapyEndDate": null,
+      "protocol": "Atezolizumab_Bevacizumab",
+      "surgeryContext": "O",
+      "generalType": "systemic",
+      "subType": "CIZ",
+      "localRState": null,
+      "totalDose": null,
+      "terminationReason": null,
+      "tumorID": "tnm305ba624f2aa84b2",
+      "substance": "A00AA00"
+    },
+    {
+      "therapyID": "systa2a4bf6db2175758",
+      "intention": "palliativ",
+      "occurrenceDate": null,
+      "therapyEndDate": null,
+      "protocol": "Atezolizumab_Bevacizumab",
+      "surgeryContext": "O",
+      "generalType": "systemic",
+      "subType": "CIZ",
+      "localRState": null,
+      "totalDose": null,
+      "terminationReason": null,
+      "tumorID": "tnm77d6db820a5df31b",
+      "substance": "A00AA00"
+    },
+    {
+      "therapyID": "op55862b8f217edda6",
+      "intention": "palliativ",
+      "occurrenceDate": "2024-04-02T00:00:00.000Z",
+      "therapyEndDate": null,
+      "protocol": null,
+      "surgeryContext": null,
+      "generalType": "operation",
+      "subType": null,
+      "localRState": "R0",
+      "totalDose": null,
+      "terminationReason": null,
+      "tumorID": "tnm13bb0ddbdf658392",
+      "substance": null,
+      "ops": "5-456.00§5-451.02"
+    },
+    {
+      "therapyID": "op55862b8f217edda6",
+      "intention": "palliativ",
+      "occurrenceDate": "2024-04-02T00:00:00.000Z",
+      "therapyEndDate": null,
+      "protocol": null,
+      "surgeryContext": null,
+      "generalType": "operation",
+      "subType": null,
+      "localRState": "R0",
+      "totalDose": null,
+      "terminationReason": null,
+      "tumorID": "tnm305ba624f2aa84b2",
+      "substance": null,
+      "ops": "5-456.00§5-451.02"
+    },
+    {
+      "therapyID": "op55862b8f217edda6",
+      "intention": "palliativ",
+      "occurrenceDate": "2024-04-02T00:00:00.000Z",
+      "therapyEndDate": null,
+      "protocol": null,
+      "surgeryContext": null,
+      "generalType": "operation",
+      "subType": null,
+      "localRState": "R0",
+      "totalDose": null,
+      "terminationReason": null,
+      "tumorID": "tnm77d6db820a5df31b",
+      "substance": null,
+      "ops": "5-456.00§5-451.02"
+    },
+    {
+      "therapyID": "sts2721c5aa006fb573",
+      "intention": null,
+      "occurrenceDate": "2024-07-01T00:00:00.000Z",
+      "therapyEndDate": "2024-07-21T00:00:00.000Z",
+      "protocol": null,
+      "surgeryContext": null,
+      "generalType": "radiation",
+      "subType": null,
+      "localRState": null,
+      "totalDose": 200,
+      "terminationReason": null,
+      "tumorID": "tnm13bb0ddbdf658392",
+      "substance": null
+    },
+    {
+      "therapyID": "sts2721c5aa006fb573",
+      "intention": null,
+      "occurrenceDate": "2024-07-01T00:00:00.000Z",
+      "therapyEndDate": "2024-07-21T00:00:00.000Z",
+      "protocol": null,
+      "surgeryContext": null,
+      "generalType": "radiation",
+      "subType": null,
+      "localRState": null,
+      "totalDose": 200,
+      "terminationReason": null,
+      "tumorID": "tnm305ba624f2aa84b2",
+      "substance": null
+    },
+    {
+      "therapyID": "sts2721c5aa006fb573",
+      "intention": null,
+      "occurrenceDate": "2024-07-01T00:00:00.000Z",
+      "therapyEndDate": "2024-07-21T00:00:00.000Z",
+      "protocol": null,
+      "surgeryContext": null,
+      "generalType": "radiation",
+      "subType": null,
+      "localRState": null,
+      "totalDose": 200,
+      "terminationReason": null,
+      "tumorID": "tnm77d6db820a5df31b",
+      "substance": null
+    },
+    {
+      "therapyID": "sts49f8c5d111a3b72e",
+      "intention": null,
+      "occurrenceDate": "2024-05-13T00:00:00.000Z",
+      "therapyEndDate": "2024-05-29T00:00:00.000Z",
+      "protocol": null,
+      "surgeryContext": null,
+      "generalType": "radiation",
+      "subType": null,
+      "localRState": null,
+      "totalDose": 30,
+      "terminationReason": null,
+      "tumorID": "tnm13bb0ddbdf658392",
+      "substance": null
+    },
+    {
+      "therapyID": "sts49f8c5d111a3b72e",
+      "intention": null,
+      "occurrenceDate": "2024-05-13T00:00:00.000Z",
+      "therapyEndDate": "2024-05-29T00:00:00.000Z",
+      "protocol": null,
+      "surgeryContext": null,
+      "generalType": "radiation",
+      "subType": null,
+      "localRState": null,
+      "totalDose": 30,
+      "terminationReason": null,
+      "tumorID": "tnm305ba624f2aa84b2",
+      "substance": null
+    },
+    {
+      "therapyID": "sts49f8c5d111a3b72e",
+      "intention": null,
+      "occurrenceDate": "2024-05-13T00:00:00.000Z",
+      "therapyEndDate": "2024-05-29T00:00:00.000Z",
+      "protocol": null,
+      "surgeryContext": null,
+      "generalType": "radiation",
+      "subType": null,
+      "localRState": null,
+      "totalDose": 30,
+      "terminationReason": null,
+      "tumorID": "tnm77d6db820a5df31b",
+      "substance": null
+    },
+    {
+      "therapyID": "stsc5c7e48044647d6e",
+      "intention": null,
+      "occurrenceDate": "2025-01-01T00:00:00.000Z",
+      "therapyEndDate": "2025-02-13T00:00:00.000Z",
+      "protocol": null,
+      "surgeryContext": null,
+      "generalType": "radiation",
+      "subType": null,
+      "localRState": null,
+      "totalDose": 3,
+      "terminationReason": null,
+      "tumorID": "tnm13bb0ddbdf658392",
+      "substance": null
+    },
+    {
+      "therapyID": "stsc5c7e48044647d6e",
+      "intention": null,
+      "occurrenceDate": "2025-01-01T00:00:00.000Z",
+      "therapyEndDate": "2025-02-13T00:00:00.000Z",
+      "protocol": null,
+      "surgeryContext": null,
+      "generalType": "radiation",
+      "subType": null,
+      "localRState": null,
+      "totalDose": 3,
+      "terminationReason": null,
+      "tumorID": "tnm305ba624f2aa84b2",
+      "substance": null
+    },
+    {
+      "therapyID": "stsc5c7e48044647d6e",
+      "intention": null,
+      "occurrenceDate": "2025-01-01T00:00:00.000Z",
+      "therapyEndDate": "2025-02-13T00:00:00.000Z",
+      "protocol": null,
+      "surgeryContext": null,
+      "generalType": "radiation",
+      "subType": null,
+      "localRState": null,
+      "totalDose": 3,
+      "terminationReason": null,
+      "tumorID": "tnm77d6db820a5df31b",
+      "substance": null
+    },
+    {
+      "therapyID": "stsea85a0cca624360d",
+      "intention": null,
+      "occurrenceDate": "2024-05-30T00:00:00.000Z",
+      "therapyEndDate": "2024-06-03T00:00:00.000Z",
+      "protocol": null,
+      "surgeryContext": null,
+      "generalType": "radiation",
+      "subType": null,
+      "localRState": null,
+      "totalDose": 13,
+      "terminationReason": null,
+      "tumorID": "tnm13bb0ddbdf658392",
+      "substance": null
+    },
+    {
+      "therapyID": "stsea85a0cca624360d",
+      "intention": null,
+      "occurrenceDate": "2024-05-30T00:00:00.000Z",
+      "therapyEndDate": "2024-06-03T00:00:00.000Z",
+      "protocol": null,
+      "surgeryContext": null,
+      "generalType": "radiation",
+      "subType": null,
+      "localRState": null,
+      "totalDose": 13,
+      "terminationReason": null,
+      "tumorID": "tnm305ba624f2aa84b2",
+      "substance": null
+    },
+    {
+      "therapyID": "stsea85a0cca624360d",
+      "intention": null,
+      "occurrenceDate": "2024-05-30T00:00:00.000Z",
+      "therapyEndDate": "2024-06-03T00:00:00.000Z",
+      "protocol": null,
+      "surgeryContext": null,
+      "generalType": "radiation",
+      "subType": null,
+      "localRState": null,
+      "totalDose": 13,
+      "terminationReason": null,
+      "tumorID": "tnm77d6db820a5df31b",
+      "substance": null
+    },
+    {
+      "therapyID": "sttestpatient-oBDS-101200120400001",
+      "intention": "kurativ",
+      "occurrenceDate": null,
+      "therapyEndDate": null,
+      "protocol": null,
+      "surgeryContext": "O",
+      "generalType": "radiation",
+      "subType": null,
+      "localRState": null,
+      "totalDose": null,
+      "terminationReason": "V",
+      "tumorID": "tnm13bb0ddbdf658392",
+      "substance": null
+    },
+    {
+      "therapyID": "sttestpatient-oBDS-101200120400001",
+      "intention": "kurativ",
+      "occurrenceDate": null,
+      "therapyEndDate": null,
+      "protocol": null,
+      "surgeryContext": "O",
+      "generalType": "radiation",
+      "subType": null,
+      "localRState": null,
+      "totalDose": null,
+      "terminationReason": "V",
+      "tumorID": "tnm305ba624f2aa84b2",
+      "substance": null
+    },
+    {
+      "therapyID": "sttestpatient-oBDS-101200120400001",
+      "intention": "kurativ",
+      "occurrenceDate": null,
+      "therapyEndDate": null,
+      "protocol": null,
+      "surgeryContext": "O",
+      "generalType": "radiation",
+      "subType": null,
+      "localRState": null,
+      "totalDose": null,
+      "terminationReason": "V",
+      "tumorID": "tnm77d6db820a5df31b",
+      "substance": null
+    },
+    {
+      "therapyID": "syst0be3aeef64e1ed09",
+      "intention": "kurativ",
+      "occurrenceDate": "2021-06-12T00:00:00.000Z",
+      "therapyEndDate": "2021-06-21T00:00:00.000Z",
+      "protocol": "SYST_Protokoll0",
+      "surgeryContext": "O",
+      "generalType": "systemic",
+      "subType": "Chemotherapie",
+      "localRState": null,
+      "totalDose": null,
+      "terminationReason": null,
+      "tumorID": "tnm0be3aeef64e1ed09",
+      "substance": "SYST_Substanz0;SYST_Substanz1"
+    },
+    {
+      "therapyID": "syst0be3aeef64e1ed09",
+      "intention": "kurativ",
+      "occurrenceDate": "2021-06-12T00:00:00.000Z",
+      "therapyEndDate": "2021-06-21T00:00:00.000Z",
+      "protocol": "SYST_Protokoll0",
+      "surgeryContext": "O",
+      "generalType": "systemic",
+      "subType": "Chemotherapie",
+      "localRState": null,
+      "totalDose": null,
+      "terminationReason": null,
+      "tumorID": "tnm87e8e5f54c4728fb",
+      "substance": "SYST_Substanz0;SYST_Substanz1"
+    },
+    {
+      "therapyID": "syst87e8e5f54c4728fb",
+      "intention": "kurativ",
+      "occurrenceDate": "2021-07-02T00:00:00.000Z",
+      "therapyEndDate": "2021-07-18T00:00:00.000Z",
+      "protocol": "SYST_Protokoll1",
+      "surgeryContext": "O",
+      "generalType": "systemic",
+      "subType": "Chemotherapie",
+      "localRState": null,
+      "totalDose": null,
+      "terminationReason": null,
+      "tumorID": "tnm0be3aeef64e1ed09",
+      "substance": "SYST_Substanz2;SYST_Substanz3"
+    },
+    {
+      "therapyID": "syst87e8e5f54c4728fb",
+      "intention": "kurativ",
+      "occurrenceDate": "2021-07-02T00:00:00.000Z",
+      "therapyEndDate": "2021-07-18T00:00:00.000Z",
+      "protocol": "SYST_Protokoll1",
+      "surgeryContext": "O",
+      "generalType": "systemic",
+      "subType": "Chemotherapie",
+      "localRState": null,
+      "totalDose": null,
+      "terminationReason": null,
+      "tumorID": "tnm87e8e5f54c4728fb",
+      "substance": "SYST_Substanz2;SYST_Substanz3"
+    },
+    {
+      "therapyID": "op0be3aeef64e1ed09",
+      "intention": "kurativ",
+      "occurrenceDate": "2021-04-01T00:00:00.000Z",
+      "therapyEndDate": null,
+      "protocol": null,
+      "surgeryContext": null,
+      "generalType": "operation",
+      "subType": null,
+      "localRState": "R1",
+      "totalDose": null,
+      "terminationReason": null,
+      "tumorID": "tnm0be3aeef64e1ed09",
+      "substance": null,
+      "ops": "8-030.0§8-030.1"
+    },
+    {
+      "therapyID": "op0be3aeef64e1ed09",
+      "intention": "kurativ",
+      "occurrenceDate": "2021-04-01T00:00:00.000Z",
+      "therapyEndDate": null,
+      "protocol": null,
+      "surgeryContext": null,
+      "generalType": "operation",
+      "subType": null,
+      "localRState": "R1",
+      "totalDose": null,
+      "terminationReason": null,
+      "tumorID": "tnm87e8e5f54c4728fb",
+      "substance": null,
+      "ops": "8-030.0§8-030.1"
+    },
+    {
+      "therapyID": "op87e8e5f54c4728fb",
+      "intention": "kurativ",
+      "occurrenceDate": "2021-04-09T00:00:00.000Z",
+      "therapyEndDate": null,
+      "protocol": null,
+      "surgeryContext": null,
+      "generalType": "operation",
+      "subType": null,
+      "localRState": "R1",
+      "totalDose": null,
+      "terminationReason": null,
+      "tumorID": "tnm0be3aeef64e1ed09",
+      "substance": null
+    },
+    {
+      "therapyID": "op87e8e5f54c4728fb",
+      "intention": "kurativ",
+      "occurrenceDate": "2021-04-09T00:00:00.000Z",
+      "therapyEndDate": null,
+      "protocol": null,
+      "surgeryContext": null,
+      "generalType": "operation",
+      "subType": null,
+      "localRState": "R1",
+      "totalDose": null,
+      "terminationReason": null,
+      "tumorID": "tnm87e8e5f54c4728fb",
+      "substance": null
+    },
+    {
+      "therapyID": "st0be3aeef64e1ed09",
+      "intention": "kurativ",
+      "occurrenceDate": null,
+      "therapyEndDate": null,
+      "protocol": null,
+      "surgeryContext": "O",
+      "generalType": "radiation",
+      "subType": null,
+      "localRState": null,
+      "totalDose": null,
+      "terminationReason": "A",
+      "tumorID": "tnm0be3aeef64e1ed09",
+      "substance": null
+    },
+    {
+      "therapyID": "st0be3aeef64e1ed09",
+      "intention": "kurativ",
+      "occurrenceDate": null,
+      "therapyEndDate": null,
+      "protocol": null,
+      "surgeryContext": "O",
+      "generalType": "radiation",
+      "subType": null,
+      "localRState": null,
+      "totalDose": null,
+      "terminationReason": "A",
+      "tumorID": "tnm87e8e5f54c4728fb",
+      "substance": null
+    },
+    {
+      "therapyID": "st87e8e5f54c4728fb",
+      "intention": "kurativ",
+      "occurrenceDate": null,
+      "therapyEndDate": null,
+      "protocol": null,
+      "surgeryContext": "O",
+      "generalType": "radiation",
+      "subType": null,
+      "localRState": null,
+      "totalDose": null,
+      "terminationReason": "A",
+      "tumorID": "tnm0be3aeef64e1ed09",
+      "substance": null
+    },
+    {
+      "therapyID": "st87e8e5f54c4728fb",
+      "intention": "kurativ",
+      "occurrenceDate": null,
+      "therapyEndDate": null,
+      "protocol": null,
+      "surgeryContext": "O",
+      "generalType": "radiation",
+      "subType": null,
+      "localRState": null,
+      "totalDose": null,
+      "terminationReason": "A",
+      "tumorID": "tnm87e8e5f54c4728fb",
+      "substance": null
+    },
+    {
+      "therapyID": "sts7b8b078118c2d2a4-0",
+      "intention": null,
+      "occurrenceDate": "2021-05-01T00:00:00.000Z",
+      "therapyEndDate": "2021-05-04T00:00:00.000Z",
+      "protocol": null,
+      "surgeryContext": null,
+      "generalType": "radiation",
+      "subType": null,
+      "localRState": null,
+      "totalDose": 50.5,
+      "terminationReason": null,
+      "tumorID": "tnm0be3aeef64e1ed09",
+      "substance": null
+    },
+    {
+      "therapyID": "sts7b8b078118c2d2a4-0",
+      "intention": null,
+      "occurrenceDate": "2021-05-01T00:00:00.000Z",
+      "therapyEndDate": "2021-05-04T00:00:00.000Z",
+      "protocol": null,
+      "surgeryContext": null,
+      "generalType": "radiation",
+      "subType": null,
+      "localRState": null,
+      "totalDose": 50.5,
+      "terminationReason": null,
+      "tumorID": "tnm87e8e5f54c4728fb",
+      "substance": null
+    },
+    {
+      "therapyID": "stsb545b5009b477493-0",
+      "intention": null,
+      "occurrenceDate": "2021-04-15T00:00:00.000Z",
+      "therapyEndDate": "2021-04-20T00:00:00.000Z",
+      "protocol": null,
+      "surgeryContext": null,
+      "generalType": "radiation",
+      "subType": null,
+      "localRState": null,
+      "totalDose": 50.5,
+      "terminationReason": null,
+      "tumorID": "tnm0be3aeef64e1ed09",
+      "substance": null
+    },
+    {
+      "therapyID": "stsb545b5009b477493-0",
+      "intention": null,
+      "occurrenceDate": "2021-04-15T00:00:00.000Z",
+      "therapyEndDate": "2021-04-20T00:00:00.000Z",
+      "protocol": null,
+      "surgeryContext": null,
+      "generalType": "radiation",
+      "subType": null,
+      "localRState": null,
+      "totalDose": 50.5,
+      "terminationReason": null,
+      "tumorID": "tnm87e8e5f54c4728fb",
+      "substance": null
+    },
+    {
+      "therapyID": "stsd7933c3d44bd9e62-0",
+      "intention": null,
+      "occurrenceDate": "2021-04-10T00:00:00.000Z",
+      "therapyEndDate": "2021-04-12T00:00:00.000Z",
+      "protocol": null,
+      "surgeryContext": null,
+      "generalType": "radiation",
+      "subType": null,
+      "localRState": null,
+      "totalDose": 50.5,
+      "terminationReason": null,
+      "tumorID": "tnm0be3aeef64e1ed09",
+      "substance": null
+    },
+    {
+      "therapyID": "stsd7933c3d44bd9e62-0",
+      "intention": null,
+      "occurrenceDate": "2021-04-10T00:00:00.000Z",
+      "therapyEndDate": "2021-04-12T00:00:00.000Z",
+      "protocol": null,
+      "surgeryContext": null,
+      "generalType": "radiation",
+      "subType": null,
+      "localRState": null,
+      "totalDose": 50.5,
+      "terminationReason": null,
+      "tumorID": "tnm87e8e5f54c4728fb",
+      "substance": null
+    },
+    {
+      "therapyID": "stsee9e2b71444d08ab-0",
+      "intention": null,
+      "occurrenceDate": "2021-05-09T00:00:00.000Z",
+      "therapyEndDate": "2021-05-14T00:00:00.000Z",
+      "protocol": null,
+      "surgeryContext": null,
+      "generalType": "radiation",
+      "subType": null,
+      "localRState": null,
+      "totalDose": 50.5,
+      "terminationReason": null,
+      "tumorID": "tnm0be3aeef64e1ed09",
+      "substance": null
+    },
+    {
+      "therapyID": "stsee9e2b71444d08ab-0",
+      "intention": null,
+      "occurrenceDate": "2021-05-09T00:00:00.000Z",
+      "therapyEndDate": "2021-05-14T00:00:00.000Z",
+      "protocol": null,
+      "surgeryContext": null,
+      "generalType": "radiation",
+      "subType": null,
+      "localRState": null,
+      "totalDose": 50.5,
+      "terminationReason": null,
+      "tumorID": "tnm87e8e5f54c4728fb",
+      "substance": null
+    }
+  ],
+  "supplementary": [
+    {
+      "occurrenceDate": "2024-04-03",
+      "tumorID": "tnm13bb0ddbdf658392",
+      "type": "LP248771-0",
+      "status": "http://loinc.org"
+    },
+    {
+      "occurrenceDate": "2024-04-03",
+      "tumorID": "tnm305ba624f2aa84b2",
+      "type": "LP248771-0",
+      "status": "http://loinc.org"
+    },
+    {
+      "occurrenceDate": "2024-04-03",
+      "tumorID": "tnm77d6db820a5df31b",
+      "type": "LP248771-0",
+      "status": "http://loinc.org"
+    },
+    {
+      "occurrenceDate": "2024-03-02",
+      "tumorID": "tnm13bb0ddbdf658392",
+      "type": "LP248771-0",
+      "status": "http://loinc.org"
+    },
+    {
+      "occurrenceDate": "2024-03-02",
+      "tumorID": "tnm305ba624f2aa84b2",
+      "type": "LP248771-0",
+      "status": "http://loinc.org"
+    },
+    {
+      "occurrenceDate": "2024-03-02",
+      "tumorID": "tnm77d6db820a5df31b",
+      "type": "LP248771-0",
+      "status": "http://loinc.org"
+    },
+    {
+      "occurrenceDate": "2023-07-18",
+      "tumorID": "tnm13bb0ddbdf658392",
+      "type": "LP248771-0",
+      "status": "http://loinc.org"
+    },
+    {
+      "occurrenceDate": "2023-07-18",
+      "tumorID": "tnm305ba624f2aa84b2",
+      "type": "LP248771-0",
+      "status": "http://loinc.org"
+    },
+    {
+      "occurrenceDate": "2023-07-18",
+      "tumorID": "tnm77d6db820a5df31b",
+      "type": "LP248771-0",
+      "status": "http://loinc.org"
+    },
+    {
+      "occurrenceDate": "2024-03-02",
+      "tumorID": "tnm13bb0ddbdf658392",
+      "type": "LP248771-0",
+      "status": "http://loinc.org"
+    },
+    {
+      "occurrenceDate": "2024-03-02",
+      "tumorID": "tnm305ba624f2aa84b2",
+      "type": "LP248771-0",
+      "status": "http://loinc.org"
+    },
+    {
+      "occurrenceDate": "2024-03-02",
+      "tumorID": "tnm77d6db820a5df31b",
+      "type": "LP248771-0",
+      "status": "http://loinc.org"
+    },
+    {
+      "occurrenceDate": "2023-07-18",
+      "tumorID": "tnm13bb0ddbdf658392",
+      "type": "LP248771-0",
+      "status": "http://loinc.org"
+    },
+    {
+      "occurrenceDate": "2023-07-18",
+      "tumorID": "tnm305ba624f2aa84b2",
+      "type": "LP248771-0",
+      "status": "http://loinc.org"
+    },
+    {
+      "occurrenceDate": "2023-07-18",
+      "tumorID": "tnm77d6db820a5df31b",
+      "type": "LP248771-0",
+      "status": "http://loinc.org"
+    },
+    {
+      "occurrenceDate": "2023-07-18",
+      "tumorID": "tnm13bb0ddbdf658392",
+      "type": "LP248771-0",
+      "status": "http://loinc.org"
+    },
+    {
+      "occurrenceDate": "2023-07-18",
+      "tumorID": "tnm305ba624f2aa84b2",
+      "type": "LP248771-0",
+      "status": "http://loinc.org"
+    },
+    {
+      "occurrenceDate": "2023-07-18",
+      "tumorID": "tnm77d6db820a5df31b",
+      "type": "LP248771-0",
+      "status": "http://loinc.org"
+    },
+    {
+      "occurrenceDate": "2024-04-04",
+      "tumorID": "tnm13bb0ddbdf658392",
+      "type": "LP248771-0",
+      "status": "http://loinc.org"
+    },
+    {
+      "occurrenceDate": "2024-04-04",
+      "tumorID": "tnm305ba624f2aa84b2",
+      "type": "LP248771-0",
+      "status": "http://loinc.org"
+    },
+    {
+      "occurrenceDate": "2024-04-04",
+      "tumorID": "tnm77d6db820a5df31b",
+      "type": "LP248771-0",
+      "status": "http://loinc.org"
+    },
+    {
+      "occurrenceDate": "2024-03-02",
+      "tumorID": "tnm13bb0ddbdf658392",
+      "type": "LP248771-0",
+      "status": "http://loinc.org"
+    },
+    {
+      "occurrenceDate": "2024-03-02",
+      "tumorID": "tnm305ba624f2aa84b2",
+      "type": "LP248771-0",
+      "status": "http://loinc.org"
+    },
+    {
+      "occurrenceDate": "2024-03-02",
+      "tumorID": "tnm77d6db820a5df31b",
+      "type": "LP248771-0",
+      "status": "http://loinc.org"
+    }
+  ],
+  "singleRadiation": [
+    {
+      "therapyID": "sts2721c5aa006fb573",
+      "type": "MPRRT",
+      "area": "2.1.",
+      "side": "L",
+      "radioType": null,
+      "singleDose": 3150
+    },
+    {
+      "therapyID": "sts49f8c5d111a3b72e",
+      "type": "PRCJST4D",
+      "area": "9.10",
+      "side": "L",
+      "radioType": "UH",
+      "singleDose": 2
+    },
+    {
+      "therapyID": "stsc5c7e48044647d6e",
+      "type": "S",
+      "area": "8.9.",
+      "side": "U",
+      "radioType": null,
+      "singleDose": 0.1
+    },
+    {
+      "therapyID": "stsea85a0cca624360d",
+      "type": "KLDR",
+      "area": "3.3.",
+      "side": "L",
+      "radioType": "UH",
+      "singleDose": 2
+    },
+    {
+      "therapyID": "sttestpatient-oBDS-101200120400001",
+      "type": null,
+      "area": null,
+      "side": null,
+      "radioType": null,
+      "singleDose": null
+    },
+    {
+      "therapyID": "st0be3aeef64e1ed09",
+      "type": null,
+      "area": null,
+      "side": null,
+      "radioType": null,
+      "singleDose": null
+    },
+    {
+      "therapyID": "st87e8e5f54c4728fb",
+      "type": null,
+      "area": null,
+      "side": null,
+      "radioType": null,
+      "singleDose": null
+    },
+    {
+      "therapyID": "sts7b8b078118c2d2a4-0",
+      "type": "P",
+      "area": "1.",
+      "side": "L",
+      "radioType": null,
+      "singleDose": 50.5
+    },
+    {
+      "therapyID": "stsb545b5009b477493-0",
+      "type": "P",
+      "area": "1.",
+      "side": "L",
+      "radioType": null,
+      "singleDose": 50.5
+    },
+    {
+      "therapyID": "stsd7933c3d44bd9e62-0",
+      "type": "P",
+      "area": "1.",
+      "side": "L",
+      "radioType": null,
+      "singleDose": 50.5
+    },
+    {
+      "therapyID": "stsee9e2b71444d08ab-0",
+      "type": "P",
+      "area": "1.",
+      "side": "L",
+      "radioType": null,
+      "singleDose": 50.5
+    }
+  ]
+}

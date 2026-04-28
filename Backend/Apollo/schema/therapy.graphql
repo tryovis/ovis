@@ -1,0 +1,181 @@
+module.exports = `
+    extend type Query {
+        getAllTherapies(limit: Int, continueFromID: String, filter: String): [Therapy]
+        getTherapyGroupedByKey(groupedBy: Groupe!): [genericCount]
+        getTypeOfTherapyCountOverTimeScale: [GroupedTherapyTypeWithTimeScale]
+        getTherapyOperationOPSTable(filter: String): OPSTable
+        getTherapySystemicSubstanceTable(filter: String): [substanceCount]
+        getTherapyGeneralComplicationChart(filter: String): countedByCategoryGrouped
+        getTherapyRadiationTable(limit: Int, continueFromID: String, filter: String): [trad]
+        getTherapyRadiationMap(level: radiationMapping, filter: String): [genericCount]
+    }
+
+    type Therapy {
+        tumorID: String 
+        patID: String
+        diagnosisDate: Float 
+        therapyOccurrenceDate: Float
+        subType: String 
+        intention: String 
+        localRState: String
+        globalRState: String
+        generalType: String 
+        protocol: String
+        terminationReason: String 
+        phase: String
+        combination: String
+        reportID: String
+        side: String
+        emergencySurgery: String
+        revisionSurgery: String
+        therapyEndDate: Float
+        therapyLine: String 
+        doseDeviation: String 
+        therapyCycle: String
+        _id: String
+        therapyDaysSinceDiagnosis: Int
+        substance: [substance]
+        complication: [complication]
+        ops: [ops]
+        surgeryContext: String,
+        organizationalUnit: String
+        internal: String
+        status: String
+        resectionType: String
+        cyclesPlanned: String
+        cyclesPerformed: String
+        therapyID: String
+        metastasisResection: [String]
+        surgeon: [String]
+        ECOG: String
+        ASA: String
+    }
+
+    type ops {
+        ops: String
+        text: String
+        ops4: String
+        text4: String
+    }
+    
+    type complication {
+        grade: String
+        complication: String
+        code: String
+        category: String
+    }
+
+    type substance {
+        substance: String
+        ATCCode: String
+    }
+
+    type trad {
+        therapyID: String
+        type: String
+        brachyType: String
+        subArea: String
+        supArea: String
+        areaDetailed: String
+        areaGrouped: String
+        boost: String
+        side: String
+        tech: String
+        radioType: String
+        radioTarget: String
+        radioNuclid: String
+        singleDose: String
+        singleDoseUnit: String
+        totalDose: String
+        lymphNodes: String
+        tumor: String
+        metastasis: String
+        totalDoseUnit: String
+        _id: String
+        tumorID: String
+        combination: String
+        totlaDose: String
+        therapyOccurrenceDate: Float
+        ECOG: String
+        therapyDaysSinceDiagnosis: Int
+        performance: String
+        breath: String
+        stereo: String
+        duration: String
+    }
+
+    input iFilter {
+        field: String!
+        value: String!
+    }
+
+    enum Groupe {
+        intention,
+        TherapeuticMeasure
+        generalType
+        combination
+        organizationalUnit
+        TherapyInStudy
+        terminationReason
+        phase
+        protocol
+        therapyCycle
+        surgeryContext
+        doseDeviation
+        therapyLine
+        ActiveSubstance
+    }
+
+    enum radiationMapping {
+        radiation_areaGrouped
+        radiation_areaDetailed
+        radiation_subArea
+        radiation_supArea
+    }
+
+    interface Count {
+        label: String
+        count: Int
+    }
+
+     type genericCount implements Count {
+        label: String
+        description: String
+        count: Int
+    }
+
+    type substanceCount implements Count {
+        label: String
+        ATCCode: String
+        count: Int
+    }
+
+    type GroupedTherapyTypeWithTimeScale {
+        TypeOfTherapyCount: String,
+        AbsNumberOfEvents: Int
+        TimeDeltaInDays: String
+    }
+
+    type OPSTable {
+        code: [opscodecount]
+        category: [opscategorycount]
+    }
+
+    interface OpsCount {
+        code: String
+        count: Int
+    }
+
+    type opscodecount implements OpsCount {
+        code: String
+        count: Int
+        category: String
+        text: [String]
+    }
+
+    type opscategorycount implements OpsCount {
+        code: String
+        count: Int
+        text: String
+    }
+`

@@ -1,0 +1,18 @@
+<a href="https://www.flaticon.com/de/kostenlose-icons/brust" title="brust Icons">Brust Icons erstellt von Victoruler - Flaticon</a>
+<a href="https://www.flaticon.com/de/kostenlose-icons/darm" title="darm Icons">Darm Icons erstellt von Mayor Icons - Flaticon</a>
+<a href="https://www.flaticon.com/de/kostenlose-icons/prostata" title="prostata Icons">Prostata Icons erstellt von Freepik - Flaticon</a>
+<a href="https://www.flaticon.com/free-icons/metastasis" title="metastasis icons">Metastasis icons created by Freepik - Flaticon</a>
+<a href="https://www.flaticon.com/free-icons/training" title="training icons">Training icons created by Freepik - Flaticon</a>
+<a href="https://www.flaticon.com/free-icons/dna" title="dna icons">Dna icons created by Freepik - Flaticon</a>
+<a href="https://www.flaticon.com/de/kostenlose-icons/plus" title="plus Icons">Plus Icons erstellt von Dave Gandy - Flaticon</a>
+Diagnosis + Status: https://www.flaticon.com/de/packs/medical-healthcare-7
+<a href="https://www.flaticon.com/free-icons/consult" title="consult icons">Consult icons created by Parzival’ 1997 - Flaticon</a>
+<a href="https://www.flaticon.com/free-icons/person" title="person icons">Person icons created by inkubators - Flaticon</a>
+<a href="https://www.flaticon.com/free-icons/target" title="target icons">Target icons created by Freepik - Flaticon</a>
+<a href="https://www.flaticon.com/free-icons/home" title="home icons">Home icons created by Dave Gandy - Flaticon</a>
+vaadin:doctor https://icon-sets.iconify.design/vaadin/doctor/
+https://icon-sets.iconify.design/material-symbols/light-mode/
+https://icon-sets.iconify.design/material-symbols/nightlight/
+<a href="https://www.flaticon.com/de/kostenlose-icons/flasche" title="flasche Icons">Flasche Icons erstellt von Freepik - Flaticon</a>
+User Management: https://icon-sets.iconify.design/?query=admin
+See filters: https://icon-sets.iconify.design/mdi/eye-outline/

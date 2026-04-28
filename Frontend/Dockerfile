@@ -1,0 +1,259 @@
+########################
+# Production-First Multi-Stage Dockerfile (2025)
+# Architecture: Base → Development / Builder → Production
+########################
+
+# Base stage - cross-platform compatible
+FROM node:20-alpine AS base
+WORKDIR /app
+
+# Install curl for health checks and security tools
+RUN apk add --no-cache curl
+
+# Create non-root user for security
+RUN adduser -D svelte
+
+# Show platform information for debugging
+RUN echo "Building on: $(uname -m) architecture"
+
+# Copy package files for dependency caching
+COPY package*.json ./
+
+#########################
+# Development Stage
+#########################
+FROM base AS development
+
+# Install all dependencies including dev dependencies from the lockfile
+RUN npm ci --legacy-peer-deps
+
+# Copy source code
+COPY . .
+
+# Change ownership to non-root user
+RUN chown -R svelte:svelte /app
+USER svelte
+
+# Expose development port
+EXPOSE 5173
+
+# Development health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:5173/ || exit 1
+
+# Development command with hot reload
+CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "5173"]
+
+#########################
+# Builder Stage
+#########################
+FROM base AS builder
+
+# Build arguments for environment configuration (build-time only)
+ARG NGINX_PROXY_MODE=true
+ARG APP_DOMAIN=localhost
+ARG EXPRESS_PORT=8251
+ARG APOLLO_PORT=4001
+ARG NGINX_SSL_ENABLED=false
+ARG PUBLIC_IMPORT_MODE=demo
+ARG PUBLIC_LOGIN_ENABLED=false
+ARG PUBLIC_LDAP_ENABLED=false
+ARG OVIS_PUBLIC_BASE_PATH=
+ARG VITE_EXPRESS_USERNAME=admin
+ARG VITE_EXPRESS_PASSWORT=admin
+# Site-specific public env (used by $env/static/public). Values are passed from compose build args.
+ARG PUBLIC_SITE_SPECIFIC_TECHNICAL_ADMIN_NAME
+ARG PUBLIC_SITE_SPECIFIC_TECHNICAL_ADMIN_EMAIL
+ARG PUBLIC_SITE_SPECIFIC_SHOW_USERAGREEMENT
+ARG PUBLIC_SITE_SPECIFIC_SHOW_IMPRINT
+ARG PUBLIC_SITE_SPECIFIC_IMPRINT_RESPONSIBLE_WEBHOST_ORGANIZATION
+ARG PUBLIC_SITE_SPECIFIC_IMPRINT_RESPONSIBLE_WEBHOST_PERSON
+ARG PUBLIC_SITE_SPECIFIC_IMPRINT_RESPONSIBLE_WEBHOST_ADDRESS_STREET
+ARG PUBLIC_SITE_SPECIFIC_IMPRINT_RESPONSIBLE_WEBHOST_ADDRESS_AREA
+ARG PUBLIC_SITE_SPECIFIC_IMPRINT_HOSPITAL_PASSUS
+ARG PUBLIC_SITE_SPECIFIC_IMPRINT_RESPONSIBLE_HOSPITAL_DIRECTOR
+ARG PUBLIC_SITE_SPECIFIC_IMPRINT_HOSPITAL_NAME
+ARG PUBLIC_SITE_SPECIFIC_IMPRINT_ADDRESS_STREET
+ARG PUBLIC_SITE_SPECIFIC_IMPRINT_ADDRESS_AREA
+ARG PUBLIC_SITE_SPECIFIC_IMPRINT_DATA_PROTECTION_OFFICER_NAME
+ARG PUBLIC_SITE_SPECIFIC_IMPRINT_DATA_PROTECTION_OFFICER_STREET
+ARG PUBLIC_SITE_SPECIFIC_IMPRINT_DATA_PROTECTION_OFFICER_AREA
+ARG PUBLIC_SITE_SPECIFIC_IMPRINT_DATA_PROTECTION_OFFICER_EMAIL
+
+# === Deine PUBLIC_* Variablen als Build-Args (mit Defaults) ===
+ARG PUBLIC_SITE_SPECIFIC_TECHNICAL_ADMIN_NAME="Max Mustermann"
+ARG PUBLIC_SITE_SPECIFIC_TECHNICAL_ADMIN_EMAIL="max.mustermann@musterhausen.com"
+ARG PUBLIC_SITE_SPECIFIC_SHOW_USERAGREEMENT=true
+ARG PUBLIC_SITE_SPECIFIC_SHOW_IMPRINT=true
+ARG PUBLIC_SITE_SPECIFIC_IMPRINT_RESPONSIBLE_WEBHOST_ORGANIZATION="Comprehensive Cancer Center"
+ARG PUBLIC_SITE_SPECIFIC_IMPRINT_RESPONSIBLE_WEBHOST_PERSON="Dr. Max Muster"
+ARG PUBLIC_SITE_SPECIFIC_IMPRINT_RESPONSIBLE_WEBHOST_ADDRESS_STREET="Musterstraße 3"
+ARG PUBLIC_SITE_SPECIFIC_IMPRINT_RESPONSIBLE_WEBHOST_ADDRESS_AREA="12345 Musterhausen"
+ARG PUBLIC_SITE_SPECIFIC_IMPRINT_HOSPITAL_PASSUS="eine rechtsfähige Anstalt des öffentlichen Rechts"
+ARG PUBLIC_SITE_SPECIFIC_IMPRINT_RESPONSIBLE_HOSPITAL_DIRECTOR="Muster Director"
+ARG PUBLIC_SITE_SPECIFIC_IMPRINT_HOSPITAL_NAME="University Hospital"
+ARG PUBLIC_SITE_SPECIFIC_IMPRINT_ADDRESS_STREET="Musterstraße 1"
+ARG PUBLIC_SITE_SPECIFIC_IMPRINT_ADDRESS_AREA="12345 Musterhausen"
+ARG PUBLIC_SITE_SPECIFIC_IMPRINT_DATA_PROTECTION_OFFICER_NAME="Datenschutzbeauftragter Max Mustermann"
+ARG PUBLIC_SITE_SPECIFIC_IMPRINT_DATA_PROTECTION_OFFICER_STREET="Datenschutzstraße 3"
+ARG PUBLIC_SITE_SPECIFIC_IMPRINT_DATA_PROTECTION_OFFICER_AREA="12345 Datenschutzhausen"
+ARG PUBLIC_SITE_SPECIFIC_IMPRINT_DATA_PROTECTION_OFFICER_EMAIL="data@protection.com"
+ARG PUBLIC_SYSTEM_START_LANGUAGE="en"
+ARG PUBLIC_NAV_PATIENT_COHORT_ENABLED=true
+ARG PUBLIC_NAV_PATIENT_SINGLE_ENABLED=true
+ARG PUBLIC_NAV_DIAGNOSIS_ENABLED=true
+ARG PUBLIC_NAV_TNM_ENABLED=true
+ARG PUBLIC_NAV_THERAPY_GENERAL_ENABLED=true
+ARG PUBLIC_NAV_THERAPY_OPERATION_ENABLED=true
+ARG PUBLIC_NAV_THERAPY_SYSTEMIC_ENABLED=true
+ARG PUBLIC_NAV_THERAPY_RADIATION_ENABLED=true
+ARG PUBLIC_NAV_PROGRESS_ENABLED=true
+ARG PUBLIC_NAV_TUMORBOARD_ENABLED=true
+ARG PUBLIC_NAV_CONSULTATION_ENABLED=true
+ARG PUBLIC_NAV_STATUS_ENABLED=true
+ARG PUBLIC_NAV_SURVIVAL_ENABLED=true
+ARG PUBLIC_NAV_SUPPLEMENTARY_ENABLED=true
+ARG PUBLIC_NAV_MOLECULAR_ENABLED=true
+ARG PUBLIC_NAV_BIO_MATERIAL_ENABLED=true
+ARG PUBLIC_NAV_STUDY_ENABLED=true
+ARG PUBLIC_NAV_USER_MANAGEMENT_ENABLED=true
+ARG PUBLIC_QUICKTOOLS_GENDER_BUTTONS="M|m;W|w;Other|other"
+ARG PUBLIC_QUICKTOOLS_GENDER_OTHER_EXCLUSIONS="m;w"
+ARG PUBLIC_QUICKTOOLS_CERT_CASES_POS="primary=Primary Case|Ja,recurrence=Recurrence Case|true,center=Center Case|Ja"
+ARG PUBLIC_QUICKTOOLS_CERT_CASES_NEG="primary=Primary Case|Nein,recurrence=Recurrence Case|false,center=Center Case|Nein"
+ARG PUBLIC_QUICKTOOLS_CERT_INTERNAL_LABEL="Meine Einrichtung|Meine Einrichtung"
+# ================================================================
+
+# Install all dependencies (needed for build process) from the lockfile
+RUN npm ci --legacy-peer-deps
+
+# Copy source code
+COPY . .
+
+ENV OVIS_PUBLIC_BASE_PATH=${OVIS_PUBLIC_BASE_PATH}
+
+# Generate build-time environment configuration (robust, single redirection)
+# Hinweis: Keine leeren Fortsetzungszeilen; gruppierte Ausgabe für Stabilität.
+# Values are quoted to handle spaces and special characters safely.
+RUN { \
+      echo "# Build-time generated environment configuration"; \
+      if [ "$NGINX_PROXY_MODE" = "true" ]; then \
+        echo "VITE_EXPRESS_BASEURL=/express"; \
+      else \
+        echo "VITE_EXPRESS_BASEURL=http://${APP_DOMAIN}:${EXPRESS_PORT}"; \
+      fi; \
+      echo "PUBLIC_LOGIN_ENABLED=\"${PUBLIC_LOGIN_ENABLED}\""; \
+      echo "PUBLIC_LDAP_ENABLED=\"${PUBLIC_LDAP_ENABLED}\""; \
+      echo "PUBLIC_IMPORT_MODE=\"${PUBLIC_IMPORT_MODE}\""; \
+      echo "VITE_EXPRESS_USERNAME=\"${VITE_EXPRESS_USERNAME}\""; \
+      echo "VITE_EXPRESS_PASSWORT=\"${VITE_EXPRESS_PASSWORT}\""; \
+      # Site-specific public env values (quoted for safety)
+      echo "PUBLIC_SITE_SPECIFIC_TECHNICAL_ADMIN_NAME=\"${PUBLIC_SITE_SPECIFIC_TECHNICAL_ADMIN_NAME}\""; \
+      echo "PUBLIC_SITE_SPECIFIC_TECHNICAL_ADMIN_EMAIL=\"${PUBLIC_SITE_SPECIFIC_TECHNICAL_ADMIN_EMAIL}\""; \
+      echo "PUBLIC_SITE_SPECIFIC_SHOW_USERAGREEMENT=\"${PUBLIC_SITE_SPECIFIC_SHOW_USERAGREEMENT}\""; \
+      echo "PUBLIC_SITE_SPECIFIC_SHOW_IMPRINT=\"${PUBLIC_SITE_SPECIFIC_SHOW_IMPRINT}\""; \
+      echo "PUBLIC_SITE_SPECIFIC_IMPRINT_RESPONSIBLE_WEBHOST_ORGANIZATION=\"${PUBLIC_SITE_SPECIFIC_IMPRINT_RESPONSIBLE_WEBHOST_ORGANIZATION}\""; \
+      echo "PUBLIC_SITE_SPECIFIC_IMPRINT_RESPONSIBLE_WEBHOST_PERSON=\"${PUBLIC_SITE_SPECIFIC_IMPRINT_RESPONSIBLE_WEBHOST_PERSON}\""; \
+      echo "PUBLIC_SITE_SPECIFIC_IMPRINT_RESPONSIBLE_WEBHOST_ADDRESS_STREET=\"${PUBLIC_SITE_SPECIFIC_IMPRINT_RESPONSIBLE_WEBHOST_ADDRESS_STREET}\""; \
+      echo "PUBLIC_SITE_SPECIFIC_IMPRINT_RESPONSIBLE_WEBHOST_ADDRESS_AREA=\"${PUBLIC_SITE_SPECIFIC_IMPRINT_RESPONSIBLE_WEBHOST_ADDRESS_AREA}\""; \
+      echo "PUBLIC_SITE_SPECIFIC_IMPRINT_HOSPITAL_PASSUS=\"${PUBLIC_SITE_SPECIFIC_IMPRINT_HOSPITAL_PASSUS}\""; \
+      echo "PUBLIC_SITE_SPECIFIC_IMPRINT_RESPONSIBLE_HOSPITAL_DIRECTOR=\"${PUBLIC_SITE_SPECIFIC_IMPRINT_RESPONSIBLE_HOSPITAL_DIRECTOR}\""; \
+      echo "PUBLIC_SITE_SPECIFIC_IMPRINT_HOSPITAL_NAME=\"${PUBLIC_SITE_SPECIFIC_IMPRINT_HOSPITAL_NAME}\""; \
+      echo "PUBLIC_SITE_SPECIFIC_IMPRINT_ADDRESS_STREET=\"${PUBLIC_SITE_SPECIFIC_IMPRINT_ADDRESS_STREET}\""; \
+      echo "PUBLIC_SITE_SPECIFIC_IMPRINT_ADDRESS_AREA=\"${PUBLIC_SITE_SPECIFIC_IMPRINT_ADDRESS_AREA}\""; \
+      echo "PUBLIC_SITE_SPECIFIC_IMPRINT_DATA_PROTECTION_OFFICER_NAME=\"${PUBLIC_SITE_SPECIFIC_IMPRINT_DATA_PROTECTION_OFFICER_NAME}\""; \
+      echo "PUBLIC_SITE_SPECIFIC_IMPRINT_DATA_PROTECTION_OFFICER_STREET=\"${PUBLIC_SITE_SPECIFIC_IMPRINT_DATA_PROTECTION_OFFICER_STREET}\""; \
+      echo "PUBLIC_SITE_SPECIFIC_IMPRINT_DATA_PROTECTION_OFFICER_AREA=\"${PUBLIC_SITE_SPECIFIC_IMPRINT_DATA_PROTECTION_OFFICER_AREA}\""; \
+      echo "PUBLIC_SITE_SPECIFIC_IMPRINT_DATA_PROTECTION_OFFICER_EMAIL=\"${PUBLIC_SITE_SPECIFIC_IMPRINT_DATA_PROTECTION_OFFICER_EMAIL}\""; \
+      echo "PUBLIC_SYSTEM_START_LANGUAGE=\"${PUBLIC_SYSTEM_START_LANGUAGE}\""; \
+      echo "PUBLIC_NAV_PATIENT_COHORT_ENABLED=\"${PUBLIC_NAV_PATIENT_COHORT_ENABLED}\""; \
+      echo "PUBLIC_NAV_PATIENT_SINGLE_ENABLED=\"${PUBLIC_NAV_PATIENT_SINGLE_ENABLED}\""; \
+      echo "PUBLIC_NAV_DIAGNOSIS_ENABLED=\"${PUBLIC_NAV_DIAGNOSIS_ENABLED}\""; \
+      echo "PUBLIC_NAV_TNM_ENABLED=\"${PUBLIC_NAV_TNM_ENABLED}\""; \
+      echo "PUBLIC_NAV_THERAPY_GENERAL_ENABLED=\"${PUBLIC_NAV_THERAPY_GENERAL_ENABLED}\""; \
+      echo "PUBLIC_NAV_THERAPY_OPERATION_ENABLED=\"${PUBLIC_NAV_THERAPY_OPERATION_ENABLED}\""; \
+      echo "PUBLIC_NAV_THERAPY_SYSTEMIC_ENABLED=\"${PUBLIC_NAV_THERAPY_SYSTEMIC_ENABLED}\""; \
+      echo "PUBLIC_NAV_THERAPY_RADIATION_ENABLED=\"${PUBLIC_NAV_THERAPY_RADIATION_ENABLED}\""; \
+      echo "PUBLIC_NAV_PROGRESS_ENABLED=\"${PUBLIC_NAV_PROGRESS_ENABLED}\""; \
+      echo "PUBLIC_NAV_TUMORBOARD_ENABLED=\"${PUBLIC_NAV_TUMORBOARD_ENABLED}\""; \
+      echo "PUBLIC_NAV_CONSULTATION_ENABLED=\"${PUBLIC_NAV_CONSULTATION_ENABLED}\""; \
+      echo "PUBLIC_NAV_STATUS_ENABLED=\"${PUBLIC_NAV_STATUS_ENABLED}\""; \
+      echo "PUBLIC_NAV_SURVIVAL_ENABLED=\"${PUBLIC_NAV_SURVIVAL_ENABLED}\""; \
+      echo "PUBLIC_NAV_SUPPLEMENTARY_ENABLED=\"${PUBLIC_NAV_SUPPLEMENTARY_ENABLED}\""; \
+      echo "PUBLIC_NAV_MOLECULAR_ENABLED=\"${PUBLIC_NAV_MOLECULAR_ENABLED}\""; \
+      echo "PUBLIC_NAV_BIO_MATERIAL_ENABLED=\"${PUBLIC_NAV_BIO_MATERIAL_ENABLED}\""; \
+      echo "PUBLIC_NAV_STUDY_ENABLED=\"${PUBLIC_NAV_STUDY_ENABLED}\""; \
+      echo "PUBLIC_NAV_USER_MANAGEMENT_ENABLED=\"${PUBLIC_NAV_USER_MANAGEMENT_ENABLED}\""; \
+      echo "PUBLIC_QUICKTOOLS_GENDER_BUTTONS=\"${PUBLIC_QUICKTOOLS_GENDER_BUTTONS}\""; \
+      echo "PUBLIC_QUICKTOOLS_GENDER_OTHER_EXCLUSIONS=\"${PUBLIC_QUICKTOOLS_GENDER_OTHER_EXCLUSIONS}\""; \
+      echo "PUBLIC_QUICKTOOLS_CERT_CASES_POS=\"${PUBLIC_QUICKTOOLS_CERT_CASES_POS}\""; \
+      echo "PUBLIC_QUICKTOOLS_CERT_CASES_NEG=\"${PUBLIC_QUICKTOOLS_CERT_CASES_NEG}\""; \
+      echo "PUBLIC_QUICKTOOLS_CERT_INTERNAL_LABEL=\"${PUBLIC_QUICKTOOLS_CERT_INTERNAL_LABEL}\""; \
+    } > .env.production \
+    && echo "Generated build-time configuration:" \
+    && cat .env.production
+
+# Build production assets
+RUN npm run build
+
+#########################
+# Production Stage
+#########################
+FROM node:20-alpine AS production
+WORKDIR /app
+
+# Re-declare build args needed for ENV baking (values inherited from --build-arg or builder stage)
+ARG PUBLIC_IMPORT_MODE
+ARG PUBLIC_LOGIN_ENABLED
+ARG PUBLIC_LDAP_ENABLED
+ARG HEALTHCHECK_PATH=/
+
+# Install curl for health checks
+RUN apk add --no-cache curl
+
+# Create non-root user for security
+RUN adduser -D svelte
+
+# Copy package files for dependency installation
+COPY --from=builder /app/package*.json ./
+
+# Install only runtime dependencies from the lockfile
+RUN npm ci --omit=dev --legacy-peer-deps && npm cache clean --force
+
+# Copy built application from builder stage
+COPY --from=builder /app/build ./build
+
+# Note: .env.production is not copied because we use $env/dynamic/public
+# which reads runtime environment variables from the container.
+# However, we bake default values into the image so they don't need to be
+# set at runtime. These can still be overridden via container env.
+
+# Copy static assets
+COPY --from=builder /app/static ./static
+
+# Change ownership to non-root user
+RUN chown -R svelte:svelte /app
+USER svelte
+
+# Set production environment variables
+ENV PORT=5173
+ENV HOST=0.0.0.0
+ENV PROTOCOL_HEADER=x-forwarded-proto
+ENV HOST_HEADER=x-forwarded-host
+ENV PORT_HEADER=x-forwarded-port
+# Bake build-time PUBLIC_* values into container environment
+# These act as defaults but can be overridden at runtime
+ENV PUBLIC_IMPORT_MODE=${PUBLIC_IMPORT_MODE}
+ENV PUBLIC_LOGIN_ENABLED=${PUBLIC_LOGIN_ENABLED}
+ENV PUBLIC_LDAP_ENABLED=${PUBLIC_LDAP_ENABLED}
+ENV OVIS_HEALTHCHECK_PATH=${HEALTHCHECK_PATH}
+
+# Expose production port
+EXPOSE 5173
+
+# Production health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
+    CMD curl -f "http://localhost:5173${OVIS_HEALTHCHECK_PATH}" || exit 1
+
+# Production command
+CMD ["node", "build"]

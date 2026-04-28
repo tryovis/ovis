@@ -1,0 +1,23 @@
+FROM node:23
+
+WORKDIR /app
+
+# Install dependencies
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev
+
+# Copy all application files needed by preprocessing and catalogue generation
+COPY monConnector.js ./
+COPY utils.js ./
+COPY createCatalog.mjs ./
+COPY Preprocessing ./Preprocessing
+
+# Create output directory for generated files
+RUN mkdir -p /app/generated
+
+ENV NODE_ENV=production
+ENV CATALOGUE_SERVICE_PORT=9000
+
+EXPOSE 9000
+
+CMD ["node", "./Preprocessing/catalogue-service.mjs"]

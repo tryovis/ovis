@@ -1,0 +1,54 @@
+module.exports = `#graphql
+    extend type Query {
+        getSupplementary(limit: Int, continueFromID: String, filter: String): [supplementary]
+        getSupplementaryChart(filter: String): countedByCategoryGrouped
+        getMolecularMarker(limit: Int, continueFromID: String, filter: String): [molekularmarker]
+        getMolecularMarkerChart(filter: String): countedByCategoryGrouped
+        getBioMaterial(limit: Int, continueFromID: String, filter: String): [biomater]
+        getBioMaterialChart(filter: String): countedByCategoryGrouped
+        getStatus(limit: Int, continueFromID: String, filter: String): [stat]
+        getStatusChart(filter: String): countedByCategoryGrouped
+    }
+    type stat {
+        _id: String
+        patID: String
+        tumorID: String
+        statusOccurrenceDate: Float
+        statusDaysSinceDiagnosis: Float   
+        type: String
+        status: String
+    }
+    type supplementary {
+        _id: String
+        supplementaryOccurrenceDate: Float
+        type: String
+        status: String
+        tumorID: String
+        patID: String
+        therapyID: String
+    }
+    type biomater {
+        _id: String
+        bioMaterialOccurrenceDate: Float
+        type: String
+        status: String
+        tumorID: String
+        patID: String
+        project: String
+        reference: String
+        amount: String
+        amountUnit: String
+    }
+    type molekularmarker {
+        _id: String
+        molecularMarkerOccurrenceDate: Float
+        type: String
+        status: String
+        tumorID: String
+        patID: String
+        miscellaneous: String
+        exon: String
+        method: String
+        project: String
+    }
+`

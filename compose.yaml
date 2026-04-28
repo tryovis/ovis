@@ -1,0 +1,580 @@
+services:
+
+  # Production Frontend (default - no profile required)  
+  ovis-frontend:
+    build:
+      context: ./Frontend
+      dockerfile: Dockerfile
+      target: production
+      args:
+        # Build-time environment variables for production
+        HTTP_PROXY: ${OVIS_HTTP_PROXY:-}
+        HTTPS_PROXY: ${OVIS_HTTPS_PROXY:-}
+        NO_PROXY: ${OVIS_NO_PROXY:-}
+        http_proxy: ${OVIS_HTTP_PROXY:-}
+        https_proxy: ${OVIS_HTTPS_PROXY:-}
+        no_proxy: ${OVIS_NO_PROXY:-}
+        NGINX_PROXY_MODE: ${NGINX_PROXY_MODE:-true}
+        APP_DOMAIN: ${APP_DOMAIN:-localhost}
+        EXPRESS_PORT: ${EXPRESS_PORT:-8251}
+        APOLLO_PORT: ${APOLLO_PORT:-4001}
+        NGINX_SSL_ENABLED: ${NGINX_SSL_ENABLED:-false}
+        OVIS_PUBLIC_BASE_PATH: ${OVIS_PUBLIC_BASE_PATH:-}
+        VITE_EXPRESS_USERNAME: ${EXPRESS_AUTH_USERNAME:-admin}
+        VITE_EXPRESS_PASSWORT: ${EXPRESS_AUTH_PASSWORD:-admin}
+       
+    ports:
+      - "127.0.0.1:${FRONTEND_PORT:-5173}:5173"
+    environment:
+      - HTTP_PROXY=${OVIS_HTTP_PROXY:-}
+      - HTTPS_PROXY=${OVIS_HTTPS_PROXY:-}
+      - NO_PROXY=${OVIS_NO_PROXY:-}
+      - http_proxy=${OVIS_HTTP_PROXY:-}
+      - https_proxy=${OVIS_HTTPS_PROXY:-}
+      - no_proxy=${OVIS_NO_PROXY:-}
+      - PUBLIC_IMPORT_MODE=${OVIS_IMPORT_MODE:-demo}
+      - PUBLIC_LDAP_ENABLED=${PUBLIC_LDAP_ENABLED:-false}
+      - OVIS_PUBLIC_BASE_PATH=${OVIS_PUBLIC_BASE_PATH:-}
+      - PUBLIC_LOGIN_ENABLED=${PUBLIC_LOGIN_ENABLED:-false}
+      - PUBLIC_SYSTEM_START_LANGUAGE=${PUBLIC_SYSTEM_START_LANGUAGE:-en}
+      - PUBLIC_NAV_PATIENT_COHORT_ENABLED=${PUBLIC_NAV_PATIENT_COHORT_ENABLED:-true}
+      - PUBLIC_NAV_PATIENT_SINGLE_ENABLED=${PUBLIC_NAV_PATIENT_SINGLE_ENABLED:-true}
+      - PUBLIC_NAV_DIAGNOSIS_ENABLED=${PUBLIC_NAV_DIAGNOSIS_ENABLED:-true}
+      - PUBLIC_NAV_TNM_ENABLED=${PUBLIC_NAV_TNM_ENABLED:-true}
+      - PUBLIC_NAV_THERAPY_GENERAL_ENABLED=${PUBLIC_NAV_THERAPY_GENERAL_ENABLED:-true}
+      - PUBLIC_NAV_THERAPY_OPERATION_ENABLED=${PUBLIC_NAV_THERAPY_OPERATION_ENABLED:-true}
+      - PUBLIC_NAV_THERAPY_SYSTEMIC_ENABLED=${PUBLIC_NAV_THERAPY_SYSTEMIC_ENABLED:-true}
+      - PUBLIC_NAV_THERAPY_RADIATION_ENABLED=${PUBLIC_NAV_THERAPY_RADIATION_ENABLED:-true}
+      - PUBLIC_NAV_PROGRESS_ENABLED=${PUBLIC_NAV_PROGRESS_ENABLED:-true}
+      - PUBLIC_NAV_TUMORBOARD_ENABLED=${PUBLIC_NAV_TUMORBOARD_ENABLED:-true}
+      - PUBLIC_NAV_CONSULTATION_ENABLED=${PUBLIC_NAV_CONSULTATION_ENABLED:-true}
+      - PUBLIC_NAV_STATUS_ENABLED=${PUBLIC_NAV_STATUS_ENABLED:-true}
+      - PUBLIC_NAV_SURVIVAL_ENABLED=${PUBLIC_NAV_SURVIVAL_ENABLED:-true}
+      - PUBLIC_NAV_SUPPLEMENTARY_ENABLED=${PUBLIC_NAV_SUPPLEMENTARY_ENABLED:-true}
+      - PUBLIC_NAV_MOLECULAR_ENABLED=${PUBLIC_NAV_MOLECULAR_ENABLED:-true}
+      - PUBLIC_NAV_BIO_MATERIAL_ENABLED=${PUBLIC_NAV_BIO_MATERIAL_ENABLED:-true}
+      - PUBLIC_NAV_STUDY_ENABLED=${PUBLIC_NAV_STUDY_ENABLED:-true}
+      - PUBLIC_NAV_USER_MANAGEMENT_ENABLED=${PUBLIC_NAV_USER_MANAGEMENT_ENABLED:-true}
+      - PUBLIC_QUICKTOOLS_GENDER_BUTTONS=${PUBLIC_QUICKTOOLS_GENDER_BUTTONS:-M|m;W|w;Other|other}
+      - PUBLIC_QUICKTOOLS_GENDER_OTHER_EXCLUSIONS=${PUBLIC_QUICKTOOLS_GENDER_OTHER_EXCLUSIONS:-m;w}
+      - PUBLIC_QUICKTOOLS_CERT_CASES_POS=${PUBLIC_QUICKTOOLS_CERT_CASES_POS:-primary=Primary Case|Ja,recurrence=Recurrence Case|true,center=Center Case|Ja}
+      - PUBLIC_QUICKTOOLS_CERT_CASES_NEG=${PUBLIC_QUICKTOOLS_CERT_CASES_NEG:-primary=Primary Case|Nein,recurrence=Recurrence Case|false,center=Center Case|Nein}
+      - PUBLIC_QUICKTOOLS_CERT_INTERNAL_LABEL=${PUBLIC_QUICKTOOLS_CERT_INTERNAL_LABEL:-Meine Einrichtung|Meine Einrichtung}
+      - PUBLIC_SITE_SPECIFIC_TECHNICAL_ADMIN_NAME=${PUBLIC_SITE_SPECIFIC_TECHNICAL_ADMIN_NAME:-Local Admin}
+      - PUBLIC_SITE_SPECIFIC_TECHNICAL_ADMIN_EMAIL=${PUBLIC_SITE_SPECIFIC_TECHNICAL_ADMIN_EMAIL:-}
+      - PUBLIC_SITE_SPECIFIC_SHOW_USERAGREEMENT=${PUBLIC_SITE_SPECIFIC_SHOW_USERAGREEMENT:-false}
+      - PUBLIC_SITE_SPECIFIC_SHOW_IMPRINT=${PUBLIC_SITE_SPECIFIC_SHOW_IMPRINT:-false}
+      - PUBLIC_SITE_SPECIFIC_IMPRINT_RESPONSIBLE_WEBHOST_ORGANIZATION=${PUBLIC_SITE_SPECIFIC_IMPRINT_RESPONSIBLE_WEBHOST_ORGANIZATION:-}
+      - PUBLIC_SITE_SPECIFIC_IMPRINT_RESPONSIBLE_WEBHOST_PERSON=${PUBLIC_SITE_SPECIFIC_IMPRINT_RESPONSIBLE_WEBHOST_PERSON:-}
+      - PUBLIC_SITE_SPECIFIC_IMPRINT_RESPONSIBLE_WEBHOST_ADDRESS_STREET=${PUBLIC_SITE_SPECIFIC_IMPRINT_RESPONSIBLE_WEBHOST_ADDRESS_STREET:-}
+      - PUBLIC_SITE_SPECIFIC_IMPRINT_RESPONSIBLE_WEBHOST_ADDRESS_AREA=${PUBLIC_SITE_SPECIFIC_IMPRINT_RESPONSIBLE_WEBHOST_ADDRESS_AREA:-}
+      - PUBLIC_SITE_SPECIFIC_IMPRINT_HOSPITAL_PASSUS=${PUBLIC_SITE_SPECIFIC_IMPRINT_HOSPITAL_PASSUS:-}
+      - PUBLIC_SITE_SPECIFIC_IMPRINT_RESPONSIBLE_HOSPITAL_DIRECTOR=${PUBLIC_SITE_SPECIFIC_IMPRINT_RESPONSIBLE_HOSPITAL_DIRECTOR:-}
+      - PUBLIC_SITE_SPECIFIC_IMPRINT_HOSPITAL_NAME=${PUBLIC_SITE_SPECIFIC_IMPRINT_HOSPITAL_NAME:-}
+      - PUBLIC_SITE_SPECIFIC_IMPRINT_ADDRESS_STREET=${PUBLIC_SITE_SPECIFIC_IMPRINT_ADDRESS_STREET:-}
+      - PUBLIC_SITE_SPECIFIC_IMPRINT_ADDRESS_AREA=${PUBLIC_SITE_SPECIFIC_IMPRINT_ADDRESS_AREA:-}
+      - PUBLIC_SITE_SPECIFIC_IMPRINT_DATA_PROTECTION_OFFICER_NAME=${PUBLIC_SITE_SPECIFIC_IMPRINT_DATA_PROTECTION_OFFICER_NAME:-}
+      - PUBLIC_SITE_SPECIFIC_IMPRINT_DATA_PROTECTION_OFFICER_STREET=${PUBLIC_SITE_SPECIFIC_IMPRINT_DATA_PROTECTION_OFFICER_STREET:-}
+      - PUBLIC_SITE_SPECIFIC_IMPRINT_DATA_PROTECTION_OFFICER_AREA=${PUBLIC_SITE_SPECIFIC_IMPRINT_DATA_PROTECTION_OFFICER_AREA:-}
+      - PUBLIC_SITE_SPECIFIC_IMPRINT_DATA_PROTECTION_OFFICER_EMAIL=${PUBLIC_SITE_SPECIFIC_IMPRINT_DATA_PROTECTION_OFFICER_EMAIL:-}
+      - OVIS_CATALOGUE_UPSTREAM_URL=${OVIS_CATALOGUE_UPSTREAM_URL:-}
+      - EXPRESS_AUTH_URL=http://express-auth:5000
+      - EXPRESS_AUTH_USERNAME=${EXPRESS_AUTH_USERNAME:-admin}
+      - EXPRESS_AUTH_PASSWORD=${EXPRESS_AUTH_PASSWORD:-admin}
+    volumes:
+      - catalogue_volume:/app/dynamic-catalogue:ro
+      - ./Backend/MongoDB/ovis-catalogue.json:/app/static/ovis-catalogue.json:ro
+      # Custom site documents (override defaults in static/downloads)
+      - ${OVIS_SITE_DOWNLOADS_DIR:-./Setup/CustomDocuments/UserAgreement}/ovis_userAgreement_en_template.pdf:/app/static/downloads/ovis_userAgreement_en_template.pdf:ro
+      - ${OVIS_SITE_DOWNLOADS_DIR:-./Setup/CustomDocuments/UserAgreement}/ovis_userAgreement_de_template.pdf:/app/static/downloads/ovis_userAgreement_de_template.pdf:ro
+      - ${OVIS_SITE_DOWNLOADS_DIR:-./Setup/CustomDocuments/Authorization}/ovis_authorization_en_template.pdf:/app/static/downloads/ovis_authorization_en_template.pdf:ro
+      - ${OVIS_SITE_DOWNLOADS_DIR:-./Setup/CustomDocuments/Authorization}/ovis_authorization_de_template.pdf:/app/static/downloads/ovis_authorization_de_template.pdf:ro
+
+  # Development Frontend (only when --profile dev is used)
+  ovis-frontend-dev:
+    profiles: ["dev"] 
+    build:
+      context: ./Frontend
+      dockerfile: Dockerfile
+      target: development
+      args:
+        HTTP_PROXY: ${OVIS_HTTP_PROXY:-}
+        HTTPS_PROXY: ${OVIS_HTTPS_PROXY:-}
+        NO_PROXY: ${OVIS_NO_PROXY:-}
+        http_proxy: ${OVIS_HTTP_PROXY:-}
+        https_proxy: ${OVIS_HTTPS_PROXY:-}
+        no_proxy: ${OVIS_NO_PROXY:-}
+        OVIS_PUBLIC_BASE_PATH: ${OVIS_PUBLIC_BASE_PATH:-}
+    ports:
+      - "${FRONTEND_PORT:-5173}:5173"
+    volumes:
+      - catalogue_volume:/app/dynamic-catalogue:ro
+      - ./Backend/MongoDB/ovis-catalogue.json:/app/static/ovis-catalogue.json:ro
+      - ./Frontend:/app              # Mount source code for hot reload
+      - /app/node_modules            # Preserve container's node_modules
+      # Custom site documents (override defaults in static/downloads)
+      - ${OVIS_SITE_DOWNLOADS_DIR:-./Setup/CustomDocuments/UserAgreement}/ovis_userAgreement_en_template.pdf:/app/static/downloads/ovis_userAgreement_en_template.pdf:ro
+      - ${OVIS_SITE_DOWNLOADS_DIR:-./Setup/CustomDocuments/UserAgreement}/ovis_userAgreement_de_template.pdf:/app/static/downloads/ovis_userAgreement_de_template.pdf:ro
+      - ${OVIS_SITE_DOWNLOADS_DIR:-./Setup/CustomDocuments/Authorization}/ovis_authorization_en_template.pdf:/app/static/downloads/ovis_authorization_en_template.pdf:ro
+      - ${OVIS_SITE_DOWNLOADS_DIR:-./Setup/CustomDocuments/Authorization}/ovis_authorization_de_template.pdf:/app/static/downloads/ovis_authorization_de_template.pdf:ro
+    networks:
+      default:
+        aliases:
+          - ovis-frontend  # Allows nginx to find it as 'ovis-frontend:5173'
+    environment:
+      # Runtime environment variables for development mode
+      - APP_DOMAIN=${APP_DOMAIN:-localhost}
+      - EXPRESS_PORT=${EXPRESS_PORT:-8251}
+      - APOLLO_PORT=${APOLLO_PORT:-4001}
+      - HTTP_PROXY=${OVIS_HTTP_PROXY:-}
+      - HTTPS_PROXY=${OVIS_HTTPS_PROXY:-}
+      - NO_PROXY=${OVIS_NO_PROXY:-}
+      - http_proxy=${OVIS_HTTP_PROXY:-}
+      - https_proxy=${OVIS_HTTPS_PROXY:-}
+      - no_proxy=${OVIS_NO_PROXY:-}
+      - NGINX_PROXY_MODE=${NGINX_PROXY_MODE:-true}
+      - NGINX_SSL_ENABLED=${NGINX_SSL_ENABLED:-false}
+      - PUBLIC_IMPORT_MODE=${OVIS_IMPORT_MODE:-demo}
+      - OVIS_PUBLIC_BASE_PATH=${OVIS_PUBLIC_BASE_PATH:-}
+      - PUBLIC_LOGIN_ENABLED=${PUBLIC_LOGIN_ENABLED:-false}
+      - PUBLIC_LDAP_ENABLED=${PUBLIC_LDAP_ENABLED:-false}
+      - OVIS_CATALOGUE_UPSTREAM_URL=${OVIS_CATALOGUE_UPSTREAM_URL:-}
+      - EXPRESS_AUTH_USERNAME=${EXPRESS_AUTH_USERNAME:-admin}
+      - EXPRESS_AUTH_PASSWORD=${EXPRESS_AUTH_PASSWORD:-admin}
+      # VITE environment variables (same as production build)
+      # When NGINX_PROXY_MODE=true, use relative URLs; otherwise use full URLs
+      - VITE_EXPRESS_BASEURL=/express
+      - VITE_EXPRESS_USERNAME=${EXPRESS_AUTH_USERNAME:-admin}
+      - VITE_EXPRESS_PASSWORT=${EXPRESS_AUTH_PASSWORD:-admin}
+      - PUBLIC_NAV_PATIENT_COHORT_ENABLED=${PUBLIC_NAV_PATIENT_COHORT_ENABLED:-true}
+      - PUBLIC_NAV_PATIENT_SINGLE_ENABLED=${PUBLIC_NAV_PATIENT_SINGLE_ENABLED:-true}
+      - PUBLIC_NAV_DIAGNOSIS_ENABLED=${PUBLIC_NAV_DIAGNOSIS_ENABLED:-true}
+      - PUBLIC_NAV_TNM_ENABLED=${PUBLIC_NAV_TNM_ENABLED:-true}
+      - PUBLIC_NAV_THERAPY_GENERAL_ENABLED=${PUBLIC_NAV_THERAPY_GENERAL_ENABLED:-true}
+      - PUBLIC_NAV_THERAPY_OPERATION_ENABLED=${PUBLIC_NAV_THERAPY_OPERATION_ENABLED:-true}
+      - PUBLIC_NAV_THERAPY_SYSTEMIC_ENABLED=${PUBLIC_NAV_THERAPY_SYSTEMIC_ENABLED:-true}
+      - PUBLIC_NAV_THERAPY_RADIATION_ENABLED=${PUBLIC_NAV_THERAPY_RADIATION_ENABLED:-true}
+      - PUBLIC_NAV_PROGRESS_ENABLED=${PUBLIC_NAV_PROGRESS_ENABLED:-true}
+      - PUBLIC_NAV_TUMORBOARD_ENABLED=${PUBLIC_NAV_TUMORBOARD_ENABLED:-true}
+      - PUBLIC_NAV_CONSULTATION_ENABLED=${PUBLIC_NAV_CONSULTATION_ENABLED:-true}
+      - PUBLIC_NAV_STATUS_ENABLED=${PUBLIC_NAV_STATUS_ENABLED:-true}
+      - PUBLIC_NAV_SURVIVAL_ENABLED=${PUBLIC_NAV_SURVIVAL_ENABLED:-true}
+      - PUBLIC_NAV_SUPPLEMENTARY_ENABLED=${PUBLIC_NAV_SUPPLEMENTARY_ENABLED:-true}
+      - PUBLIC_NAV_MOLECULAR_ENABLED=${PUBLIC_NAV_MOLECULAR_ENABLED:-true}
+      - PUBLIC_NAV_BIO_MATERIAL_ENABLED=${PUBLIC_NAV_BIO_MATERIAL_ENABLED:-true}
+      - PUBLIC_NAV_STUDY_ENABLED=${PUBLIC_NAV_STUDY_ENABLED:-true}
+      - PUBLIC_NAV_USER_MANAGEMENT_ENABLED=${PUBLIC_NAV_USER_MANAGEMENT_ENABLED:-true}
+      - PUBLIC_QUICKTOOLS_GENDER_BUTTONS=${PUBLIC_QUICKTOOLS_GENDER_BUTTONS:-"M|m;W|w;Other|other"}
+      - PUBLIC_QUICKTOOLS_GENDER_OTHER_EXCLUSIONS=${PUBLIC_QUICKTOOLS_GENDER_OTHER_EXCLUSIONS:-"m;w"}
+      - PUBLIC_QUICKTOOLS_CERT_CASES_POS=${PUBLIC_QUICKTOOLS_CERT_CASES_POS:-"primary=Primary Case|Ja,recurrence=Recurrence Case|true,center=Center Case|Ja"}
+      - PUBLIC_QUICKTOOLS_CERT_CASES_NEG=${PUBLIC_QUICKTOOLS_CERT_CASES_NEG:-"primary=Primary Case|Nein,recurrence=Recurrence Case|false,center=Center Case|Nein"}
+      - PUBLIC_QUICKTOOLS_CERT_INTERNAL_LABEL=${PUBLIC_QUICKTOOLS_CERT_INTERNAL_LABEL:-"Meine Einrichtung|Meine Einrichtung"}
+      - PUBLIC_SITE_SPECIFIC_TECHNICAL_ADMIN_NAME=${PUBLIC_SITE_SPECIFIC_TECHNICAL_ADMIN_NAME}
+      - PUBLIC_SITE_SPECIFIC_TECHNICAL_ADMIN_EMAIL=${PUBLIC_SITE_SPECIFIC_TECHNICAL_ADMIN_EMAIL}
+      - PUBLIC_SITE_SPECIFIC_SHOW_USERAGREEMENT=${PUBLIC_SITE_SPECIFIC_SHOW_USERAGREEMENT}
+      - PUBLIC_SITE_SPECIFIC_SHOW_IMPRINT=${PUBLIC_SITE_SPECIFIC_SHOW_IMPRINT}
+      - PUBLIC_SITE_SPECIFIC_IMPRINT_RESPONSIBLE_WEBHOST_ORGANIZATION=${PUBLIC_SITE_SPECIFIC_IMPRINT_RESPONSIBLE_WEBHOST_ORGANIZATION}
+      - PUBLIC_SITE_SPECIFIC_IMPRINT_RESPONSIBLE_WEBHOST_PERSON=${PUBLIC_SITE_SPECIFIC_IMPRINT_RESPONSIBLE_WEBHOST_PERSON}
+      - PUBLIC_SITE_SPECIFIC_IMPRINT_RESPONSIBLE_WEBHOST_ADDRESS_STREET=${PUBLIC_SITE_SPECIFIC_IMPRINT_RESPONSIBLE_WEBHOST_ADDRESS_STREET}
+      - PUBLIC_SITE_SPECIFIC_IMPRINT_RESPONSIBLE_WEBHOST_ADDRESS_AREA=${PUBLIC_SITE_SPECIFIC_IMPRINT_RESPONSIBLE_WEBHOST_ADDRESS_AREA}
+      - PUBLIC_SITE_SPECIFIC_IMPRINT_HOSPITAL_PASSUS=${PUBLIC_SITE_SPECIFIC_IMPRINT_HOSPITAL_PASSUS}
+      - PUBLIC_SITE_SPECIFIC_IMPRINT_RESPONSIBLE_HOSPITAL_DIRECTOR=${PUBLIC_SITE_SPECIFIC_IMPRINT_RESPONSIBLE_HOSPITAL_DIRECTOR}
+      - PUBLIC_SITE_SPECIFIC_IMPRINT_HOSPITAL_NAME=${PUBLIC_SITE_SPECIFIC_IMPRINT_HOSPITAL_NAME}
+      - PUBLIC_SITE_SPECIFIC_IMPRINT_ADDRESS_STREET=${PUBLIC_SITE_SPECIFIC_IMPRINT_ADDRESS_STREET}
+      - PUBLIC_SITE_SPECIFIC_IMPRINT_ADDRESS_AREA=${PUBLIC_SITE_SPECIFIC_IMPRINT_ADDRESS_AREA}
+      - PUBLIC_SITE_SPECIFIC_IMPRINT_DATA_PROTECTION_OFFICER_NAME=${PUBLIC_SITE_SPECIFIC_IMPRINT_DATA_PROTECTION_OFFICER_NAME}
+      - PUBLIC_SITE_SPECIFIC_IMPRINT_DATA_PROTECTION_OFFICER_STREET=${PUBLIC_SITE_SPECIFIC_IMPRINT_DATA_PROTECTION_OFFICER_STREET}
+      - PUBLIC_SITE_SPECIFIC_IMPRINT_DATA_PROTECTION_OFFICER_AREA=${PUBLIC_SITE_SPECIFIC_IMPRINT_DATA_PROTECTION_OFFICER_AREA}
+      - PUBLIC_SITE_SPECIFIC_IMPRINT_DATA_PROTECTION_OFFICER_EMAIL=${PUBLIC_SITE_SPECIFIC_IMPRINT_DATA_PROTECTION_OFFICER_EMAIL}
+      - PUBLIC_SYSTEM_START_LANGUAGE=${PUBLIC_SYSTEM_START_LANGUAGE}
+
+  # Backend
+
+  ## Resolver: GraphQL
+  ovis-backend-apollo:
+    build:
+      context: ./Backend/Apollo
+      dockerfile: dockerfile
+      args:
+        HTTP_PROXY: ${OVIS_HTTP_PROXY:-}
+        HTTPS_PROXY: ${OVIS_HTTPS_PROXY:-}
+        NO_PROXY: ${OVIS_NO_PROXY:-}
+        http_proxy: ${OVIS_HTTP_PROXY:-}
+        https_proxy: ${OVIS_HTTPS_PROXY:-}
+        no_proxy: ${OVIS_NO_PROXY:-}
+    # Internal only - no port exposure. Access via frontend internal proxy at /api/graphql
+    environment:
+      - APOLLO_PORT=${APOLLO_PORT}
+      - CREDOS_PORT=${CREDOS_PORT}
+      - HTTP_PROXY=${OVIS_HTTP_PROXY:-}
+      - HTTPS_PROXY=${OVIS_HTTPS_PROXY:-}
+      - NO_PROXY=${OVIS_NO_PROXY:-}
+      - http_proxy=${OVIS_HTTP_PROXY:-}
+      - https_proxy=${OVIS_HTTPS_PROXY:-}
+      - no_proxy=${OVIS_NO_PROXY:-}
+      - MONGO_VER=latest
+      - CORS_ORIGIN=*
+      - DB=${DB:-onc_test}
+      # MongoDB address is always the same internally
+      - ADDRESS=mongodb://ovis-backend-database-mongodb:27017
+    healthcheck:
+      test: ["CMD-SHELL", "test -d /app/node_modules/mongodb"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    depends_on:
+      ovis-backend-database-mongodb:
+        condition: service_started
+      mongodb-restore:
+        condition: service_completed_successfully
+    volumes:
+      - ./Backend/Apollo:/app
+      - ./Backend/MongoDB/Preprocessing/ops4.mjs:/ops-data/ops4.mjs:ro
+      - node_modules:/app/node_modules
+
+  ovis-backend-database-mongodb:
+    image: docker.verbis.dkfz.de/ovis/ovis-backend-mongodb:latest
+    environment:
+      - OVIS_ROOT_USERNAME=${OVIS_ROOT_USERNAME:-ovis-root}
+    volumes:
+      - ./Backend/MongoDB/initdb.js:/docker-entrypoint-initdb.d/init.js
+      - mongo_db:/data/db
+      - mongo_conf:/data/configdb
+
+  ovis-backend-mongodb-data-preprocessing:
+    build:
+      context: ./Backend/MongoDB
+      args:
+        HTTP_PROXY: ${OVIS_HTTP_PROXY:-}
+        HTTPS_PROXY: ${OVIS_HTTPS_PROXY:-}
+        NO_PROXY: ${OVIS_NO_PROXY:-}
+        http_proxy: ${OVIS_HTTP_PROXY:-}
+        https_proxy: ${OVIS_HTTPS_PROXY:-}
+        no_proxy: ${OVIS_NO_PROXY:-}
+    environment:
+      - APOLLO_PORT=${APOLLO_PORT}
+      - CREDOS_PORT=${CREDOS_PORT}
+      - HTTP_PROXY=${OVIS_HTTP_PROXY:-}
+      - HTTPS_PROXY=${OVIS_HTTPS_PROXY:-}
+      - NO_PROXY=${OVIS_NO_PROXY:-}
+      - http_proxy=${OVIS_HTTP_PROXY:-}
+      - https_proxy=${OVIS_HTTPS_PROXY:-}
+      - no_proxy=${OVIS_NO_PROXY:-}
+      - MONGO_VER=latest
+      - CORS_ORIGIN=*
+      - DB=${DB}
+      # MongoDB address is always the same internally
+      - ADDRESS=mongodb://ovis-backend-database-mongodb:27017
+      - OVIS_PREPROC_DECEASED_KEYWORDS=${OVIS_PREPROC_DECEASED_KEYWORDS:-}
+      - OVIS_PREPROC_REZIDIV_PREFIXES=${OVIS_PREPROC_REZIDIV_PREFIXES:-}
+      - OVIS_PREPROC_REZIDIV_CANONICAL=${OVIS_PREPROC_REZIDIV_CANONICAL:-}
+      - OVIS_PREPROC_REZIDIV_LYMPH_STATES=${OVIS_PREPROC_REZIDIV_LYMPH_STATES:-}
+      - OVIS_PREPROC_PROGRESS_LABELS=${OVIS_PREPROC_PROGRESS_LABELS:-}
+      - OVIS_PREPROC_COMPLETE_REMISSION_LABELS=${OVIS_PREPROC_COMPLETE_REMISSION_LABELS:-}
+      - OVIS_PREPROC_RCLASS_SUCCESS=${OVIS_PREPROC_RCLASS_SUCCESS:-}
+      - OVIS_PREPROC_LOCAL_RSTATE_SUCCESS=${OVIS_PREPROC_LOCAL_RSTATE_SUCCESS:-}
+      - OVIS_PREPROC_METASTASIS_PREFIXES=${OVIS_PREPROC_METASTASIS_PREFIXES:-}
+      - OVIS_PREPROC_METASTASIS_SPREAD_VALUES=${OVIS_PREPROC_METASTASIS_SPREAD_VALUES:-}
+      - OVIS_PREPROC_METASTASIS_STRAT_SYNCHRON=${OVIS_PREPROC_METASTASIS_STRAT_SYNCHRON:-}
+      - OVIS_PREPROC_METASTASIS_STRAT_NONE=${OVIS_PREPROC_METASTASIS_STRAT_NONE:-}
+      - OVIS_PREPROC_NULL_STUDY_PHASES=${OVIS_PREPROC_NULL_STUDY_PHASES:-}
+      - OVIS_PREPROC_PREV_THERAPY_SURGERY=${OVIS_PREPROC_PREV_THERAPY_SURGERY:-}
+      - OVIS_PREPROC_PREV_THERAPY_SYSTEMIC=${OVIS_PREPROC_PREV_THERAPY_SYSTEMIC:-}
+      - OVIS_PREPROC_PREV_THERAPY_RADIATION=${OVIS_PREPROC_PREV_THERAPY_RADIATION:-}
+      - OVIS_PREPROC_PREV_CONSULTATION_NUTRITION=${OVIS_PREPROC_PREV_CONSULTATION_NUTRITION:-}
+      - OVIS_PREPROC_PREV_CONSULTATION_SOCIAL=${OVIS_PREPROC_PREV_CONSULTATION_SOCIAL:-}
+      - OVIS_PREPROC_PREV_CONSULTATION_PSYCHO=${OVIS_PREPROC_PREV_CONSULTATION_PSYCHO:-}
+      - OVIS_PREPROC_PREV_CONSULTATION_GENETIC=${OVIS_PREPROC_PREV_CONSULTATION_GENETIC:-}
+      - OVIS_PREPROC_TUMORBOARD_PATTERN_PRAE=${OVIS_PREPROC_TUMORBOARD_PATTERN_PRAE:-}
+      - OVIS_PREPROC_TUMORBOARD_PATTERN_POST=${OVIS_PREPROC_TUMORBOARD_PATTERN_POST:-}
+      - OVIS_PREPROC_TUMORBOARD_PATTERN_MTB=${OVIS_PREPROC_TUMORBOARD_PATTERN_MTB:-}
+      - OVIS_PREPROC_ECOG_PREFIX=${OVIS_PREPROC_ECOG_PREFIX:-}
+      - OVIS_PREPROC_DISTRESS_TYPE=${OVIS_PREPROC_DISTRESS_TYPE:-}
+      - OVIS_PREPROC_DISTRESS_POSITIVE_VALUES=${OVIS_PREPROC_DISTRESS_POSITIVE_VALUES:-}
+    depends_on:
+      ovis-backend-database-mongodb:
+        condition: service_started
+      mongodb-restore:
+        condition: service_completed_successfully
+    volumes:
+      - catalogue_volume:/app/generated
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"require('http').get('http://localhost:9000/health', res => process.exit(res.statusCode===200?0:1)).on('error', () => process.exit(1));\""]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 5s
+    command: ["node", "./Preprocessing/catalogue-service.mjs"]
+
+  ovis-backend-data-import:
+    build: 
+      context: ./Backend/Data-Import/${OVIS_IMPORT_MODE:-demo}
+      dockerfile: Dockerfile
+      args:
+        HTTP_PROXY: ${OVIS_HTTP_PROXY:-}
+        HTTPS_PROXY: ${OVIS_HTTPS_PROXY:-}
+        NO_PROXY: ${OVIS_NO_PROXY:-}
+        http_proxy: ${OVIS_HTTP_PROXY:-}
+        https_proxy: ${OVIS_HTTPS_PROXY:-}
+        no_proxy: ${OVIS_NO_PROXY:-}
+    depends_on:
+      ovis-backend-mongodb-data-preprocessing:
+        condition: service_healthy
+    env_file: .env
+    environment:
+      - HTTP_PROXY=${OVIS_HTTP_PROXY:-}
+      - HTTPS_PROXY=${OVIS_HTTPS_PROXY:-}
+      - NO_PROXY=${OVIS_NO_PROXY:-}
+      - http_proxy=${OVIS_HTTP_PROXY:-}
+      - https_proxy=${OVIS_HTTPS_PROXY:-}
+      - no_proxy=${OVIS_NO_PROXY:-}
+    volumes:
+      # Optional: bind-mount for site-provided omock.json (only used if present)
+      - ${OVIS_SITE_OMOCK_FILE:-./omock.json}:/input/omock.json:ro
+      
+  # Authentication Services
+  postgres:
+    image: ghcr.io/baosystems/postgis:13-3.5
+    container_name: ovis-postgres
+    volumes:
+      - ./Backend/Authentication/data/database:/var/lib/postgresql/data
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:24.0.3
+    container_name: ovis-keycloak
+    depends_on:
+      - postgres
+    volumes:
+      # Host ./Backend/Authentication/Certificates enthält jetzt lmu.pem (und ggf. weitere .pem/.p12)
+      - ./Backend/Authentication/Certificates:/etc/keycloak/certs:ro
+      - ./Backend/Authentication/themes:/opt/keycloak/themes:ro
+      - ./Backend/Authentication/configuration:/opt/keycloak/standalone/configuration:ro
+
+
+
+    environment:
+      DB_VENDOR: postgres
+      DB_ADDR: postgres
+      DB_DATABASE: ${POSTGRES_DB}
+      DB_USER: ${POSTGRES_USER}
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
+      KEYCLOAK_HOSTNAME: ${APP_DOMAIN}
+      APP_DOMAIN: ${APP_DOMAIN}
+      KEYCLOAK_PORT: ${KEYCLOAK_PORT}
+      NGINX_PROXY_MODE: ${NGINX_PROXY_MODE}
+      NGINX_SSL_ENABLED: ${NGINX_SSL_ENABLED}
+      NGINX_HTTP_PORT: ${NGINX_HTTP_PORT}
+      NGINX_HTTPS_PORT: ${NGINX_HTTPS_PORT}
+      # LDAP configuration for dynamic certificate loading
+      PUBLIC_LDAP_ENABLED: ${PUBLIC_LDAP_ENABLED}
+      LDAP_CERTIFICATE_NAME: ${LDAP_CERTIFICATE_NAME}
+    ports:
+      - "127.0.0.1:${KEYCLOAK_PORT}:8080"
+    user: root
+    entrypoint: >-
+      /bin/bash -c '
+        echo "→ Inhalte von /etc/keycloak/certs:"
+        ls -lh /etc/keycloak/certs
+
+        # Dynamic certificate loading based on LDAP configuration
+        if [ "$PUBLIC_LDAP_ENABLED" = "true" ] && [ -n "$LDAP_CERTIFICATE_NAME" ] && [ -f "/etc/keycloak/certs/$LDAP_CERTIFICATE_NAME" ]; then
+          echo "→ LDAP enabled: Loading certificate $LDAP_CERTIFICATE_NAME"
+          TRUSTSTORE_PARAM="--truststore-paths=/etc/keycloak/certs/$LDAP_CERTIFICATE_NAME"
+        else
+          echo "→ LDAP disabled or certificate not found: Skipping certificate loading"
+          TRUSTSTORE_PARAM=""
+        fi
+        
+        echo "→ Starting Keycloak with truststore parameter: $$TRUSTSTORE_PARAM"
+        
+        # Keycloak starten mit dynamischem Truststore
+        exec /opt/keycloak/bin/kc.sh start-dev \
+          --proxy=edge \
+          --hostname-strict=false \
+          --http-relative-path=/keycloak \
+          $$TRUSTSTORE_PARAM \
+          --tls-hostname-verifier=ANY
+      '
+
+  keycloak-config:
+    build:
+      context: ./Backend/Authentication/Keycloak
+      dockerfile: Dockerfile.keycloak-config
+      args:
+        HTTP_PROXY: ${OVIS_HTTP_PROXY:-}
+        HTTPS_PROXY: ${OVIS_HTTPS_PROXY:-}
+        NO_PROXY: ${OVIS_NO_PROXY:-}
+        http_proxy: ${OVIS_HTTP_PROXY:-}
+        https_proxy: ${OVIS_HTTPS_PROXY:-}
+        no_proxy: ${OVIS_NO_PROXY:-}
+    image: ovis-keycloak-config:latest
+    container_name: ovis-keycloak-config
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./Backend/Authentication/Keycloak/ovis-realm.json:/realm-base/ovis-realm.json:ro
+      - ./Backend/Authentication/Keycloak/build-realm.sh:/build-realm.sh:ro
+      - ./Backend/Authentication/Keycloak/config-run.sh:/config-run.sh:ro
+
+
+
+    environment:
+      - HTTP_PROXY=${OVIS_HTTP_PROXY:-}
+      - HTTPS_PROXY=${OVIS_HTTPS_PROXY:-}
+      - NO_PROXY=${OVIS_NO_PROXY:-}
+      - http_proxy=${OVIS_HTTP_PROXY:-}
+      - https_proxy=${OVIS_HTTPS_PROXY:-}
+      - no_proxy=${OVIS_NO_PROXY:-}
+      - PUBLIC_LDAP_ENABLED=${PUBLIC_LDAP_ENABLED}
+
+      - LDAP_CONNECTION_URL=${LDAP_CONNECTION_URL}
+      - LDAP_BIND_DN=${LDAP_BIND_DN}
+      - LDAP_BIND_CREDENTIAL=${LDAP_BIND_CREDENTIAL}
+      - LDAP_USERS_DN=${LDAP_USERS_DN}
+      - LDAP_EDIT_MODE=${LDAP_EDIT_MODE}
+      - LDAP_VENDOR=${LDAP_VENDOR:-}
+      - LDAP_USERNAME_ATTRIBUTE=${LDAP_USERNAME_ATTRIBUTE:-}
+      - LDAP_RDN_ATTRIBUTE=${LDAP_RDN_ATTRIBUTE:-}
+      - LDAP_UUID_ATTRIBUTE=${LDAP_UUID_ATTRIBUTE:-}
+      - LDAP_USER_OBJECT_CLASSES=${LDAP_USER_OBJECT_CLASSES:-}
+      - LDAP_USER_FILTER=${LDAP_USER_FILTER:-}
+      - LDAP_SEARCH_SCOPE=${LDAP_SEARCH_SCOPE:-}
+      - LDAP_READ_TIMEOUT=${LDAP_READ_TIMEOUT:-}
+      - LDAP_PAGINATION=${LDAP_PAGINATION:-}
+      - LDAP_REFERRAL=${LDAP_REFERRAL:-}
+      - LDAP_EMAIL_ATTRIBUTE=${LDAP_EMAIL_ATTRIBUTE:-}
+      - LDAP_FIRST_NAME_ATTRIBUTE=${LDAP_FIRST_NAME_ATTRIBUTE:-}
+      - LDAP_LAST_NAME_ATTRIBUTE=${LDAP_LAST_NAME_ATTRIBUTE:-}
+      - KEYCLOAK_CLIENT_ID=${KEYCLOAK_CLIENT_ID}
+      - KEYCLOAK_CLIENT_SECRET=${KEYCLOAK_CLIENT_SECRET}
+      - OVIS_ROOT_USERNAME=${OVIS_ROOT_USERNAME:-ovis-root}
+      - OVIS_ROOT_PASSWORD=${OVIS_ROOT_PASSWORD:-test}
+    depends_on:
+      keycloak:
+        condition: service_started
+    command: ["/bin/sh", "/config-run.sh"]
+
+  express-auth:
+    build: 
+      context: ./Backend/Authentication/express
+      dockerfile: Dockerfile
+      args:
+        HTTP_PROXY: ${OVIS_HTTP_PROXY:-}
+        HTTPS_PROXY: ${OVIS_HTTPS_PROXY:-}
+        NO_PROXY: ${OVIS_NO_PROXY:-}
+        http_proxy: ${OVIS_HTTP_PROXY:-}
+        https_proxy: ${OVIS_HTTPS_PROXY:-}
+        no_proxy: ${OVIS_NO_PROXY:-}
+    image: ovis-express-auth
+    container_name: ovis-express-auth
+    ports:
+      - "127.0.0.1:${EXPRESS_PORT:-8251}:5000"
+    expose:
+      - "5000"
+    volumes:
+      - ./Backend/Authentication/express/src:/usr/src/app/src
+    environment:
+      - PORT=5000
+      - HTTP_PROXY=${OVIS_HTTP_PROXY:-}
+      - HTTPS_PROXY=${OVIS_HTTPS_PROXY:-}
+      - NO_PROXY=${OVIS_NO_PROXY:-}
+      - http_proxy=${OVIS_HTTP_PROXY:-}
+      - https_proxy=${OVIS_HTTPS_PROXY:-}
+      - no_proxy=${OVIS_NO_PROXY:-}
+      # Use simplified auth variables
+      - BASIC_AUTH_USERNAME=${EXPRESS_AUTH_USERNAME}
+      - BASIC_AUTH_PASSWORD=${EXPRESS_AUTH_PASSWORD}
+      # Keycloak internal URL is always the same
+      - KEYCLOAK_URL=http://keycloak:8080/keycloak
+      - KEYCLOAK_REALM=${KEYCLOAK_REALM}
+      - KEYCLOAK_CLIENT_ID=${KEYCLOAK_CLIENT_ID}
+      - KEYCLOAK_CLIENT_SECRET=${KEYCLOAK_CLIENT_SECRET}
+      - KEYCLOAK_ADMIN_CLIENT_ID=${KEYCLOAK_ADMIN_CLIENT_ID}
+      - KEYCLOAK_ADMIN_CLIENT_SECRET=${KEYCLOAK_ADMIN_CLIENT_SECRET}
+      # For CORS configuration
+      - APP_DOMAIN=${APP_DOMAIN}
+      - FRONTEND_PORT=${FRONTEND_PORT}
+      - NGINX_PROXY_MODE=${NGINX_PROXY_MODE}
+      - NGINX_SSL_ENABLED=${NGINX_SSL_ENABLED}
+      - NGINX_HTTP_PORT=${NGINX_HTTP_PORT}
+      - NGINX_HTTPS_PORT=${NGINX_HTTPS_PORT}
+    depends_on:
+      - keycloak
+
+  mongodb-restore:
+    image: docker.verbis.dkfz.de/ovis/ovis-backend-mongodb:latest
+    container_name: mongodb-restore
+    restart: "no"
+    depends_on:
+      ovis-backend-database-mongodb:
+        condition: service_started
+    environment:
+      - MONGO_HOST=${MONGO_HOST:-ovis-backend-database-mongodb}
+      - MONGO_RESTORE_DBS=${MONGO_RESTORE_DBS:-onc_test}
+      - MONGO_RESTORE_COLLECTIONS=${MONGO_RESTORE_COLLECTIONS:-user}
+      - MONGO_RESTORE_IGNORE_IDS=${MONGO_RESTORE_IGNORE_IDS:-ovis-root}
+    volumes:
+      - ./Setup/Backups/scripts/mongodb-restore.sh:/restore/mongodb-restore.sh:ro
+      - ./Setup/Backups/mongodb:/backups:ro
+    entrypoint: ["bash", "/restore/mongodb-restore.sh"]
+
+  mongodb-backup:
+    image: docker.verbis.dkfz.de/ovis/ovis-backend-mongodb:latest
+    container_name: mongodb-backup
+    depends_on:
+      ovis-backend-database-mongodb:
+        condition: service_started
+      mongodb-restore:
+        condition: service_completed_successfully
+    environment:
+      - MONGO_HOST=${MONGO_HOST:-ovis-backend-database-mongodb}
+      - MONGO_BACKUP_DBS=${MONGO_BACKUP_DBS:-onc_test}
+      - MONGO_BACKUP_COLLECTIONS=${MONGO_BACKUP_COLLECTIONS:-user}
+      - MONGO_BACKUP_RETENTION=${MONGO_BACKUP_RETENTION:-0}
+      - BACKUP_INTERVAL_SECONDS=${MONGO_BACKUP_INTERVAL_SECONDS:-21600}
+    volumes:
+      - ./Setup/Backups/scripts/mongodb-backup.sh:/backup/mongodb-backup.sh:ro
+      - ./Setup/Backups/mongodb:/var/backups/mongodb
+    entrypoint: ["bash", "/backup/mongodb-backup.sh"]
+
+  nginx:
+    image: nginx:1
+    container_name: nginx-ovis
+    ports:
+      - "${NGINX_HTTP_PORT:-80}:${NGINX_HTTP_PORT:-80}"
+      - "${NGINX_HTTPS_PORT:-443}:${NGINX_HTTPS_PORT:-443}"
+    environment:
+      - APP_DOMAIN=${APP_DOMAIN:-localhost}
+      - NGINX_PROXY_MODE=${NGINX_PROXY_MODE:-true}
+      - NGINX_SSL_ENABLED=${NGINX_SSL_ENABLED:-false}
+      - NGINX_HTTP_PORT=${NGINX_HTTP_PORT:-80}
+      - NGINX_HTTPS_PORT=${NGINX_HTTPS_PORT:-443}
+      # Internal upstream addresses are always the same
+      - NGINX_KEYCLOAK_UPSTREAM=keycloak:8080
+      - NGINX_FRONTEND_UPSTREAM=ovis-frontend:5173
+      # Internal certificate paths
+      - NGINX_SSL_CERT=/etc/nginx/certs/cert.pem
+      - NGINX_SSL_KEY=/etc/nginx/certs/privkey.pem
+      - NGINX_WORKER_PROCESSES=${NGINX_WORKER_PROCESSES}
+    volumes:
+      - ./Setup/nginx/nginx.conf.template:/etc/nginx/nginx.conf.template:ro
+      - ./Setup/nginx/entrypoint.sh:/entrypoint.sh:ro
+      - ${SSL_CERT_FILE:-./Setup/Certificates/cert.pem}:/etc/nginx/certs/cert.pem:ro
+      - ${SSL_KEY_FILE:-./Setup/Certificates/privkey.pem}:/etc/nginx/certs/privkey.pem:ro
+    entrypoint: ["/bin/sh", "-c", "cp /entrypoint.sh /tmp/entrypoint.sh && sed -i 's/\\r$$//' /tmp/entrypoint.sh && /bin/sh /tmp/entrypoint.sh"]
+    depends_on:
+      ovis-backend-apollo:
+        condition: service_started
+      keycloak:
+        condition: service_started
+
+volumes:
+  node_modules:
+  mongo_db:
+  mongo_conf:
+  catalogue_volume:

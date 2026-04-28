@@ -1,0 +1,133 @@
+module.exports = `
+
+    extend type Query {
+        getCourses(limit: Int, continueFromID: String, filter: String): [course]
+        getTimeChart(
+            collection: collection = progress
+            timePeriod: Period = months, 
+            group: ptGroup, 
+            eventsUsed: EventFilter = all, 
+            datediff: Boolean = false,
+            filter: String): [timeChart]
+        getCategoryChart(selectedType: ptGroup, collection: collection!, filter: String): countBarChart
+    }
+
+    enum ptGroup {
+        therapyID
+        overallAssessment
+        tumorState
+        lymphNodeState
+        metastasisState
+        vitalState
+        progressReason
+        progressSource
+        
+        RClass
+        y
+        V
+        type
+        multipleT
+        version
+        Pn
+        L
+        N
+        UICC
+        S
+        r
+        a
+
+        generalType
+        intention
+        organizationalUnit
+        terminationReason
+        multiModal
+        combination
+        surgeryContext
+
+        anastomoticInsufficiency
+        localRState
+        globalRState
+        subType
+        emergencySurgery
+        side
+
+        tumorID
+        progressOccurrenceDate
+        therapyEndDate
+        progressDaysSinceDiagnosis
+        protocol
+        ActiveSubstance
+        doseDeviation
+
+        phase
+        organisationShort
+        organisationFull
+        status
+        project
+
+        internal
+        resectionType
+       	cyclesPlanned
+        cyclesPerformed
+
+        radiation_type
+        radiation_brachyType
+        radiation_tech
+        radiation_radioType
+        radiation_radioNuclid
+        radiation_singleDose
+        radiation_singleDoseUnit
+        radiation_totalDose
+        radiation_boost
+        radiation_lymphNodes
+        radiation_tumor
+        radiation_metastasis
+        radiation_radioTarget
+
+        radiation_breath
+        radiation_stereo
+        radiation_performance
+        radiation_duration
+        
+    }
+
+    enum Period {
+        years
+        quarters
+        months
+        weeks
+        days
+    }
+
+    type timeChart {
+        label: String
+        count: Int
+        date: Float
+        tumorid: [String]
+    }
+
+    type countBarChart {
+        label: [String]
+        count: [Int]
+    }
+
+
+
+    type course {
+        patID:String
+        tumorID: String
+        progressOccurrenceDate: Float
+        overallAssessment: String
+        tumorState: String
+        lymphNodeState: String
+        metastasisState: String
+        progressReason: String
+        progressSource: String
+        reportID: String
+        diagnosisDate: Float
+        vitalDate: Float
+        vitalState: String
+        progressDaysSinceDiagnosis: Int
+        _id: String
+}
+`
