@@ -1,7 +1,8 @@
-import { oncdb } from './monConnector.js';
+import { closeConnection, oncdb } from './monConnector.js';
 import { promises as fs } from 'fs';
 import { ops4 } from './Preprocessing/ops4.mjs';
 
+const cataloguePath = process.env.CATALOGUE_PATH || './ovis-catalogue.json';
 const odb = await oncdb();
 
 try {
@@ -180,23 +181,13 @@ try {
 	}));
 
 	outputData = [...outputData, ...duplicatedData];
+	const catalogueJson = JSON.stringify(outputData, null, 2);
 
-	// Write to container internal path for healthcheck compatibility
-	await fs.writeFile('./ovis-catalogue.json', JSON.stringify(outputData, null, 2), 'utf-8');
-	console.log('Ergebnisse wurden in ovis-catalogue.json gespeichert.');
-
-	// Write to shared volume for frontend access
-	try {
-		await fs.writeFile(
-			'/app/generated/ovis-catalogue.json',
-			JSON.stringify(outputData, null, 2),
-			'utf-8'
-		);
-		console.log('Katalog wurde auch auf dem geteilten Volume gespeichert für Frontend-Zugriff.');
-	} catch (sharedError) {
-		console.error('Fehler beim Speichern auf dem geteilten Volume:', sharedError);
-		console.log('Fallback: Katalog ist nur im Container verfügbar.');
-	}
+	await fs.writeFile(cataloguePath, catalogueJson, 'utf-8');
+	console.log(`Ergebnisse wurden in ${cataloguePath} gespeichert.`);
 } catch (err) {
 	console.error('Fehler beim Abrufen der Collections oder beim Speichern der Datei:', err);
+	process.exitCode = 1;
+} finally {
+	closeConnection();
 }

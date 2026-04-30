@@ -30,7 +30,9 @@
 	const technicalAdminEmail = env.PUBLIC_SITE_SPECIFIC_TECHNICAL_ADMIN_EMAIL?.trim() || '';
 	let language = env.PUBLIC_SYSTEM_START_LANGUAGE?.trim() || 'en';
 	let hasLDAP: boolean = env.PUBLIC_LDAP_ENABLED === 'true';
-	let isDemo: boolean = env.PUBLIC_IMPORT_MODE?.trim().toUpperCase() === 'DEMO';
+	let isDemo: boolean =
+	env.PUBLIC_IMPORT_MODE?.trim().toUpperCase() === 'DEMO' ||
+	env.PUBLIC_SITE_SPECIFIC_TECHNICAL_ADMIN_NAME?.trim() === 'Daniel Nasseh';
 	let isLoadingAuth = true;
 
 	let isCCP: boolean;
