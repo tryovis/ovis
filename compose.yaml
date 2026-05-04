@@ -344,7 +344,9 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
 
   keycloak:
-    image: quay.io/keycloak/keycloak:24.0.3
+    build:
+      context: ./Backend/Authentication/Keycloak
+      dockerfile: Dockerfile
     container_name: ovis-keycloak
     depends_on:
       - postgres
@@ -353,9 +355,7 @@ services:
       - ./Backend/Authentication/Certificates:/etc/keycloak/certs:ro
       - ./Backend/Authentication/themes:/opt/keycloak/themes:ro
       - ./Backend/Authentication/configuration:/opt/keycloak/standalone/configuration:ro
-
-
-
+      - ./Backend/Authentication/Keycloak/ovis-realm.json:/realm-base/ovis-realm.json:ro
     environment:
       DB_VENDOR: postgres
       DB_ADDR: postgres
@@ -374,90 +374,32 @@ services:
       # LDAP configuration for dynamic certificate loading
       PUBLIC_LDAP_ENABLED: ${PUBLIC_LDAP_ENABLED}
       LDAP_CERTIFICATE_NAME: ${LDAP_CERTIFICATE_NAME}
+      LDAP_CONNECTION_URL: ${LDAP_CONNECTION_URL}
+      LDAP_BIND_DN: ${LDAP_BIND_DN}
+      LDAP_BIND_CREDENTIAL: ${LDAP_BIND_CREDENTIAL}
+      LDAP_USERS_DN: ${LDAP_USERS_DN}
+      LDAP_EDIT_MODE: ${LDAP_EDIT_MODE}
+      LDAP_VENDOR: ${LDAP_VENDOR:-}
+      LDAP_USERNAME_ATTRIBUTE: ${LDAP_USERNAME_ATTRIBUTE:-}
+      LDAP_RDN_ATTRIBUTE: ${LDAP_RDN_ATTRIBUTE:-}
+      LDAP_UUID_ATTRIBUTE: ${LDAP_UUID_ATTRIBUTE:-}
+      LDAP_USER_OBJECT_CLASSES: ${LDAP_USER_OBJECT_CLASSES:-}
+      LDAP_USER_FILTER: ${LDAP_USER_FILTER:-}
+      LDAP_SEARCH_SCOPE: ${LDAP_SEARCH_SCOPE:-}
+      LDAP_READ_TIMEOUT: ${LDAP_READ_TIMEOUT:-}
+      LDAP_PAGINATION: ${LDAP_PAGINATION:-}
+      LDAP_REFERRAL: ${LDAP_REFERRAL:-}
+      LDAP_EMAIL_ATTRIBUTE: ${LDAP_EMAIL_ATTRIBUTE:-}
+      LDAP_FIRST_NAME_ATTRIBUTE: ${LDAP_FIRST_NAME_ATTRIBUTE:-}
+      LDAP_LAST_NAME_ATTRIBUTE: ${LDAP_LAST_NAME_ATTRIBUTE:-}
+      KEYCLOAK_CLIENT_ID: ${KEYCLOAK_CLIENT_ID}
+      KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET}
+      OVIS_ROOT_USERNAME: ${OVIS_ROOT_USERNAME:-ovis-root}
+      OVIS_ROOT_PASSWORD: ${OVIS_ROOT_PASSWORD:-test}
     ports:
       - "127.0.0.1:${KEYCLOAK_PORT}:8080"
     user: root
-    entrypoint: >-
-      /bin/bash -c '
-        echo "→ Inhalte von /etc/keycloak/certs:"
-        ls -lh /etc/keycloak/certs
-
-        # Dynamic certificate loading based on LDAP configuration
-        if [ "$PUBLIC_LDAP_ENABLED" = "true" ] && [ -n "$LDAP_CERTIFICATE_NAME" ] && [ -f "/etc/keycloak/certs/$LDAP_CERTIFICATE_NAME" ]; then
-          echo "→ LDAP enabled: Loading certificate $LDAP_CERTIFICATE_NAME"
-          TRUSTSTORE_PARAM="--truststore-paths=/etc/keycloak/certs/$LDAP_CERTIFICATE_NAME"
-        else
-          echo "→ LDAP disabled or certificate not found: Skipping certificate loading"
-          TRUSTSTORE_PARAM=""
-        fi
-        
-        echo "→ Starting Keycloak with truststore parameter: $$TRUSTSTORE_PARAM"
-        
-        # Keycloak starten mit dynamischem Truststore
-        exec /opt/keycloak/bin/kc.sh start-dev \
-          --proxy=edge \
-          --hostname-strict=false \
-          --http-relative-path=/keycloak \
-          $$TRUSTSTORE_PARAM \
-          --tls-hostname-verifier=ANY
-      '
-
-  keycloak-config:
-    build:
-      context: ./Backend/Authentication/Keycloak
-      dockerfile: Dockerfile.keycloak-config
-      args:
-        HTTP_PROXY: ${OVIS_HTTP_PROXY:-}
-        HTTPS_PROXY: ${OVIS_HTTPS_PROXY:-}
-        NO_PROXY: ${OVIS_NO_PROXY:-}
-        http_proxy: ${OVIS_HTTP_PROXY:-}
-        https_proxy: ${OVIS_HTTPS_PROXY:-}
-        no_proxy: ${OVIS_NO_PROXY:-}
-    image: ovis-keycloak-config:latest
-    container_name: ovis-keycloak-config
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-      - ./Backend/Authentication/Keycloak/ovis-realm.json:/realm-base/ovis-realm.json:ro
-      - ./Backend/Authentication/Keycloak/build-realm.sh:/build-realm.sh:ro
-      - ./Backend/Authentication/Keycloak/config-run.sh:/config-run.sh:ro
-
-
-
-    environment:
-      - HTTP_PROXY=${OVIS_HTTP_PROXY:-}
-      - HTTPS_PROXY=${OVIS_HTTPS_PROXY:-}
-      - NO_PROXY=${OVIS_NO_PROXY:-}
-      - http_proxy=${OVIS_HTTP_PROXY:-}
-      - https_proxy=${OVIS_HTTPS_PROXY:-}
-      - no_proxy=${OVIS_NO_PROXY:-}
-      - PUBLIC_LDAP_ENABLED=${PUBLIC_LDAP_ENABLED}
-
-      - LDAP_CONNECTION_URL=${LDAP_CONNECTION_URL}
-      - LDAP_BIND_DN=${LDAP_BIND_DN}
-      - LDAP_BIND_CREDENTIAL=${LDAP_BIND_CREDENTIAL}
-      - LDAP_USERS_DN=${LDAP_USERS_DN}
-      - LDAP_EDIT_MODE=${LDAP_EDIT_MODE}
-      - LDAP_VENDOR=${LDAP_VENDOR:-}
-      - LDAP_USERNAME_ATTRIBUTE=${LDAP_USERNAME_ATTRIBUTE:-}
-      - LDAP_RDN_ATTRIBUTE=${LDAP_RDN_ATTRIBUTE:-}
-      - LDAP_UUID_ATTRIBUTE=${LDAP_UUID_ATTRIBUTE:-}
-      - LDAP_USER_OBJECT_CLASSES=${LDAP_USER_OBJECT_CLASSES:-}
-      - LDAP_USER_FILTER=${LDAP_USER_FILTER:-}
-      - LDAP_SEARCH_SCOPE=${LDAP_SEARCH_SCOPE:-}
-      - LDAP_READ_TIMEOUT=${LDAP_READ_TIMEOUT:-}
-      - LDAP_PAGINATION=${LDAP_PAGINATION:-}
-      - LDAP_REFERRAL=${LDAP_REFERRAL:-}
-      - LDAP_EMAIL_ATTRIBUTE=${LDAP_EMAIL_ATTRIBUTE:-}
-      - LDAP_FIRST_NAME_ATTRIBUTE=${LDAP_FIRST_NAME_ATTRIBUTE:-}
-      - LDAP_LAST_NAME_ATTRIBUTE=${LDAP_LAST_NAME_ATTRIBUTE:-}
-      - KEYCLOAK_CLIENT_ID=${KEYCLOAK_CLIENT_ID}
-      - KEYCLOAK_CLIENT_SECRET=${KEYCLOAK_CLIENT_SECRET}
-      - OVIS_ROOT_USERNAME=${OVIS_ROOT_USERNAME:-ovis-root}
-      - OVIS_ROOT_PASSWORD=${OVIS_ROOT_PASSWORD:-test}
-    depends_on:
-      keycloak:
-        condition: service_started
-    command: ["/bin/sh", "/config-run.sh"]
+    entrypoint: ["/opt/keycloak/bin/ovis-entrypoint.sh"]
 
   express-auth:
     build: 

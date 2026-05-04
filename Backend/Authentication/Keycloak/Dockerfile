@@ -7,15 +7,13 @@ USER root
 # Provide jq without relying on a package manager in the Keycloak image
 COPY --from=jq /jq /usr/bin/jq
 
-# Copy realm build script
+# Copy realm bootstrap scripts
 COPY build-realm.sh /build-realm.sh
-RUN chmod +x /build-realm.sh
+COPY keycloak-entrypoint.sh /opt/keycloak/bin/ovis-entrypoint.sh
+RUN chmod +x /build-realm.sh /opt/keycloak/bin/ovis-entrypoint.sh
 
-# Runtime scripts only (realm, certs, themes, config are bind-mounted at runtime)
-# This image is intended to be used with the keycloak-config sidecar
-# for dynamic realm import, or with a pre-built realm file.
+# Runtime realm, certs, themes, and config are bind-mounted at startup.
 
 USER keycloak
 
-# Default entrypoint is the standard Keycloak entrypoint
-# The keycloak-config sidecar handles dynamic realm configuration
+# Default entrypoint is the standard Keycloak entrypoint unless compose overrides it.

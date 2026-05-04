@@ -51,6 +51,51 @@
     docker compose --profile dev down -v
     ```
 
+### Image-Only Architecture Guide
+
+For the detailed runtime architecture, site-config model, and operator workflow, see:
+
+- `docs/nginx-configuration.md`
+- `docs/bridgehead-subpath-longterm.md`
+
+Quick bootstrap for new deployments:
+
+```bash
+cp .env.example .env
+docker compose -f compose-image.yaml up -d
+```
+
+### Push images to the shared registry
+
+1. Configure the standalone image target in `.env`:
+
+```bash
+OVIS_GENERAL_IMAGE_NAMESPACE=thewindmom
+# Runtime image mode used by compose-image.yaml and compose.yaml
+OVIS_IMPORT_MODE=demo
+# Multi-platform publish
+OVIS_IMAGE_BUILD_PLATFORMS=linux/amd64,linux/arm64
+OVIS_IMAGE_MAX_RETRIES=2
+OVIS_GENERAL_IMAGE_REGISTRY_USERNAME=<your-registry-username>
+# Optional for non-interactive login; otherwise password is prompted by docker login
+OVIS_GENERAL_IMAGE_REGISTRY_PASSWORD=
+```
+
+2. Publish general/standalone images:
+
+```bash
+./scripts/push-general-images.sh
+```
+
+This builds and pushes the standalone OVIS image set to `OVIS_GENERAL_IMAGE_NAMESPACE`.
+Bridgehead/CCP publishing belongs to the `ccp` branch.
+
+Consistency contract for the frontend/importer flows:
+
+- `compose.yaml` and `compose-image.yaml` are expected to deliver the same runtime experience for a given `OVIS_IMPORT_MODE`.
+- The supported equivalence boundary is runtime behavior: container env, normalized frontend HTML/public config, and importer mode selection.
+- Byte-identical frontend bundles or identical image digests are not required as long as the served behavior matches.
+
 ## Architecture Overview
 
 OVIS follows a containerized microservices architecture with core application services orchestrated using Docker Compose:
@@ -313,9 +358,9 @@ Only set proxy variables if your server needs an outbound corporate proxy. Other
 
 *   **`OVIS_HTTP_PROXY`**: HTTP proxy URL (example: `http://proxy.example.org:8080`)
 *   **`OVIS_HTTPS_PROXY`**: HTTPS proxy URL (example: `http://proxy.example.org:8080`)
-*   **`OVIS_NO_PROXY`**: Comma-separated hosts/domains that should bypass the proxy (example: `localhost,127.0.0.1,::1,keycloak,keycloak-config,postgres,nginx,express-auth,ovis-frontend,ovis-frontend-dev,ovis-backend-apollo,ovis-backend-database-mongodb,ovis-backend-mongodb-data-preprocessing,ovis-backend-data-import,mongodb-restore,mongodb-backup,.example.org,.example.net,.svc,.cluster.local`)
+*   **`OVIS_NO_PROXY`**: Comma-separated hosts/domains that should bypass the proxy (example: `localhost,127.0.0.1,::1,keycloak,postgres,nginx,express-auth,ovis-frontend,ovis-frontend-dev,ovis-backend-apollo,ovis-backend-database-mongodb,ovis-backend-mongodb-data-preprocessing,ovis-backend-data-import,mongodb-restore,mongodb-backup,.example.org,.example.net,.svc,.cluster.local`)
 
-These values are consumed by build/runtime-sensitive services (frontend, apollo, express-auth, data-import, preprocessing, keycloak-config). No proxy is used unless you explicitly set them.
+These values are consumed by build/runtime-sensitive services (frontend, apollo, express-auth, data-import, preprocessing, keycloak). No proxy is used unless you explicitly set them.
 
 ### GraphQL Route Handling
 Standard setups do not require any manual GraphQL endpoint configuration. OVIS resolves the internal GraphQL route automatically by deployment mode.

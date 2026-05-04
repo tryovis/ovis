@@ -6,8 +6,8 @@
 set -e
 
 # Input and output files
-BASE_REALM="/realm-base/ovis-realm.json"
-OUTPUT_REALM="/import/ovis-realm.json"
+BASE_REALM="${BASE_REALM:-/realm-base/ovis-realm.json}"
+OUTPUT_REALM="${OUTPUT_REALM:-/import/ovis-realm.json}"
 
 # Check if base realm exists
 if [ ! -f "$BASE_REALM" ]; then
