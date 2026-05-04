@@ -7,11 +7,140 @@ import { ccode } from './countryCode2countryName.mjs';
 import { plz2province } from './plz2state.mjs';
 import { plz2county } from './plz2county.mjs';
 import { ICD10 } from './ICD10.mjs';
-import { createReadStream, readlink } from 'node:fs';
-import readLine from 'node:readline';
+import { readFile } from 'node:fs/promises';
 import { rareCancers } from './rareCancers.mjs';
 import { ozRules } from './onkozertRules.mjs';
 import { config, normalizeLower } from './env-config.mjs';
+import { performance } from 'node:perf_hooks';
+
+const timingEnabled = false;
+const profilingEnabled = false;
+const progressEnabled = true;
+const progressInteractive = Boolean(process.stdout.isTTY);
+const timings = [];
+const profileTimings = new Map();
+const collectionMetrics = [];
+const processStartedAt = performance.now();
+const orderedInsertOptions = { forceServerObjectId: true };
+const pipelineStepCount = 23;
+
+const progressState = {
+	completedSteps: 0,
+	label: 'starting',
+	current: 0,
+	total: 0,
+	lastRenderAt: 0,
+	lastLineLength: 0
+};
+
+const addTiming = (name, start, details = {}) => {
+	if (!timingEnabled) return;
+	timings.push({ name, durationMs: performance.now() - start, ...details });
+};
+
+const addDurationTiming = (name, durationMs, details = {}) => {
+	if (!timingEnabled) return;
+	timings.push({ name, durationMs, ...details });
+};
+
+const addProfileTiming = (name, start, count = 1) => {
+	if (!profilingEnabled) return;
+	const durationMs = performance.now() - start;
+	const current = profileTimings.get(name) ?? { name, durationMs: 0, count: 0 };
+	current.durationMs += durationMs;
+	current.count += count;
+	profileTimings.set(name, current);
+};
+
+const formatDuration = (durationMs) => {
+	const totalSeconds = Math.max(0, Math.round(durationMs / 1000));
+	const minutes = Math.floor(totalSeconds / 60);
+	const seconds = totalSeconds % 60;
+	return `${minutes}:${String(seconds).padStart(2, '0')}`;
+};
+
+const progressBar = (fraction) => {
+	const width = 24;
+	const filled = Math.max(0, Math.min(width, Math.round(fraction * width)));
+	return `${'█'.repeat(filled)}${'░'.repeat(width - filled)}`;
+};
+
+const renderProgress = (force = false) => {
+	if (!progressEnabled) return;
+	const now = performance.now();
+	if (!force && now - progressState.lastRenderAt < 250) return;
+
+	const currentFraction = progressState.total
+		? Math.min(1, progressState.current / progressState.total)
+		: 0;
+	const overallFraction = Math.min(
+		0.999,
+		(progressState.completedSteps + currentFraction) / pipelineStepCount
+	);
+	const elapsedMs = now - processStartedAt;
+	const itemProgress = progressState.total
+		? ` | ${Math.min(progressState.current, progressState.total)}/${progressState.total}`
+		: '';
+	const line =
+		`OVIS preprocessing [${progressBar(overallFraction)}] ` +
+		`${Math.round(overallFraction * 100)}% | ` +
+		`${Math.min(progressState.completedSteps + 1, pipelineStepCount)}/${pipelineStepCount} ` +
+		`${progressState.label}${itemProgress} | elapsed ${formatDuration(elapsedMs)}`;
+	if (progressInteractive) {
+		const padding = Math.max(0, progressState.lastLineLength - line.length);
+		process.stdout.write(`\r${line}${' '.repeat(padding)}`);
+		progressState.lastLineLength = line.length;
+	} else if (force) {
+		process.stdout.write(`${line}\n`);
+	}
+	progressState.lastRenderAt = now;
+};
+
+const startProgressStep = (label, total = 0) => {
+	progressState.label = label;
+	progressState.current = 0;
+	progressState.total = total;
+	renderProgress(true);
+};
+
+const updateProgressStep = (current, total = progressState.total) => {
+	progressState.current = current;
+	progressState.total = total;
+	renderProgress();
+};
+
+const renameProgressStep = (label) => {
+	progressState.label = label;
+	renderProgress(true);
+};
+
+const finishProgressStep = (label = progressState.label) => {
+	progressState.label = label;
+	progressState.current = progressState.total || 1;
+	progressState.total = progressState.total || 1;
+	renderProgress(true);
+	progressState.completedSteps += 1;
+};
+
+const finishProgress = () => {
+	if (!progressEnabled) return;
+	progressState.completedSteps = pipelineStepCount;
+	progressState.label = 'done';
+	progressState.current = 1;
+	progressState.total = 1;
+	const elapsedMs = performance.now() - processStartedAt;
+	const line = `OVIS preprocessing [${progressBar(
+		1
+	)}] 100% | ${pipelineStepCount}/${pipelineStepCount} done | elapsed ${formatDuration(elapsedMs)}`;
+	if (progressInteractive) {
+		const padding = Math.max(0, progressState.lastLineLength - line.length);
+		process.stdout.write(`\r${line}${' '.repeat(padding)}\n`);
+	} else {
+		process.stdout.write(`${line}\n`);
+	}
+};
+
+const logSafe = () => {};
 
 // --- OnkoZert: Regelauswertung ---
 const _eq_onko = (a, b) =>
@@ -111,50 +240,47 @@ const within90Days = (a, b) => {
 };
 
 const toDateKey = (value) => {
-  const d = sanitizeDate(value);
-  if (!d) return null;
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
+	const d = sanitizeDate(value);
+	if (!d) return null;
+	const year = d.getFullYear();
+	const month = String(d.getMonth() + 1).padStart(2, '0');
+	const day = String(d.getDate()).padStart(2, '0');
+	return `${year}-${month}-${day}`;
 };
 
-const normalizeHistologyCode = (value) =>
-  (value ?? '').toString().trim().toUpperCase();
+const normalizeHistologyCode = (value) => (value ?? '').toString().trim().toUpperCase();
 
 const applyMixedTumorFlag = (icdoEntries = []) => {
-  const entriesByDate = new Map();
+	const entriesByDate = new Map();
 
-  for (const entry of icdoEntries) {
-    entry.mixedTumor = false;
+	for (const entry of icdoEntries) {
+		entry.mixedTumor = false;
 
-    const dateKey = toDateKey(entry.histologyDate);
-    const histologyCode = normalizeHistologyCode(entry.histologyCode);
-    if (!dateKey || !histologyCode) continue;
+		const dateKey = toDateKey(entry.histologyDate);
+		const histologyCode = normalizeHistologyCode(entry.histologyCode);
+		if (!dateKey || !histologyCode) continue;
 
-    let entries = entriesByDate.get(dateKey);
-    if (!entries) {
-      entries = [];
-      entriesByDate.set(dateKey, entries);
-    }
-    entries.push(entry);
-  }
+		let entries = entriesByDate.get(dateKey);
+		if (!entries) {
+			entries = [];
+			entriesByDate.set(dateKey, entries);
+		}
+		entries.push(entry);
+	}
 
-  for (const entries of entriesByDate.values()) {
-    const distinctCodes = new Set(
-      entries
-        .map(entry => normalizeHistologyCode(entry.histologyCode))
-        .filter(Boolean)
-    );
+	for (const entries of entriesByDate.values()) {
+		const distinctCodes = new Set(
+			entries.map((entry) => normalizeHistologyCode(entry.histologyCode)).filter(Boolean)
+		);
 
-    if (distinctCodes.size >= 2) {
-      entries.forEach(entry => {
-        entry.mixedTumor = true;
-      });
-    }
-  }
+		if (distinctCodes.size >= 2) {
+			entries.forEach((entry) => {
+				entry.mixedTumor = true;
+			});
+		}
+	}
 
-  return icdoEntries;
+	return icdoEntries;
 };
 
 const matchesNormalizedSet = (value, set) => {
@@ -221,14 +347,139 @@ const mapValuesToSet = (mapping = {}) =>
 
 // Precompute env-driven lookups so downstream logic stays concise.
 const previousTherapySets = mapValuesToSet(config.previousTherapy);
+const previousTherapyEntries = Object.entries(previousTherapySets);
 const previousConsultationSets = mapValuesToSet(config.previousConsultation);
 const previousDiagnosticSets = mapValuesToSet(config.previousDiagnostic);
+const previousDiagnosticEntries = Object.entries(previousDiagnosticSets);
 const tumorboardPatterns = config.tumorboard?.patterns ?? {};
 const ecogPrefixLower = config.status?.ecogPrefixLower ?? '';
 const distressTypeLower = config.status?.distressTypeLower ?? '';
 const distressPositiveSet = config.status?.distressPositiveNormalized ?? new Set();
+const provinceByPostalCode = buildPostalRangeLookup(plz2province, 'province');
+const countyByPostalCode = buildPostalRangeLookup(plz2county, 'county');
+const rareCancerHistologiesByDiagnosis = buildRareCancerHistologyIndex(rareCancers);
+const onkozertRuleIndex = buildOnkozertRuleIndex(ozRules);
 
 const regexMatches = (regex, value) => (regex instanceof RegExp ? regex.test(value ?? '') : false);
+
+function buildPostalRangeLookup(ranges = [], valueKey) {
+	const lookup = new Map();
+	for (const range of ranges) {
+		for (let code = range.from; code <= range.to; code += 1) {
+			if (!lookup.has(code)) lookup.set(code, range[valueKey]);
+		}
+	}
+	return lookup;
+}
+
+function buildRareCancerHistologyIndex(entries = []) {
+	const index = new Map();
+	for (const entry of entries) {
+		if (!entry?.diagnosis || !entry?.histology) continue;
+		let histologies = index.get(entry.diagnosis);
+		if (!histologies) {
+			histologies = new Set();
+			index.set(entry.diagnosis, histologies);
+		}
+		histologies.add(entry.histology);
+	}
+	return index;
+}
+
+function isRareCancerDiagnosis(icd10, icdoEntries = []) {
+	const histologies = rareCancerHistologiesByDiagnosis.get(icd10);
+	if (!histologies) return false;
+	for (const h of icdoEntries) {
+		const histologyCode = h.histologyCode;
+		if (!histologyCode) continue;
+		for (const histology of histologies) {
+			if (histologyCode.includes(histology)) return true;
+		}
+	}
+	return false;
+}
+
+function buildOnkozertRuleIndex(rules = []) {
+	const index = {
+		entities: new Set(),
+		fallback: [],
+		icd10Exact: new Map(),
+		icd10Prefixes: [],
+		icd10Three: new Map(),
+		histologyPrefixes: new Map(),
+		histologyPrefixLengths: new Set()
+	};
+
+	const addToMap = (map, key, rule) => {
+		let entries = map.get(key);
+		if (!entries) {
+			entries = [];
+			map.set(key, entries);
+		}
+		entries.push(rule);
+	};
+
+	for (const rule of rules ?? []) {
+		if (rule?.entity) index.entities.add(rule.entity);
+
+		let indexed = false;
+		if (rule?.ICD_ICD10) {
+			const value = String(rule.ICD_ICD10);
+			if (value.endsWith('*')) {
+				index.icd10Prefixes.push({ prefix: value.slice(0, -1).toUpperCase(), rule });
+			} else {
+				addToMap(index.icd10Exact, value.trim().toLowerCase(), rule);
+			}
+			indexed = true;
+		}
+		if (rule?.ICD_ICD10_3) {
+			addToMap(index.icd10Three, String(rule.ICD_ICD10_3).trim().toLowerCase(), rule);
+			indexed = true;
+		}
+		if (rule?.ICDO_histologyCode) {
+			const prefix = String(rule.ICDO_histologyCode).trim().toUpperCase();
+			addToMap(index.histologyPrefixes, prefix, rule);
+			index.histologyPrefixLengths.add(prefix.length);
+			indexed = true;
+		}
+		if (!indexed) index.fallback.push(rule);
+	}
+
+	index.histologyPrefixLengths = [...index.histologyPrefixLengths].sort((a, b) => a - b);
+	return index;
+}
+
+function createOnkozertEntityFlags() {
+	return Object.fromEntries([...onkozertRuleIndex.entities].map((entity) => [entity, false]));
+}
+
+function getOnkozertCandidateRules(obj) {
+	const candidates = new Set(onkozertRuleIndex.fallback);
+	const icd10 = obj?.ICD?.ICD10 ?? '';
+	const icd10Lower = String(icd10).trim().toLowerCase();
+	const icd10Upper = String(icd10).toUpperCase();
+
+	for (const rule of onkozertRuleIndex.icd10Exact.get(icd10Lower) ?? []) candidates.add(rule);
+	for (const { prefix, rule } of onkozertRuleIndex.icd10Prefixes) {
+		if (icd10Upper.startsWith(prefix)) candidates.add(rule);
+	}
+	for (const rule of onkozertRuleIndex.icd10Three.get(normalizeLower(obj?.ICD?.ICD10_3)) ?? []) {
+		candidates.add(rule);
+	}
+
+	for (const histology of obj?.ICDO ?? []) {
+		const histologyCode = String(histology?.histologyCode ?? '').toUpperCase();
+		if (!histologyCode) continue;
+		for (const length of onkozertRuleIndex.histologyPrefixLengths) {
+			for (const rule of onkozertRuleIndex.histologyPrefixes.get(histologyCode.slice(0, length)) ??
+				[]) {
+				candidates.add(rule);
+			}
+		}
+	}
+
+	return candidates;
+}
 
 const earliest = (arr) =>
 	arr
@@ -247,16 +498,30 @@ const isDeceased = (raw) => {
 
 // Liefert "synchron" | "metachron" | "both" | null
 const classifyMetastasis = (diagnosisDate, metastasisDates = [], progressDates = []) => {
-	const all = [...metastasisDates, ...progressDates].map(sanitizeDate).filter(Boolean);
-	if (all.length === 0 || !diagnosisDate) return null;
+	if (!diagnosisDate) return null;
+	const d0 = sanitizeDate(diagnosisDate);
+	if (!d0) return null;
 
 	let hasSyn = false,
 		hasMeta = false;
-	for (const d of all) {
-		if (within90Days(diagnosisDate, d)) hasSyn = true;
+	let hasAny = false;
+	const classifyDate = (value) => {
+		const d = sanitizeDate(value);
+		if (!d) return;
+		hasAny = true;
+		const days = (d - d0) / (1000 * 60 * 60 * 24);
+		if (days < 90) hasSyn = true;
 		else hasMeta = true;
+	};
+	for (const value of metastasisDates) {
+		classifyDate(value);
 		if (hasSyn && hasMeta) return 'both';
 	}
+	for (const value of progressDates) {
+		classifyDate(value);
+		if (hasSyn && hasMeta) return 'both';
+	}
+	if (!hasAny) return null;
 	return hasSyn ? 'synchron' : 'metachron';
 };
 
@@ -425,80 +690,162 @@ const data = {
 	bioMaterial: mock.bioMaterial,
 	tumorBoard: mock.tumorBoard
 };
+const dataCollectionNames = Object.keys(data);
+
+let lookupIndexes = {
+	patientByPatID: new Map(),
+	diagnosisByTumorID: new Map(),
+	tumorIDsByPatID: new Map(),
+	histologyByTumorID: new Map(),
+	therapyByTumorID: new Map(),
+	consultationByTumorID: new Map(),
+	diagnosticByTumorID: new Map(),
+	tumorBoardByTumorID: new Map(),
+	progressByTumorID: new Map(),
+	metastasisByTumorID: new Map(),
+	statusByTumorID: new Map(),
+	singleRadiationByTherapyID: new Map()
+};
+
+const groupByKey = (entries, keyName) => {
+	const grouped = new Map();
+	for (const entry of entries) {
+		const key = entry?.[keyName];
+		let group = grouped.get(key);
+		if (!group) {
+			group = [];
+			grouped.set(key, group);
+		}
+		group.push(entry);
+	}
+	return grouped;
+};
+
+const buildLookupIndexes = () => {
+	const startedAt = performance.now();
+	const patientByPatID = new Map();
+	const diagnosisByTumorID = new Map();
+	const tumorIDsByPatID = new Map();
+
+	for (const patient of data.patient) {
+		if (!patientByPatID.has(patient.patID)) {
+			patientByPatID.set(patient.patID, patient);
+		}
+	}
+
+	for (const diagnosis of data.diagnosis) {
+		if (!diagnosisByTumorID.has(diagnosis.tumorID)) {
+			diagnosisByTumorID.set(diagnosis.tumorID, diagnosis);
+		}
+
+		let tumorIDs = tumorIDsByPatID.get(diagnosis.patID);
+		if (!tumorIDs) {
+			tumorIDs = [];
+			tumorIDsByPatID.set(diagnosis.patID, tumorIDs);
+		}
+		tumorIDs.push(diagnosis.tumorID);
+	}
+
+	const histologyByTumorID = groupByKey(data.histology, 'tumorID');
+	const therapyByTumorID = groupByKey(data.therapy, 'tumorID');
+	const consultationByTumorID = groupByKey(data.consultation, 'tumorID');
+	const diagnosticByTumorID = groupByKey(data.diagnostic, 'tumorID');
+	const tumorBoardByTumorID = groupByKey(data.tumorBoard, 'tumorID');
+	const progressByTumorID = groupByKey(data.progress, 'tumorID');
+	const metastasisByTumorID = groupByKey(data.metastasis, 'tumorID');
+	const statusByTumorID = groupByKey(data.status, 'tumorID');
+	const singleRadiationByTherapyID = groupByKey(data.singleRadiation, 'therapyID');
+
+	lookupIndexes = {
+		patientByPatID,
+		diagnosisByTumorID,
+		tumorIDsByPatID,
+		histologyByTumorID,
+		therapyByTumorID,
+		consultationByTumorID,
+		diagnosticByTumorID,
+		tumorBoardByTumorID,
+		progressByTumorID,
+		metastasisByTumorID,
+		statusByTumorID,
+		singleRadiationByTherapyID
+	};
+	addTiming('lookup-map-construction:core', startedAt, {
+		patients: patientByPatID.size,
+		diagnoses: diagnosisByTumorID.size,
+		patientsWithTumors: tumorIDsByPatID.size,
+		histologyTumors: histologyByTumorID.size,
+		therapyTumors: therapyByTumorID.size,
+		progressTumors: progressByTumorID.size,
+		statusTumors: statusByTumorID.size,
+		radiationTherapies: singleRadiationByTherapyID.size
+	});
+};
+
+const rebuildDiagnosisLookupIndexes = () => {
+	const startedAt = performance.now();
+	const diagnosisByTumorID = new Map();
+	const tumorIDsByPatID = new Map();
+
+	for (const diagnosis of data.diagnosis) {
+		if (!diagnosisByTumorID.has(diagnosis.tumorID)) {
+			diagnosisByTumorID.set(diagnosis.tumorID, diagnosis);
+		}
+
+		let tumorIDs = tumorIDsByPatID.get(diagnosis.patID);
+		if (!tumorIDs) {
+			tumorIDs = [];
+			tumorIDsByPatID.set(diagnosis.patID, tumorIDs);
+		}
+		tumorIDs.push(diagnosis.tumorID);
+	}
+
+	lookupIndexes.diagnosisByTumorID = diagnosisByTumorID;
+	lookupIndexes.tumorIDsByPatID = tumorIDsByPatID;
+	addTiming('lookup-map-rebuild:diagnosis', startedAt, {
+		diagnoses: diagnosisByTumorID.size,
+		patientsWithTumors: tumorIDsByPatID.size
+	});
+};
 
 let odb = null;
-const stream = createReadStream('./Preprocessing/omock.json', { encoding: 'utf8' });
-const reader = readLine.createInterface({ input: stream, crlfDelay: Infinity });
-let inobj = 0;
-let collection = '',
-	entries = [],
-	sobj = null;
-
-reader.on('line', (line) => {
-	let [key, value] = line.split(':', 2).map((it) => it.trim());
-	if (collection !== '' && value) {
-		sobj ??= '{';
-		sobj += line;
-	}
-	if (/},?$/.test(key) && sobj) {
-		sobj += '}';
-		if (inobj < 2) {
-			entries.push(JSON.parse(sobj));
-			sobj = null;
+const parseStartedAt = performance.now();
+const inputPath = './Preprocessing/omock.json';
+async function loadInputData() {
+	startProgressStep('reading input file');
+	const parsed = JSON.parse(await readFile(inputPath, { encoding: 'utf8' }));
+	let loadedCollections = 0;
+	for (const collectionName of dataCollectionNames) {
+		const values = parsed?.[collectionName];
+		if (!Array.isArray(values)) continue;
+		if (values.length > 0) {
+			logSafe(values.length, collectionName);
 		}
-		if (inobj > 1 && key.length === 2) {
-			sobj += ',';
-		}
+		data[collectionName] = values;
+		loadedCollections += 1;
+		updateProgressStep(loadedCollections, dataCollectionNames.length);
 	}
-	if (line.endsWith('{') && sobj) sobj += '{';
-	if (line.endsWith('[')) {
-		++inobj;
-		if (inobj === 1) {
-			collection = key.slice(1, -1);
-			console.log(collection, 'read-col');
-		}
-	}
-	if (key.endsWith('],')) {
-		if (entries.length > 0) {
-			console.log(entries.length, collection);
-			data[collection] = entries;
-		}
-		inobj = 0;
-		collection = '';
-		sobj = null;
-		entries = [];
-	}
-	if (key.endsWith(']')) {
-		if (inobj > 1 && sobj) sobj += ']';
-		--inobj;
-		if (entries.length > 0) {
-			process.stdout.write(`${entries.length} ${collection} \r`);
-			data[collection] = entries;
-		}
-	}
-});
+	finishProgressStep('input loaded');
+}
 
 const deleteCollections = async (cols2delete) => {
 	if (cols2delete.length === 0) return;
 	const delitions = cols2delete.map((it) => odb.collection(it).drop());
 	const res = await Promise.all(delitions);
-	console.dir(res, { depth: null });
 };
 
 function genPat(it) {
 	if (isDeceased(it.vitalState)) it.deathDate = it.vitalDate;
-	const postCodeInt = parseInt(it.postalCode);
+	const postCodeInt = parseInt(it.postalCode, 10);
 	const dist = plz[it.postalCode];
 	const country = ccode[it.countryCode];
 	if (dist) it.district = dist;
 	if (country) it.countryName = country;
-	const province = plz2province.find(
-		(pr) => postCodeInt >= pr.from && postCodeInt <= pr.to
-	)?.province;
-	const county = plz2county.find((pr) => postCodeInt >= pr.from && postCodeInt <= pr.to)?.county;
+	const province = provinceByPostalCode.get(postCodeInt);
+	const county = countyByPostalCode.get(postCodeInt);
 	if (province) it.state = province;
 	if (county) it.county = county;
-	it.tumorID = data.diagnosis.filter((dit) => dit.patID === it.patID).map((dit) => dit.tumorID);
+	it.tumorID = lookupIndexes.tumorIDsByPatID.get(it.patID) ?? [];
 	return it;
 }
 
@@ -526,10 +873,7 @@ function genDiag(it, addin) {
 	it.ICD = ICD;
 	it.ICDO = ICDO.sort((a, b) => a.histologyDate - b.histologyDate);
 
-	it.rareCancer = rareCancers.some(
-		(rc) =>
-			rc.diagnosis === it.ICD.ICD10 && it.ICDO.some((h) => h.histologyCode?.includes(rc.histology))
-	);
+	it.rareCancer = isRareCancerDiagnosis(it.ICD.ICD10, it.ICDO);
 
 	const sclcHistologyCodes = ['8041', '8042', '8043', '8044', '8045'];
 	if (it.ICD.ICD10.startsWith('C34'))
@@ -615,7 +959,7 @@ function extractNumberOrCategory(value, group) {
 }
 
 const insdia = (it) => {
-	let { patID, diagnosisDate } = data.diagnosis.find((dia) => dia.tumorID === it.tumorID) || {};
+	let { patID, diagnosisDate } = lookupIndexes.diagnosisByTumorID.get(it.tumorID) || {};
 
 	if (!diagnosisDate) {
 		return { patID, diagnosisDate };
@@ -727,7 +1071,8 @@ const metatypePro = ({ hasMetastasis, progress, metastasis }) => {
 
 function deserializeDate(it) {
 	if (!it) return it;
-	for (const [key, value] of Object.entries(it)) {
+	for (const key in it) {
+		const value = it[key];
 		if (!key.endsWith('Date') || value == null) continue;
 		if (Array.isArray(value)) {
 			// Arrays von Datumsstrings/Date-Objekten: einzeln sanitisieren, Ungültiges rausfiltern
@@ -814,6 +1159,15 @@ function genKaplanMeier(diagnosis, patient, pprogress, mmetastasis, tnm, therapy
 		}
 		arr.push(pr);
 	}
+	for (const arr of progressByTumorID.values())
+		arr.sort((a, b) => {
+			const da = sanitizeDate(a.progressOccurrenceDate);
+			const db = sanitizeDate(b.progressOccurrenceDate);
+			if (!da && !db) return 0;
+			if (!da) return 1;
+			if (!db) return -1;
+			return da - db;
+		});
 
 	const metastasisDatesByTumorID = new Map();
 	for (const mt of mmetastasis) {
@@ -903,18 +1257,9 @@ function genKaplanMeier(diagnosis, patient, pprogress, mmetastasis, tnm, therapy
 		let trc = tnmArr.filter(
 			(tit) =>
 				tit.RClass === 'R0' &&
-				isDiffLess3Month({ startDate: it.diagnosisDate, endDate: tit.tnmOccurrenceDate }) &&
-				tit.tumorID === it.tumorID
+				isDiffLess3Month({ startDate: it.diagnosisDate, endDate: tit.tnmOccurrenceDate })
 		);
-		if (trc.length > 0)
-			fpr = (progressByTumorID.get(trc[0].tumorID) ?? []).toSorted((a, b) => {
-				const da = sanitizeDate(a.progressOccurrenceDate);
-				const db = sanitizeDate(b.progressOccurrenceDate);
-				if (!da && !db) return 0;
-				if (!da) return 1;
-				if (!db) return -1;
-				return da - db;
-			});
+		if (trc.length > 0) fpr = progressByTumorID.get(trc[0].tumorID) ?? [];
 
 		let fprLength = fpr.length;
 		if (fprLength > 0) {
@@ -1081,7 +1426,7 @@ function genKaplanMeier(diagnosis, patient, pprogress, mmetastasis, tnm, therapy
 		}
 
 		for (const trs of thrpyRState) {
-			let pm = pprogress.some(
+			let pm = progressArr.some(
 				(pit) =>
 					(config?.rules?.metastasisFromProgress
 						? matchesNormalizedRule(pit.metastasisState, config.rules.metastasisFromProgress)
@@ -1089,11 +1434,9 @@ function genKaplanMeier(diagnosis, patient, pprogress, mmetastasis, tnm, therapy
 					pit.progressOccurrenceDate < trs &&
 					pit.tumorID === it.tumorID
 			);
-			let mm = mmetastasis.some((mit) => {
-				matchesNormalizedSet(mit.spread, config.metastasis.spreadValuesNormalized) &&
-					mit.metastasisDate < trs && //<= TODO <= MetastasisDate?  mit.occurrenceDate
-					mit.tumorID === it.tumorID;
-			});
+			// Preserve legacy behavior: this check used a block-bodied `some` callback without
+			// returning the predicate, so `mm` was always false while still scanning every row.
+			let mm = false;
 			if (!mm && !pm) dfsDates.push(trs);
 		}
 		dfsDates.sort((a, b) => a - b);
@@ -1110,7 +1453,7 @@ function genKaplanMeier(diagnosis, patient, pprogress, mmetastasis, tnm, therapy
 
 		const mtp = metaLabelKM;
 
-		process.stdout.write(`in genKP ${++itrCount} \r`);
+		updateProgressStep(++itrCount, diagnosis.length);
 		// RFS: ensure censor/event date is always available (fallback to vitalDate / diagnosisDate)
 		if (!recurrenceDate) recurrenceDate = vitalDate ?? it.diagnosisDate;
 		return {
@@ -1160,46 +1503,128 @@ function genStdy(it) {
 	if (matchesNormalizedSet(it.phase, config.study.nullPhasesNormalized)) {
 		it.phase = null;
 	}
-	it.tumorID = it.studyPatients.flatMap((sp) =>
-		data.diagnosis.filter((dit) => dit.patID === sp.patID).map((dit) => dit.tumorID)
-	);
+	it.tumorID = it.studyPatients.flatMap((sp) => lookupIndexes.tumorIDsByPatID.get(sp.patID) ?? []);
 	return it;
 }
 
 async function write2mon(genFun, ins, collection, nested) {
+	startProgressStep(`writing ${collection}`, ins?.length ?? 0);
+	const collectionStartedAt = timingEnabled ? performance.now() : 0;
+	const existsCheckStartedAt = timingEnabled ? performance.now() : 0;
 	const collectionExists = await odb.listCollections({ name: collection }).hasNext();
-	console.log(`col ${collection} exists-> ${collectionExists}`);
-	if (collectionExists) return;
-
-	if (!ins?.length) {
-		console.log(ins, 'write?');
+	addTiming(`collection:${collection}:existsCheck`, existsCheckStartedAt);
+	logSafe(`col ${collection} exists-> ${collectionExists}`);
+	if (collectionExists) {
+		collectionMetrics.push({ collection, skipped: true, reason: 'exists', insertedCount: 0 });
+		addTiming(`collection:${collection}:total`, collectionStartedAt, { skipped: true });
+		finishProgressStep(`${collection} skipped`);
 		return;
 	}
 
+	if (!ins?.length) {
+		logSafe(ins, 'write?');
+		collectionMetrics.push({ collection, skipped: true, reason: 'empty', insertedCount: 0 });
+		addTiming(`collection:${collection}:total`, collectionStartedAt, { skipped: true });
+		finishProgressStep(`${collection} empty`);
+		return;
+	}
+
+	if (!timingEnabled) {
+		for (let i = 0, len = ins.length; i < len; ++i) {
+			let it = ins[i];
+			if (genFun) it = genFun(it, nested);
+			else if (nested) it = nested(it);
+			it = deserializeDate(it);
+			ins[i] = it;
+			updateProgressStep(i + 1, len);
+		}
+		renameProgressStep(`inserting ${collection}`);
+		const answer = await odb.collection(collection).insertMany(ins, orderedInsertOptions);
+		collectionMetrics.push({ collection, skipped: false, insertedCount: answer.insertedCount });
+		logSafe(`${answer.insertedCount} documents were inserted`);
+		finishProgressStep(`${collection} inserted`);
+		return;
+	}
+
+	const transformStartedAt = performance.now();
+	let genFunDurationMs = 0;
+	let genFunCount = 0;
+	let nestedDurationMs = 0;
+	let nestedCount = 0;
+	let deserializeDateDurationMs = 0;
 	for (let i = 0, len = ins.length; i < len; ++i) {
 		let it = ins[i];
-		if (genFun) it = genFun(it, nested);
-		else if (nested) it = nested(it);
+		if (genFun) {
+			const genFunStartedAt = performance.now();
+			const timedNested = nested
+				? (value) => {
+						const nestedStartedAt = performance.now();
+						try {
+							return nested(value);
+						} finally {
+							nestedDurationMs += performance.now() - nestedStartedAt;
+							nestedCount += 1;
+						}
+				  }
+				: nested;
+			it = genFun(it, timedNested);
+			genFunDurationMs += performance.now() - genFunStartedAt;
+			genFunCount += 1;
+		} else if (nested) {
+			const nestedStartedAt = performance.now();
+			it = nested(it);
+			nestedDurationMs += performance.now() - nestedStartedAt;
+			nestedCount += 1;
+		}
+		const deserializeDateStartedAt = performance.now();
 		it = deserializeDate(it);
+		deserializeDateDurationMs += performance.now() - deserializeDateStartedAt;
 		ins[i] = it;
-		process.stdout.write(`-- ${i} of ${len} --\r`);
+		updateProgressStep(i + 1, len);
 	}
-	const answer = await odb.collection(collection).insertMany(ins);
-	console.log(`${answer.insertedCount} documents were inserted`);
+	if (genFun) {
+		addDurationTiming(`collection:${collection}:genFun`, genFunDurationMs, { count: genFunCount });
+	}
+	if (nested) {
+		addDurationTiming(`collection:${collection}:nested`, nestedDurationMs, { count: nestedCount });
+	}
+	addDurationTiming(`collection:${collection}:deserializeDate`, deserializeDateDurationMs, {
+		count: ins.length
+	});
+	addTiming(`collection:${collection}:transform`, transformStartedAt, { count: ins.length });
+	renameProgressStep(`inserting ${collection}`);
+	const insertStartedAt = performance.now();
+	const answer = await odb.collection(collection).insertMany(ins, orderedInsertOptions);
+	addTiming(`collection:${collection}:insert`, insertStartedAt, { count: answer.insertedCount });
+	addTiming(`collection:${collection}:total`, collectionStartedAt, { count: answer.insertedCount });
+	collectionMetrics.push({ collection, skipped: false, insertedCount: answer.insertedCount });
+	logSafe(`${answer.insertedCount} documents were inserted`);
+	finishProgressStep(`${collection} inserted`);
 }
 
-reader.on('close', async () => {
-	console.log('end reached');
+const runPreprocessor = async () => {
+	await loadInputData();
+	addTiming('parse', parseStartedAt);
+	startProgressStep('building lookup indexes');
+	buildLookupIndexes();
+	finishProgressStep('lookup indexes ready');
+	logSafe('end reached');
+	startProgressStep('connecting to MongoDB');
 	odb = await oncdb();
+	finishProgressStep('MongoDB connected');
+	startProgressStep('cleaning requested collections', argv.slice(2).length);
 	await deleteCollections(argv.slice(2));
-	console.log(data.diagnosis.at(0), 'diag');
-
+	finishProgressStep('cleanup complete');
 	await write2mon(genPat, data.patient, 'patient');
 
 	// --- DIAGNOSIS: metastasis = "synchron" | "metachron" | "both" | null ---
 	await write2mon(genDiag, data.diagnosis, 'diagnosis', (it) => {
+		const cloneProfileStartedAt = profilingEnabled ? performance.now() : 0;
 		let obj = { ...it };
-		const fpa = data.patient.find((pat) => pat.patID === it.patID);
+		addProfileTiming('diagnosis:clone', cloneProfileStartedAt);
+
+		const patientProfileStartedAt = profilingEnabled ? performance.now() : 0;
+		const fpa = lookupIndexes.patientByPatID.get(it.patID);
 		if (it.diagnosisDate && fpa?.birthDate) {
 			const millis = Math.abs(sanitizeDate(it.diagnosisDate) - sanitizeDate(fpa.birthDate));
 			let millisecondsInYear = 1000 * 60 * 60 * 24 * 365.2425;
@@ -1208,8 +1633,10 @@ reader.on('close', async () => {
 		obj.vitalDate = fpa?.vitalDate;
 		obj.vitalState = fpa?.vitalState;
 		obj.gender = fpa?.gender;
+		addProfileTiming('diagnosis:patient', patientProfileStartedAt);
 
-		const fhi = data.histology.filter((his) => his.tumorID === it.tumorID);
+		const histologyProfileStartedAt = profilingEnabled ? performance.now() : 0;
+		const fhi = lookupIndexes.histologyByTumorID.get(it.tumorID) ?? [];
 		fhi.forEach((h) => {
 			obj.ICDO.push({
 				histologyCode: h.ICDO_histologyCode,
@@ -1226,17 +1653,25 @@ reader.on('close', async () => {
 		});
 		applyMixedTumorFlag(obj.ICDO);
 		obj.ICDO.sort((a, b) => a.histologyDate - b.histologyDate);
+		addProfileTiming('diagnosis:histology', histologyProfileStartedAt, fhi.length);
 
-		const therapies = data.therapy.filter((th) => th.tumorID === it.tumorID);
+		const previousTherapyProfileStartedAt = profilingEnabled ? performance.now() : 0;
+		const therapies = lookupIndexes.therapyByTumorID.get(it.tumorID) ?? [];
 		const previousTherapy = {};
-		for (const [flag, valueSet] of Object.entries(previousTherapySets)) {
+		for (const [flag, valueSet] of previousTherapyEntries) {
 			previousTherapy[flag] = therapies.some((th) =>
 				matchesNormalizedSet(th?.generalType, valueSet)
 			);
 		}
 		obj.previousTherapy = previousTherapy;
+		addProfileTiming(
+			'diagnosis:previousTherapy',
+			previousTherapyProfileStartedAt,
+			therapies.length
+		);
 
-		const consultations = data.consultation.filter((cs) => cs.tumorID === it.tumorID);
+		const previousConsultationProfileStartedAt = profilingEnabled ? performance.now() : 0;
+		const consultations = lookupIndexes.consultationByTumorID.get(it.tumorID) ?? [];
 		const previousConsultation = {};
 		for (const [flag, valueSet] of Object.entries(previousConsultationSets)) {
 			previousConsultation[flag] = consultations.some((cs) =>
@@ -1244,21 +1679,36 @@ reader.on('close', async () => {
 			);
 		}
 		obj.previousConsultation = previousConsultation;
+		addProfileTiming(
+			'diagnosis:previousConsultation',
+			previousConsultationProfileStartedAt,
+			consultations.length
+		);
 
-		const diagnostics = data.diagnostic.filter((di) => di.tumorID === it.tumorID);
+		const previousDiagnosticProfileStartedAt = profilingEnabled ? performance.now() : 0;
+		const diagnostics = lookupIndexes.diagnosticByTumorID.get(it.tumorID) ?? [];
 		const previousDiagnostic = {};
-		for (const [flag, valueSet] of Object.entries(previousDiagnosticSets)) {
+		for (const [flag, valueSet] of previousDiagnosticEntries) {
 			previousDiagnostic[flag] = diagnostics.some((di) => {
 				const method = di?.investigationMethod;
 				if (method == null) return false;
 
 				const normalizedMethod = normalizeLower(method);
-				return [...valueSet].some((value) => normalizedMethod.includes(value));
+				for (const value of valueSet) {
+					if (normalizedMethod.includes(value)) return true;
+				}
+				return false;
 			});
 		}
 		obj.previousDiagnostic = previousDiagnostic;
+		addProfileTiming(
+			'diagnosis:previousDiagnostic',
+			previousDiagnosticProfileStartedAt,
+			diagnostics.length
+		);
 
-		const boards = data.tumorBoard.filter((tb) => tb.tumorID === it.tumorID);
+		const tumorboardProfileStartedAt = profilingEnabled ? performance.now() : 0;
+		const boards = lookupIndexes.tumorBoardByTumorID.get(it.tumorID) ?? [];
 
 		obj.previousTumorboard = {
 			any: boards.length > 0,
@@ -1266,30 +1716,47 @@ reader.on('close', async () => {
 			post: boards.some((tb) => regexMatches(tumorboardPatterns.post, tb.type)),
 			mtb: boards.some((tb) => regexMatches(tumorboardPatterns.mtb, tb.type))
 		};
+		addProfileTiming('diagnosis:tumorboard', tumorboardProfileStartedAt, boards.length);
 
-		let fpr = data.progress.filter((ps) => ps.tumorID === it.tumorID);
+		const recurrenceProfileStartedAt = profilingEnabled ? performance.now() : 0;
+		let fpr = lookupIndexes.progressByTumorID.get(it.tumorID) ?? [];
 		obj.recurrence = fpr.some((ps) =>
 			matchesNormalizedPrefix(ps?.overallAssessment, config.rezidiv.prefixesNormalized)
 		);
+		addProfileTiming('diagnosis:recurrence', recurrenceProfileStartedAt, fpr.length);
 
 		// --- NEU: metastasis-Label direkt aus Rohdaten ableiten (inkl. "both") ---
-		const mtsDates = data.metastasis
-			.filter((m) => m.tumorID === it.tumorID)
-			.map((m) => m.metastasisDate || m.occurrenceDate);
+		const metastasisProfileStartedAt = profilingEnabled ? performance.now() : 0;
+		const mtsDates = (lookupIndexes.metastasisByTumorID.get(it.tumorID) ?? []).map(
+			(m) => m.metastasisDate || m.occurrenceDate
+		);
 
-		const prgDates = data.progress
-			.filter((p) => p.tumorID === it.tumorID)
-			.map((p) => p.progressOccurrenceDate);
+		const prgDates = fpr.map((p) => p.progressOccurrenceDate);
 
 		obj.metastasis = classifyMetastasis(it.diagnosisDate, mtsDates, prgDates);
+		addProfileTiming(
+			'diagnosis:metastasis',
+			metastasisProfileStartedAt,
+			mtsDates.length + prgDates.length
+		);
 
-		obj.ECOG = data.status
-			.filter(
-				(fs) =>
-					ecogPrefixLower &&
-					normalizeLower(fs.type).startsWith(ecogPrefixLower) &&
-					fs.tumorID === it.tumorID
-			)
+		const statusProfileStartedAt = profilingEnabled ? performance.now() : 0;
+		const statuses = lookupIndexes.statusByTumorID.get(it.tumorID) ?? [];
+		const ecogStatuses = [];
+		let distress = false;
+		for (const fs of statuses) {
+			const normalizedType = normalizeLower(fs.type);
+			if (ecogPrefixLower && normalizedType.startsWith(ecogPrefixLower)) ecogStatuses.push(fs);
+			if (
+				!distress &&
+				distressTypeLower &&
+				normalizedType === distressTypeLower &&
+				matchesNormalizedSet(fs.status, distressPositiveSet)
+			) {
+				distress = true;
+			}
+		}
+		obj.ECOG = ecogStatuses
 			.sort((a, b) => {
 				const da = sanitizeDate(a.statusOccurrenceDate);
 				const db = sanitizeDate(b.statusOccurrenceDate);
@@ -1299,24 +1766,22 @@ reader.on('close', async () => {
 				return da - db;
 			})
 			.map((f) => f.status);
-		obj.distress = data.status
-			.filter(
-				(fs) =>
-					distressTypeLower &&
-					normalizeLower(fs.type) === distressTypeLower &&
-					fs.tumorID === it.tumorID
-			)
-			.some((f) => matchesNormalizedSet(f.status, distressPositiveSet));
+		obj.distress = distress;
+		addProfileTiming('diagnosis:status', statusProfileStartedAt, statuses.length);
 
 		// === OnkoZert-Bewertung ===
-		obj.oz = {};
-		for (const rule of ozRules ?? []) {
+		const onkozertProfileStartedAt = profilingEnabled ? performance.now() : 0;
+		const onkozertCandidateRules = getOnkozertCandidateRules(obj);
+		obj.oz = createOnkozertEntityFlags();
+		for (const rule of onkozertCandidateRules) {
 			if (!rule?.entity) continue;
 			obj.oz[rule.entity] = (obj.oz[rule.entity] ?? false) || matchesOnkozertRule(rule, obj, data);
 		}
+		addProfileTiming('diagnosis:onkozert', onkozertProfileStartedAt, onkozertCandidateRules.size);
 
 		return obj;
 	});
+	rebuildDiagnosisLookupIndexes();
 
 	await write2mon(genThpy, data.therapy, 'therapy', (it) => {
 		// normalize metastasisResection (string -> array) right where therapies are created
@@ -1333,7 +1798,7 @@ reader.on('close', async () => {
 		it.metastasisResection = _toArray(it.metastasisResection);
 
 		// im Block, wo rads erzeugt wird
-		const rads = data.singleRadiation.filter((ray) => ray.therapyID === it.therapyID);
+		const rads = lookupIndexes.singleRadiationByTherapyID.get(it.therapyID) ?? [];
 
 		for (const ray of rads) {
 			let area = (ray.area ?? '').toString().trim().replace(',', '.');
@@ -1389,28 +1854,38 @@ reader.on('close', async () => {
 	});
 
 	await write2mon(null, data.status, 'status', (it) => ({ ...insdia(it), ...it }));
-	await write2mon(
-		null,
-		genFollowUp(data.patient, data.progress, data.therapy, data.diagnosis),
-		'followUp'
-	);
+	startProgressStep('generating followUp', data.patient.length);
+	const followUpStartedAt = performance.now();
+	const followUp = genFollowUp(data.patient, data.progress, data.therapy, data.diagnosis);
+	addTiming('generate:followUp', followUpStartedAt, { count: followUp.length });
+	finishProgressStep('followUp generated');
+	await write2mon(null, followUp, 'followUp');
 
 	// genKaplanMeier: nutzt neue on-the-fly Logik (inkl. "both")
-	await write2mon(
-		null,
-		genKaplanMeier(
-			data.diagnosis,
-			data.patient,
-			data.progress,
-			data.metastasis,
-			data.tnm,
-			data.therapy
-		),
-		'kaplanMeier'
+	startProgressStep('generating kaplanMeier', data.diagnosis.length);
+	const kaplanMeierStartedAt = performance.now();
+	const kaplanMeier = genKaplanMeier(
+		data.diagnosis,
+		data.patient,
+		data.progress,
+		data.metastasis,
+		data.tnm,
+		data.therapy
 	);
+	addTiming('generate:kaplanMeier', kaplanMeierStartedAt, { count: kaplanMeier.length });
+	finishProgressStep('kaplanMeier generated');
+	await write2mon(null, kaplanMeier, 'kaplanMeier');
 
 	await write2mon(genStdy, data.study, 'study');
 	await write2mon(null, data.bioMaterial, 'bioMaterial');
+	startProgressStep('writing metaData', 1);
+	const metaDataStartedAt = performance.now();
 	await odb.collection('metaData').insertOne({ executedAt: new Date() });
+	addTiming('collection:metaData:insert', metaDataStartedAt, { count: 1 });
+	collectionMetrics.push({ collection: 'metaData', skipped: false, insertedCount: 1 });
+	finishProgressStep('metaData inserted');
+	finishProgress();
 	process.exit(0);
-});
+};
+
+await runPreprocessor();

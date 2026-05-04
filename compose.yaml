@@ -265,6 +265,7 @@ services:
       - DB=${DB}
       # MongoDB address is always the same internally
       - ADDRESS=mongodb://ovis-backend-database-mongodb:27017
+      - CATALOGUE_PATH=/app/generated/ovis-catalogue.json
       - OVIS_PREPROC_DECEASED_KEYWORDS=${OVIS_PREPROC_DECEASED_KEYWORDS:-}
       - OVIS_PREPROC_REZIDIV_PREFIXES=${OVIS_PREPROC_REZIDIV_PREFIXES:-}
       - OVIS_PREPROC_REZIDIV_CANONICAL=${OVIS_PREPROC_REZIDIV_CANONICAL:-}

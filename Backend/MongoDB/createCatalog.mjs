@@ -1,5 +1,6 @@
 import { closeConnection, oncdb } from './monConnector.js';
 import { promises as fs } from 'fs';
+import path from 'path';
 import { ops4 } from './Preprocessing/ops4.mjs';
 
 const cataloguePath = process.env.CATALOGUE_PATH || './ovis-catalogue.json';
@@ -183,6 +184,7 @@ try {
 	outputData = [...outputData, ...duplicatedData];
 	const catalogueJson = JSON.stringify(outputData, null, 2);
 
+	await fs.mkdir(path.dirname(cataloguePath), { recursive: true });
 	await fs.writeFile(cataloguePath, catalogueJson, 'utf-8');
 	console.log(`Ergebnisse wurden in ${cataloguePath} gespeichert.`);
 } catch (err) {

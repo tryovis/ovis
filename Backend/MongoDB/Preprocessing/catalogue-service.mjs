@@ -155,7 +155,7 @@ async function processOmock() {
 		await runNode('./createCatalog.mjs');
 
 		const catStat = await safeStat(CATALOGUE_PATH);
-		if (!catStat) {
+		if (!catStat?.isFile()) {
 			throw new Error(`Catalogue generation finished, but ${CATALOGUE_PATH} not found`);
 		}
 
@@ -201,13 +201,15 @@ async function processOmock() {
 
 async function serveCatalogue(res) {
 	const stats = await safeStat(CATALOGUE_PATH);
-	if (!stats) {
+	if (!stats?.isFile()) {
 		return sendJson(
 			res,
 			404,
 			{
 				error: 'Catalogue not available',
-				message: `File not found: ${CATALOGUE_PATH}`,
+				message: stats
+					? `Catalogue path is not a file: ${CATALOGUE_PATH}`
+					: `File not found: ${CATALOGUE_PATH}`,
 				state
 			},
 			{}
@@ -282,7 +284,7 @@ const server = http.createServer(async (req, res) => {
 
 		if (req.method === 'GET' && url.pathname === '/health') {
 			const catStat = await safeStat(CATALOGUE_PATH);
-			const ready = state.status === 'ready' && !!catStat;
+			const ready = state.status === 'ready' && !!catStat?.isFile();
 			const ok = state.status !== 'error';
 			return sendJson(res, ok ? 200 : 503, {
 				ok,
