@@ -132,15 +132,39 @@ async function mergeJsonFiles({ outTxtPath, threeCtTxtPath, omockPath }) {
 	console.log(`[${SITE}] omock.json wurde erfolgreich erstellt: ${omockPath}`);
 }
 
+async function appendStudyToOmock({ threeCtTxtPath, omockPath, hasExistingEntries = false }) {
+	const studyRaw = await fs.readFile(threeCtTxtPath, 'utf8').catch(() => '');
+	const study = stripTrailingComma(studyRaw.trim());
+	if (!study) {
+		console.log(`[${SITE}] Keine Study-Daten zum Anhängen gefunden.`);
+		return false;
+	}
+
+	await fs.writeFile(omockPath, `${hasExistingEntries ? ',\n' : ''}${study}`, { flag: 'a' });
+	console.log(`[${SITE}] Study-Daten wurden an omock.json angehängt.`);
+	return true;
+}
+
 export async function run3ctAndMerge({
 	outTxtPath = DEFAULT_OUT_TXT,
 	omockPath = DEFAULT_OMOCK_JSON,
-	threeCtTxtPath = DEFAULT_3CT_TXT
+	threeCtTxtPath = DEFAULT_3CT_TXT,
+	appendToExistingOmock = false,
+	hasExistingEntries = false
 } = {}) {
 	try {
 		await fs.rm(threeCtTxtPath, { force: true });
 		await run3ctQuery(threeCtTxtPath);
+		if (appendToExistingOmock) {
+			const appended = await appendStudyToOmock({
+				threeCtTxtPath,
+				omockPath,
+				hasExistingEntries
+			});
+			return { appended };
+		}
 		await mergeJsonFiles({ outTxtPath, threeCtTxtPath, omockPath });
+		return { appended: false };
 	} finally {
 		await onk.end();
 		await dct.end();
