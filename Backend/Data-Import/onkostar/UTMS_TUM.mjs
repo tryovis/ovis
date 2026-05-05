@@ -38,6 +38,16 @@ const onk = createPool({
 	connectionLimit: 5
 });
 
+let onkPoolClosed = false;
+
+async function closeOnkPool() {
+	if (onkPoolClosed) return;
+	onkPoolClosed = true;
+	console.log(`[${SITE}] Closing ONKOSTAR database pool...`);
+	await onk.end();
+	console.log(`[${SITE}] ONKOSTAR database pool closed.`);
+}
+
 async function fetchOnkoConn() {
 	const conn = await onk.getConnection();
 	console.log(`[${SITE}] ONKOSTAR Total connections: `, onk.totalConnections());
@@ -201,7 +211,9 @@ async function getDiagPatIdSet() {
 		const arr = Array.isArray(pids) ? pids : JSON.parse(pids);
 		return new Set(arr.map((x) => x?.toString()).filter(Boolean));
 	} finally {
-		oncon.end();
+		console.log(`[${SITE}] Releasing ONKOSTAR database connection...`);
+		await oncon.release();
+		console.log(`[${SITE}] ONKOSTAR database connection released.`);
 	}
 }
 
@@ -228,6 +240,19 @@ async function mergeOutAndStudy({ outTxtPath, studyTxtPath, omockPath }) {
 	console.log(`[${SITE}] omock.json wurde erfolgreich erstellt/aktualisiert.`);
 }
 
+async function appendStudyToOmock({ studyTxtPath, omockPath, hasExistingEntries = false }) {
+	const studyRaw = await fs.readFile(studyTxtPath, 'utf8').catch(() => '');
+	const study = stripTrailingComma(studyRaw.trim());
+	if (!study) {
+		console.log(`[${SITE}] Keine Study-Daten zum Anhängen gefunden.`);
+		return false;
+	}
+
+	await fs.writeFile(omockPath, `${hasExistingEntries ? ',\n' : ''}${study}`, { flag: 'a' });
+	console.log(`[${SITE}] Study-Daten wurden an omock.json angehängt.`);
+	return true;
+}
+
 /**
  * Exported API (so mdbConnect.mjs can call it optionally).
  */
@@ -235,12 +260,23 @@ export async function run3ctAndMerge({
 	baseDir = DEFAULT_BASEDIR,
 	outTxtPath = DEFAULT_OUT_TXT,
 	omockPath = DEFAULT_OMOCK,
-	studyTxtPath = DEFAULT_STUDY_TXT
+	studyTxtPath = DEFAULT_STUDY_TXT,
+	appendToExistingOmock = false,
+	hasExistingEntries = false
 } = {}) {
-	const diagPatIdSet = await getDiagPatIdSet();
-	const rows = await buildStudyRows({ baseDir, diagPatIdSet });
-	await writeStudyTxt(rows, studyTxtPath);
-	await mergeOutAndStudy({ outTxtPath, studyTxtPath, omockPath });
+	try {
+		const diagPatIdSet = await getDiagPatIdSet();
+		const rows = await buildStudyRows({ baseDir, diagPatIdSet });
+		await writeStudyTxt(rows, studyTxtPath);
+		if (appendToExistingOmock) {
+			const appended = await appendStudyToOmock({ studyTxtPath, omockPath, hasExistingEntries });
+			return { appended };
+		}
+		await mergeOutAndStudy({ outTxtPath, studyTxtPath, omockPath });
+		return { appended: false };
+	} finally {
+		await closeOnkPool();
+	}
 }
 
 // Standalone execution (optional)
@@ -254,6 +290,6 @@ if (isMain) {
 		console.error(`[${SITE}] Fehler aufgetreten:`, err);
 		process.exitCode = 1;
 	} finally {
-		await onk.end();
+		await closeOnkPool();
 	}
 }
