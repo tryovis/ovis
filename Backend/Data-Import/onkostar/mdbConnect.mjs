@@ -14,6 +14,8 @@ const OUT_TXT = '/shared/out.txt';
 const OMOCK_JSON = '/shared/omock.json';
 const OMOCK_JSON_TMP = '/shared/omock.json.tmp';
 
+let omockHasEntries = false;
+
 const pool = createPool({
 	host: process.env.ONKOSTAR_DB_HOST,
 	port: parseInt(process.env.ONKOSTAR_DB_PORT || '3306', 10),
@@ -47,6 +49,22 @@ function stripTrailingComma(s) {
 	return s.replace(/,\s*$/s, '');
 }
 
+async function startOmockTmp() {
+	omockHasEntries = false;
+	await fs.writeFile(OMOCK_JSON_TMP, '\n{\n', 'utf8');
+}
+
+async function appendOmockEntry(key, rows) {
+	const prefix = omockHasEntries ? ',\n' : '';
+	const entry = `"${key}": ` + JSON.stringify(rows, null, 2);
+	await fs.writeFile(OMOCK_JSON_TMP, prefix + entry, { flag: 'a' });
+	omockHasEntries = true;
+}
+
+async function finishOmockTmp() {
+	await fs.writeFile(OMOCK_JSON_TMP, '\n}\n', { flag: 'a' });
+}
+
 async function runQuery(conn, key) {
 	const sql = states[key];
 	if (!sql) throw new Error(`Unbekannter Query-Key: ${key}`);
@@ -56,6 +74,7 @@ async function runQuery(conn, key) {
 	// identisch wie zuvor: out.txt als "key": [..], Zeilen sammeln
 	const out = `"${key}": ` + JSON.stringify(rows, null, 2) + ',\n';
 	await fs.writeFile(OUT_TXT, out, { flag: 'a' });
+	await appendOmockEntry(key, rows);
 
 	return rows;
 }
@@ -65,10 +84,7 @@ async function runQuery(conn, key) {
  * damit der Preprocessor nicht zu früh losläuft.
  */
 async function writeBaseOmockTmp() {
-	const txt = await fs.readFile(OUT_TXT, 'utf8').catch(() => '');
-	const entries = stripTrailingComma(txt.trim());
-	const body = entries ? `\n{\n${entries}\n}\n` : `\n{}\n`;
-	await fs.writeFile(OMOCK_JSON_TMP, body, 'utf8');
+	await finishOmockTmp();
 	console.log('omock.json.tmp erstellt (ohne UTMS).');
 }
 
@@ -95,7 +111,13 @@ async function maybeMergeUtmsIntoTmp() {
 		);
 	}
 
-	await mod.run3ctAndMerge({ outTxtPath: OUT_TXT, omockPath: OMOCK_JSON_TMP });
+	const result = await mod.run3ctAndMerge({
+		outTxtPath: OUT_TXT,
+		omockPath: OMOCK_JSON_TMP,
+		appendToExistingOmock: true,
+		hasExistingEntries: omockHasEntries
+	});
+	if (result?.appended) omockHasEntries = true;
 	console.log(`omock.json.tmp um ${utms} Study-Daten ergänzt.`);
 }
 
@@ -118,6 +140,8 @@ async function main() {
 	// Cleanup
 	await fs.rm(OUT_TXT, { force: true });
 	await fs.rm(OMOCK_JSON_TMP, { force: true });
+	await fs.rm(OMOCK_JSON, { force: true });
+	await startOmockTmp();
 
 	let conn;
 	try {
@@ -128,16 +152,20 @@ async function main() {
 			console.dir(rows, { depth: null });
 		}
 	} finally {
-		if (conn) conn.end();
+		if (conn) {
+			console.log('Releasing ONKOSTAR database connection...');
+			await conn.release();
+			console.log('ONKOSTAR database connection released.');
+		}
 	}
 
-	// 1) IMMER Basis-omock als TMP erzeugen
-	await writeBaseOmockTmp();
-
-	// 2) Optional: UTMS merge in TMP
+	// Optional: UTMS merge in TMP
 	await maybeMergeUtmsIntoTmp();
 
-	// 3) Atomisch finalisieren (Preprocessor sieht erst jetzt omock.json)
+	// IMMER Basis-omock als TMP finalisieren
+	await writeBaseOmockTmp();
+
+	// Atomisch finalisieren (Preprocessor sieht erst jetzt omock.json)
 	await finalizeOmock();
 }
 
@@ -148,5 +176,7 @@ try {
 	console.error('Fehler aufgetreten:', err);
 	process.exitCode = 1;
 } finally {
+	console.log('Closing ONKOSTAR database pool...');
 	await pool.end();
+	console.log('ONKOSTAR database pool closed.');
 }
