@@ -14,14 +14,11 @@ const UPSTREAM =
  * Security validation for GraphQL proxy requests:
  * 1. POST only (GET is disabled to prevent URL-based query exposure)
  * 2. Requests must include the frontend GraphQL proxy marker header
- * 3. Origin or Referer must be present and same-origin
- * 4. Content-Type must be application/json
- * 5. Minimal headers forwarded to backend
+ * 3. Content-Type must be application/json
+ * 4. Minimal headers forwarded to backend
  */
 function validateRequest(event: RequestEvent): { error?: Response } {
 	const request = event.request;
-	const url = new URL(request.url);
-	const expectedOrigin = `${url.protocol}//${url.host}`;
 	const contentType = request.headers.get('content-type') || '';
 	const requiredHeader = request.headers.get(GRAPHQL_PROXY_REQUIRED_HEADER);
 
@@ -32,41 +29,11 @@ function validateRequest(event: RequestEvent): { error?: Response } {
 		};
 	}
 
-	// 2. Validate Origin header when present
-	const origin = request.headers.get('origin');
-	if (origin) {
-		if (origin !== expectedOrigin) {
-			return {
-				error: json({ errors: [{ message: 'Invalid request' }] }, { status: 403 })
-			};
-		}
-	}
+	// 2. CSRF protection relies on the required custom header plus JSON content type.
+	// Cross-site simple form posts cannot set this header or content type; requests
+	// that do set it require CORS preflight, which this endpoint does not allow.
 
-	// 3. Require browser provenance when Origin is absent
-	const referer = request.headers.get('referer');
-	if (!origin && !referer) {
-		return {
-			error: json({ errors: [{ message: 'Invalid request' }] }, { status: 403 })
-		};
-	}
-
-	if (!origin && referer) {
-		try {
-			const refererUrl = new URL(referer);
-			const refererOrigin = `${refererUrl.protocol}//${refererUrl.host}`;
-			if (refererOrigin !== expectedOrigin) {
-				return {
-					error: json({ errors: [{ message: 'Invalid request' }] }, { status: 403 })
-				};
-			}
-		} catch {
-			return {
-				error: json({ errors: [{ message: 'Invalid request' }] }, { status: 403 })
-			};
-		}
-	}
-
-	// 4. Validate Content-Type
+	// 3. Validate Content-Type
 	if (!contentType.toLowerCase().startsWith('application/json')) {
 		return {
 			error: json({ errors: [{ message: 'Invalid request' }] }, { status: 415 })

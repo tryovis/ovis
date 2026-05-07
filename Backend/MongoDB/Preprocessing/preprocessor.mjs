@@ -7,7 +7,7 @@ import { ccode } from './countryCode2countryName.mjs';
 import { plz2province } from './plz2state.mjs';
 import { plz2county } from './plz2county.mjs';
 import { ICD10 } from './ICD10.mjs';
-import { readFile } from 'node:fs/promises';
+import { createReadStream } from 'node:fs';
 import { rareCancers } from './rareCancers.mjs';
 import { ozRules } from './onkozertRules.mjs';
 import { config, normalizeLower } from './env-config.mjs';
@@ -22,7 +22,12 @@ const profileTimings = new Map();
 const collectionMetrics = [];
 const processStartedAt = performance.now();
 const orderedInsertOptions = { forceServerObjectId: true };
+const insertBatchMaxDocs = Number(process.env.PREPROCESSOR_INSERT_BATCH_DOCS || 1000);
+const insertBatchMaxBytes = Number(process.env.PREPROCESSOR_INSERT_BATCH_BYTES || 8 * 1024 * 1024);
 const pipelineStepCount = 23;
+const nonInteractiveProgressIntervalMs = Number(
+	process.env.PREPROCESSOR_PROGRESS_INTERVAL_MS || 10000
+);
 
 const progressState = {
 	completedSteps: 0,
@@ -30,6 +35,7 @@ const progressState = {
 	current: 0,
 	total: 0,
 	lastRenderAt: 0,
+	lastLoggedAt: 0,
 	lastLineLength: 0
 };
 
@@ -68,7 +74,14 @@ const progressBar = (fraction) => {
 const renderProgress = (force = false) => {
 	if (!progressEnabled) return;
 	const now = performance.now();
-	if (!force && now - progressState.lastRenderAt < 250) return;
+	if (progressInteractive && !force && now - progressState.lastRenderAt < 250) return;
+	if (
+		!progressInteractive &&
+		!force &&
+		now - progressState.lastLoggedAt < nonInteractiveProgressIntervalMs
+	) {
+		return;
+	}
 
 	const currentFraction = progressState.total
 		? Math.min(1, progressState.current / progressState.total)
@@ -90,8 +103,9 @@ const renderProgress = (force = false) => {
 		const padding = Math.max(0, progressState.lastLineLength - line.length);
 		process.stdout.write(`\r${line}${' '.repeat(padding)}`);
 		progressState.lastLineLength = line.length;
-	} else if (force) {
+	} else {
 		process.stdout.write(`${line}\n`);
+		progressState.lastLoggedAt = now;
 	}
 	progressState.lastRenderAt = now;
 };
@@ -111,7 +125,7 @@ const updateProgressStep = (current, total = progressState.total) => {
 
 const renameProgressStep = (label) => {
 	progressState.label = label;
-	renderProgress(true);
+	renderProgress();
 };
 
 const finishProgressStep = (label = progressState.label) => {
@@ -129,9 +143,9 @@ const finishProgress = () => {
 	progressState.current = 1;
 	progressState.total = 1;
 	const elapsedMs = performance.now() - processStartedAt;
-	const line = `OVIS preprocessing [${progressBar(
-		1
-	)}] 100% | ${pipelineStepCount}/${pipelineStepCount} done | elapsed ${formatDuration(elapsedMs)}`;
+	const line = `OVIS preprocessing complete [${progressBar(1)}] 100% | finished in ${formatDuration(
+		elapsedMs
+	)}`;
 	if (progressInteractive) {
 		const padding = Math.max(0, progressState.lastLineLength - line.length);
 		process.stdout.write(`\r${line}${' '.repeat(padding)}\n`);
@@ -811,21 +825,264 @@ const rebuildDiagnosisLookupIndexes = () => {
 let odb = null;
 const parseStartedAt = performance.now();
 const inputPath = './Preprocessing/omock.json';
-async function loadInputData() {
-	startProgressStep('reading input file');
-	const parsed = JSON.parse(await readFile(inputPath, { encoding: 'utf8' }));
-	let loadedCollections = 0;
-	for (const collectionName of dataCollectionNames) {
-		const values = parsed?.[collectionName];
-		if (!Array.isArray(values)) continue;
-		if (values.length > 0) {
-			logSafe(values.length, collectionName);
+
+function parseStringLiteral(source) {
+	let value = '';
+	let escape = false;
+
+	// Skip opening quote and closing quote. JSON.parse keeps unicode escape handling exact.
+	for (let i = 1; i < source.length - 1; i += 1) {
+		const ch = source[i];
+		if (escape) {
+			value += `\\${ch}`;
+			escape = false;
+			continue;
 		}
-		data[collectionName] = values;
-		loadedCollections += 1;
-		updateProgressStep(loadedCollections, dataCollectionNames.length);
+		if (ch === '\\') {
+			escape = true;
+			continue;
+		}
+		value += ch;
 	}
-	finishProgressStep('input loaded');
+
+	return JSON.parse(`"${value}"`);
+}
+
+function pushParsedArrayItem(collectionName, itemSource) {
+	const trimmed = itemSource.trim();
+	if (!trimmed) return;
+	const item = JSON.parse(trimmed);
+	if (collectionName === 'therapy') {
+		item.metastasisResection = _toArray(item.metastasisResection);
+	}
+	data[collectionName].push(item);
+
+	const count = data[collectionName].length;
+	if (count % 10000 === 0) {
+		renameProgressStep(`Loading ${collectionName}`);
+		updateProgressStep(count, 0);
+	}
+}
+
+async function loadInputDataStream(filePath) {
+	const collectionNames = new Set(dataCollectionNames);
+	for (const collectionName of dataCollectionNames) {
+		data[collectionName] = [];
+	}
+
+	let state = 'seek-key';
+	let keyBuffer = '';
+	let currentKey = null;
+	let activeCollection = null;
+	let rootDepth = 0;
+	let itemBuffer = '';
+	let itemStarted = false;
+	let itemDepth = 0;
+	let itemInString = false;
+	let itemEscape = false;
+	let skipDepth = 0;
+	let skipInString = false;
+	let skipEscape = false;
+	let loadedCollections = 0;
+
+	const finishCollection = () => {
+		if (activeCollection) {
+			loadedCollections += 1;
+			updateProgressStep(loadedCollections, dataCollectionNames.length);
+		}
+		activeCollection = null;
+		state = 'after-value';
+	};
+
+	for await (const chunk of createReadStream(filePath, {
+		encoding: 'utf8',
+		highWaterMark: 1024 * 1024
+	})) {
+		for (let i = 0; i < chunk.length; i += 1) {
+			const ch = chunk[i];
+
+			if (state === 'seek-key') {
+				if (ch === '{') {
+					rootDepth += 1;
+					continue;
+				}
+				if (rootDepth === 1 && ch === '"') {
+					keyBuffer = '"';
+					state = 'read-key';
+					continue;
+				}
+				if (ch === '}') rootDepth -= 1;
+				continue;
+			}
+
+			if (state === 'read-key') {
+				keyBuffer += ch;
+				if (ch === '"' && keyBuffer.length > 1 && keyBuffer[keyBuffer.length - 2] !== '\\') {
+					currentKey = parseStringLiteral(keyBuffer);
+					state = 'seek-colon';
+				}
+				continue;
+			}
+
+			if (state === 'seek-colon') {
+				if (ch === ':') state = 'seek-value';
+				continue;
+			}
+
+			if (state === 'seek-value') {
+				if (/\s/.test(ch)) continue;
+
+				if (collectionNames.has(currentKey) && ch === '[') {
+					activeCollection = currentKey;
+					state = 'read-array';
+					itemBuffer = '';
+					itemStarted = false;
+					itemDepth = 0;
+					itemInString = false;
+					itemEscape = false;
+					continue;
+				}
+
+				if (collectionNames.has(currentKey)) {
+					throw new Error(
+						`Unsupported omock.json shape at key "${currentKey}". Expected top-level array.`
+					);
+				}
+
+				state = 'skip-value';
+				skipDepth = ch === '{' || ch === '[' ? 1 : 0;
+				skipInString = ch === '"';
+				skipEscape = false;
+				if (skipDepth === 0 && !skipInString && (ch === ',' || ch === '}')) {
+					state = ch === ',' ? 'seek-key' : 'after-value';
+				}
+				continue;
+			}
+
+			if (state === 'skip-value') {
+				if (skipInString) {
+					if (skipEscape) {
+						skipEscape = false;
+					} else if (ch === '\\') {
+						skipEscape = true;
+					} else if (ch === '"') {
+						skipInString = false;
+						if (skipDepth === 0) state = 'after-value';
+					}
+					continue;
+				}
+
+				if (ch === '"') {
+					skipInString = true;
+					continue;
+				}
+				if (ch === '{' || ch === '[') {
+					skipDepth += 1;
+					continue;
+				}
+				if (ch === '}' || ch === ']') {
+					if (skipDepth > 0) skipDepth -= 1;
+					if (skipDepth === 0) state = 'after-value';
+					continue;
+				}
+				if (skipDepth === 0 && ch === ',') {
+					state = 'seek-key';
+					continue;
+				}
+				continue;
+			}
+
+			if (state === 'read-array') {
+				if (!itemStarted) {
+					if (/\s/.test(ch) || ch === ',') continue;
+					if (ch === ']') {
+						finishCollection();
+						continue;
+					}
+
+					itemStarted = true;
+					itemBuffer = ch;
+					if (ch === '"') itemInString = true;
+					if (ch === '{' || ch === '[') itemDepth = 1;
+					continue;
+				}
+
+				if (itemInString) {
+					itemBuffer += ch;
+					if (itemEscape) {
+						itemEscape = false;
+					} else if (ch === '\\') {
+						itemEscape = true;
+					} else if (ch === '"') {
+						itemInString = false;
+					}
+					continue;
+				}
+
+				if (ch === '"') {
+					itemInString = true;
+					itemBuffer += ch;
+					continue;
+				}
+
+				if (ch === '{' || ch === '[') {
+					itemDepth += 1;
+					itemBuffer += ch;
+					continue;
+				}
+
+				if (ch === '}' || ch === ']') {
+					if (itemDepth > 0) {
+						itemDepth -= 1;
+						itemBuffer += ch;
+						if (itemDepth === 0) {
+							pushParsedArrayItem(activeCollection, itemBuffer);
+							itemBuffer = '';
+							itemStarted = false;
+						}
+						continue;
+					}
+
+					pushParsedArrayItem(activeCollection, itemBuffer);
+					finishCollection();
+					continue;
+				}
+
+				if ((ch === ',' || ch === ']') && itemDepth === 0) {
+					pushParsedArrayItem(activeCollection, itemBuffer);
+					itemBuffer = '';
+					itemStarted = false;
+					if (ch === ']') finishCollection();
+					continue;
+				}
+
+				itemBuffer += ch;
+				continue;
+			}
+
+			if (state === 'after-value') {
+				if (ch === ',') {
+					state = 'seek-key';
+					continue;
+				}
+				if (ch === '}') {
+					rootDepth -= 1;
+					continue;
+				}
+			}
+		}
+	}
+}
+
+async function loadInputData() {
+	startProgressStep('Loading omock.json');
+	await loadInputDataStream(inputPath);
+	for (const collectionName of dataCollectionNames) {
+		if (data[collectionName].length > 0) {
+			logSafe(data[collectionName].length, collectionName);
+		}
+	}
+	finishProgressStep('Loaded omock.json');
 }
 
 const deleteCollections = async (cols2delete) => {
@@ -1508,7 +1765,7 @@ function genStdy(it) {
 }
 
 async function write2mon(genFun, ins, collection, nested) {
-	startProgressStep(`writing ${collection}`, ins?.length ?? 0);
+	startProgressStep(`Saving ${collection}`, ins?.length ?? 0);
 	const collectionStartedAt = timingEnabled ? performance.now() : 0;
 	const existsCheckStartedAt = timingEnabled ? performance.now() : 0;
 	const collectionExists = await odb.listCollections({ name: collection }).hasNext();
@@ -1529,24 +1786,31 @@ async function write2mon(genFun, ins, collection, nested) {
 		return;
 	}
 
-	if (!timingEnabled) {
-		for (let i = 0, len = ins.length; i < len; ++i) {
-			let it = ins[i];
-			if (genFun) it = genFun(it, nested);
-			else if (nested) it = nested(it);
-			it = deserializeDate(it);
-			ins[i] = it;
-			updateProgressStep(i + 1, len);
-		}
-		renameProgressStep(`inserting ${collection}`);
-		const answer = await odb.collection(collection).insertMany(ins, orderedInsertOptions);
-		collectionMetrics.push({ collection, skipped: false, insertedCount: answer.insertedCount });
-		logSafe(`${answer.insertedCount} documents were inserted`);
-		finishProgressStep(`${collection} inserted`);
-		return;
-	}
+	const mongoCollection = odb.collection(collection);
+	let insertedCount = 0;
+	let batch = [];
+	let batchBytes = 0;
 
-	const transformStartedAt = performance.now();
+	const flushBatch = async () => {
+		if (batch.length === 0) return;
+		renameProgressStep(`Saving ${collection}`);
+		const answer = await mongoCollection.insertMany(batch, orderedInsertOptions);
+		insertedCount += answer.insertedCount;
+		batch = [];
+		batchBytes = 0;
+	};
+
+	const queueForInsert = async (document) => {
+		const estimatedBytes = Buffer.byteLength(JSON.stringify(document));
+		const batchFull =
+			batch.length >= insertBatchMaxDocs ||
+			(batch.length > 0 && batchBytes + estimatedBytes > insertBatchMaxBytes);
+		if (batchFull) await flushBatch();
+		batch.push(document);
+		batchBytes += estimatedBytes;
+	};
+
+	const transformStartedAt = timingEnabled ? performance.now() : 0;
 	let genFunDurationMs = 0;
 	let genFunCount = 0;
 	let nestedDurationMs = 0;
@@ -1579,9 +1843,19 @@ async function write2mon(genFun, ins, collection, nested) {
 		const deserializeDateStartedAt = performance.now();
 		it = deserializeDate(it);
 		deserializeDateDurationMs += performance.now() - deserializeDateStartedAt;
+		await queueForInsert(it);
 		ins[i] = it;
 		updateProgressStep(i + 1, len);
 	}
+	await flushBatch();
+
+	if (!timingEnabled) {
+		collectionMetrics.push({ collection, skipped: false, insertedCount });
+		logSafe(`${insertedCount} documents were inserted`);
+		finishProgressStep(`Saved ${collection}`);
+		return;
+	}
+
 	if (genFun) {
 		addDurationTiming(`collection:${collection}:genFun`, genFunDurationMs, { count: genFunCount });
 	}
@@ -1592,15 +1866,76 @@ async function write2mon(genFun, ins, collection, nested) {
 		count: ins.length
 	});
 	addTiming(`collection:${collection}:transform`, transformStartedAt, { count: ins.length });
-	renameProgressStep(`inserting ${collection}`);
-	const insertStartedAt = performance.now();
-	const answer = await odb.collection(collection).insertMany(ins, orderedInsertOptions);
-	addTiming(`collection:${collection}:insert`, insertStartedAt, { count: answer.insertedCount });
-	addTiming(`collection:${collection}:total`, collectionStartedAt, { count: answer.insertedCount });
-	collectionMetrics.push({ collection, skipped: false, insertedCount: answer.insertedCount });
-	logSafe(`${answer.insertedCount} documents were inserted`);
-	finishProgressStep(`${collection} inserted`);
+	addTiming(`collection:${collection}:total`, collectionStartedAt, { count: insertedCount });
+	collectionMetrics.push({ collection, skipped: false, insertedCount });
+	logSafe(`${insertedCount} documents were inserted`);
+	finishProgressStep(`Saved ${collection}`);
 }
+
+const compactDataCollection = (collectionName, mapper) => {
+	data[collectionName] = data[collectionName].map(mapper);
+};
+
+const clearDataCollection = (collectionName) => {
+	data[collectionName] = [];
+};
+
+const compactPatient = (patient) => ({
+	patID: patient.patID,
+	birthDate: patient.birthDate,
+	vitalDate: patient.vitalDate,
+	vitalState: patient.vitalState,
+	deathDate: patient.deathDate,
+	gender: patient.gender
+});
+
+const compactDiagnosis = (diagnosis) => ({
+	patID: diagnosis.patID,
+	tumorID: diagnosis.tumorID,
+	diagnosisDate: diagnosis.diagnosisDate,
+	hasMetastasis: diagnosis.hasMetastasis
+});
+
+const compactTherapy = (therapy) => ({
+	tumorID: therapy.tumorID,
+	therapyID: therapy.therapyID,
+	therapyOccurrenceDate: therapy.therapyOccurrenceDate,
+	therapyEndDate: therapy.therapyEndDate,
+	localRState: therapy.localRState
+});
+
+const compactProgress = (progress) => ({
+	tumorID: progress.tumorID,
+	progressOccurrenceDate: progress.progressOccurrenceDate,
+	overallAssessment: progress.overallAssessment,
+	metastasisState: progress.metastasisState,
+	tumorState: progress.tumorState,
+	lymphNodeState: progress.lymphNodeState,
+	biochemRecurrence: progress.biochemRecurrence
+});
+
+const compactTnm = (tnm) => ({
+	tumorID: tnm.tumorID,
+	type: tnm.type,
+	T: tnm.T,
+	RClass: tnm.RClass,
+	UICC: tnm.UICC,
+	tnmOccurrenceDate: tnm.tnmOccurrenceDate
+});
+
+const compactMetastasis = (metastasis) => ({
+	tumorID: metastasis.tumorID,
+	metastasisDate: metastasis.metastasisDate,
+	occurrenceDate: metastasis.occurrenceDate
+});
+
+const releaseDiagnosisOnlyLookups = () => {
+	lookupIndexes.histologyByTumorID = new Map();
+	lookupIndexes.consultationByTumorID = new Map();
+	lookupIndexes.diagnosticByTumorID = new Map();
+	lookupIndexes.tumorBoardByTumorID = new Map();
+	lookupIndexes.statusByTumorID = new Map();
+};
 
 const runPreprocessor = async () => {
 	await loadInputData();
@@ -1616,6 +1951,8 @@ const runPreprocessor = async () => {
 	await deleteCollections(argv.slice(2));
 	finishProgressStep('cleanup complete');
 	await write2mon(genPat, data.patient, 'patient');
+	compactDataCollection('patient', compactPatient);
+	lookupIndexes.patientByPatID = new Map(data.patient.map((patient) => [patient.patID, patient]));
 
 	// --- DIAGNOSIS: metastasis = "synchron" | "metachron" | "both" | null ---
 	await write2mon(genDiag, data.diagnosis, 'diagnosis', (it) => {
@@ -1781,7 +2118,10 @@ const runPreprocessor = async () => {
 
 		return obj;
 	});
+	compactDataCollection('diagnosis', compactDiagnosis);
 	rebuildDiagnosisLookupIndexes();
+	releaseDiagnosisOnlyLookups();
+	clearDataCollection('histology');
 
 	await write2mon(genThpy, data.therapy, 'therapy', (it) => {
 		// normalize metastasisResection (string -> array) right where therapies are created
@@ -1828,23 +2168,34 @@ const runPreprocessor = async () => {
 			...it
 		};
 	});
+	compactDataCollection('therapy', compactTherapy);
+	lookupIndexes.therapyByTumorID = new Map();
+	clearDataCollection('singleRadiation');
+	lookupIndexes.singleRadiationByTherapyID = new Map();
 
 	await write2mon(genPrgr, data.progress, 'progress', (it) => insdia(it));
+	compactDataCollection('progress', compactProgress);
 	await write2mon(null, data.diagnostic, 'diagnostic', (it) => ({
 		patID: insdia(it)?.patID,
 		...it
 	}));
+	clearDataCollection('diagnostic');
 	await write2mon(null, data.consultation, 'consultation', (it) => ({ ...insdia(it), ...it }));
+	clearDataCollection('consultation');
 	await write2mon(null, data.tumorBoard, 'tumorBoard', (it) => ({ ...insdia(it), ...it }));
+	clearDataCollection('tumorBoard');
 	await write2mon(null, data.supplementary, 'supplementary', (it) => ({
 		patID: insdia(it)?.patID,
 		...it
 	}));
+	clearDataCollection('supplementary');
 	await write2mon(null, data.molecularMarker, 'molecularMarker', (it) => ({
 		patID: insdia(it)?.patID,
 		...it
 	}));
+	clearDataCollection('molecularMarker');
 	await write2mon(genTNM, data.tnm, 'tnm');
+	compactDataCollection('tnm', compactTnm);
 
 	// metastasis-Collection: per-Event Typ ("synchron"/"metachron") bleibt erhalten
 	await write2mon(null, data.metastasis, 'metastasis', (it) => {
@@ -1852,14 +2203,17 @@ const runPreprocessor = async () => {
 		let type = metatype({ endDate: it.metastasisDate, startDate: diagnosisDate });
 		return { type, patID, ...it };
 	});
+	compactDataCollection('metastasis', compactMetastasis);
 
 	await write2mon(null, data.status, 'status', (it) => ({ ...insdia(it), ...it }));
+	clearDataCollection('status');
 	startProgressStep('generating followUp', data.patient.length);
 	const followUpStartedAt = performance.now();
 	const followUp = genFollowUp(data.patient, data.progress, data.therapy, data.diagnosis);
 	addTiming('generate:followUp', followUpStartedAt, { count: followUp.length });
 	finishProgressStep('followUp generated');
 	await write2mon(null, followUp, 'followUp');
+	followUp.length = 0;
 
 	// genKaplanMeier: nutzt neue on-the-fly Logik (inkl. "both")
 	startProgressStep('generating kaplanMeier', data.diagnosis.length);
@@ -1875,9 +2229,18 @@ const runPreprocessor = async () => {
 	addTiming('generate:kaplanMeier', kaplanMeierStartedAt, { count: kaplanMeier.length });
 	finishProgressStep('kaplanMeier generated');
 	await write2mon(null, kaplanMeier, 'kaplanMeier');
+	kaplanMeier.length = 0;
+	clearDataCollection('patient');
+	clearDataCollection('diagnosis');
+	clearDataCollection('progress');
+	clearDataCollection('therapy');
+	clearDataCollection('metastasis');
+	clearDataCollection('tnm');
 
 	await write2mon(genStdy, data.study, 'study');
+	clearDataCollection('study');
 	await write2mon(null, data.bioMaterial, 'bioMaterial');
+	clearDataCollection('bioMaterial');
 	startProgressStep('writing metaData', 1);
 	const metaDataStartedAt = performance.now();
 	await odb.collection('metaData').insertOne({ executedAt: new Date() });

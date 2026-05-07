@@ -36,6 +36,19 @@ let retryTimer = null;
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+function formatBytes(bytes) {
+	if (!Number.isFinite(bytes) || bytes < 0) return 'unknown size';
+	const units = ['bytes', 'KB', 'MB', 'GB'];
+	let value = bytes;
+	let unitIndex = 0;
+	while (value >= 1024 && unitIndex < units.length - 1) {
+		value /= 1024;
+		unitIndex += 1;
+	}
+	const precision = unitIndex === 0 ? 0 : value >= 10 ? 1 : 2;
+	return `${value.toFixed(precision)} ${units[unitIndex]}`;
+}
+
 function parseMongoAddress() {
 	const raw =
 		process.env.ADDRESS || process.env.MONGO_URL || 'mongodb://ovis-backend-database-mongodb:27017';
@@ -117,9 +130,24 @@ async function safeStat(filePath) {
 	}
 }
 
+function nodeArgsFor(scriptPath) {
+	const args = [];
+	const heapMb = Number(
+		process.env.PREPROCESSOR_NODE_HEAP_MB || process.env.NODE_MAX_OLD_SPACE_SIZE_MB || 0
+	);
+	if (heapMb > 0 && scriptPath.includes('preprocessor.mjs')) {
+		args.push(`--max-old-space-size=${heapMb}`);
+	}
+	return args;
+}
+
 async function runNode(scriptPath, args = []) {
 	return new Promise((resolve, reject) => {
-		const child = spawn('node', [scriptPath, ...args], {
+		const nodeArgs = [...nodeArgsFor(scriptPath), scriptPath, ...args];
+		if (nodeArgs.length > args.length + 1) {
+			console.log('[catalogue-service] Large import mode enabled. This can take several minutes.');
+		}
+		const child = spawn('node', nodeArgs, {
 			stdio: ['ignore', 'inherit', 'inherit'],
 			env: process.env,
 			cwd: process.cwd()
@@ -128,7 +156,7 @@ async function runNode(scriptPath, args = []) {
 		child.on('error', reject);
 		child.on('close', (code) => {
 			if (code === 0) resolve();
-			else reject(new Error(`Command failed: node ${scriptPath} (exit ${code})`));
+			else reject(new Error(`Command failed: node ${nodeArgs.join(' ')} (exit ${code})`));
 		});
 	});
 }
@@ -139,12 +167,13 @@ async function processOmock() {
 	processingPromise = (async () => {
 		state.status = 'processing';
 		state.lastError = null;
-		console.log(`[catalogue-service] Processing started. Input=${OMOCK_PATH}`);
+		console.log('[catalogue-service] Preparing imported data for OVIS...');
 
 		const omockStat = await safeStat(OMOCK_PATH);
 		if (!omockStat) {
 			throw new Error(`Cannot process: omock.json not found at ${OMOCK_PATH}`);
 		}
+		console.log(`[catalogue-service] Input file size: ${formatBytes(omockStat.size)}`);
 
 		await waitForMongoReady();
 
@@ -162,9 +191,7 @@ async function processOmock() {
 		state.status = 'ready';
 		state.lastProcessedAt = catStat.mtime.getTime();
 		console.log(
-			`[catalogue-service] Processing complete. Catalogue size=${
-				catStat.size
-			} bytes, mtime=${catStat.mtime.toISOString()}`
+			`[catalogue-service] Done. OVIS catalogue is ready (${formatBytes(catStat.size)}).`
 		);
 	})()
 		.catch((err) => {
@@ -267,8 +294,8 @@ async function handleUpload(req, res) {
 	state.lastUploadAt = Date.now();
 
 	console.log(
-		`[catalogue-service] Upload complete. Bytes=${bytes} -> ${targetPath}${
-			isBusy ? ' (queued)' : ''
+		`[catalogue-service] Upload complete (${formatBytes(bytes)}).${
+			isBusy ? ' It will be processed after the current import finishes.' : ''
 		}`
 	);
 

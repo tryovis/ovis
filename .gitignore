@@ -22,8 +22,9 @@ ovis-catalogue.json
 
 Backend/MongoDB/Preprocessing/omock.json
 Backend/Data-Import/CCP/placeholder_omock/omock.json
-Backend/Data-Import/CREDOS/CREDOSExportFiles/*
-Backend/Data-Import/CREDOS/omock.json
+Backend/Data-Import/credos/CREDOSExportFiles/*
+!Backend/Data-Import/credos/CREDOSExportFiles/README.md
+Backend/Data-Import/credos/omock.json
 Backend/MongoDB/ovis-catalogue.json
 Frontend/static/ovis-catalogue.json
 .serena
@@ -37,3 +38,4 @@ Setup/Backups/mongodb/*
 openspec/
 
 docs/
+.pi/extensions/emdash-hook.ts

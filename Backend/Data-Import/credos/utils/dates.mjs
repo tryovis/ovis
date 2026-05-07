@@ -10,8 +10,17 @@
  * - 24.01.1921
  * - 19210124
  * - 1921-01-24T00:00:00Z
+ *
+ * Optionen:
+ * - strict: true  => wirft Fehler bei unbekanntem Format
+ * - strict: false => gibt null zurück bei unbekanntem Format
  */
-export function toCredosIsoDateOrNull(value) {
+export function toCredosIsoDateOrNull(value, options = {}) {
+  const {
+    fieldName = "unknown",
+    strict = true
+  } = options;
+
   if (value === null || value === undefined) {
     return null;
   }
@@ -50,5 +59,33 @@ export function toCredosIsoDateOrNull(value) {
     return `${year}-${month}-${day}T00:00:00Z`;
   }
 
-  throw new Error(`Unbekanntes Datumsformat: "${value}"`);
+  if (!strict) {
+    return null;
+  }
+
+  throw new Error(
+    `Unbekanntes Datumsformat in Feld "${fieldName}": "${value}"`
+  );
+}
+
+/**
+ * Convenience-Funktion für fachlich optionale Datumsfelder.
+ * Ungültige Werte werden zu null.
+ */
+export function toOptionalCredosIsoDateOrNull(value, fieldName = "unknown") {
+  return toCredosIsoDateOrNull(value, {
+    fieldName,
+    strict: false
+  });
+}
+
+/**
+ * Convenience-Funktion für fachlich wichtige Datumsfelder.
+ * Ungültige Werte werfen einen Fehler.
+ */
+export function toRequiredCredosIsoDateOrNull(value, fieldName = "unknown") {
+  return toCredosIsoDateOrNull(value, {
+    fieldName,
+    strict: true
+  });
 }

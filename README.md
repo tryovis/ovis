@@ -105,7 +105,7 @@ OVIS follows a containerized microservices architecture with core application se
 3. **ovis-backend-apollo** (Port 4001) - Apollo GraphQL API server
 4. **ovis-backend-database-mongodb** - MongoDB database
 5. **ovis-backend-mongodb-data-preprocessing** - Data processing pipeline and catalog generation
-6. **ovis-backend-data-import** - Data adapter (CCP/DEMO/ONKOSTAR)
+6. **ovis-backend-data-import** - Data adapter (CCP/DEMO/ONKOSTAR/CREDOS)
 
 ### Access Modes
 
@@ -123,7 +123,7 @@ OVIS follows a containerized microservices architecture with core application se
 ### Data Flow Pipeline
 ```
 Data Source → Data-Import → omock.json → Data-Preprocessing → ovis-catalogue.json
-(FHIR/DEMO/ONKOSTAR)                ↓
+(FHIR/DEMO/ONKOSTAR/CREDOS)                ↓
                         MongoDB ← GraphQL Resolvers ← Frontend Components
                                          ↓
                                       nginx (optional reverse proxy)
@@ -152,6 +152,7 @@ The project is organized into the following main directories:
 │   │   └── data/         # Authentication data storage
 │   ├── Data-Import/
 │   │   ├── ccp/          # FHIR server data adapter
+│   │   ├── credos/       # CREDOS .txt export adapter
 │   │   ├── demo/         # Demo data with omock.json
 │   │   └── onkostar/     # ONKOSTAR database adapter
 │   └── MongoDB/          # MongoDB initialization and data preprocessing
@@ -240,13 +241,14 @@ The `compose.yaml` file defines the following services:
     *   **Volumes:** Mounts `./Backend/MongoDB` for access to preprocessing scripts.
 
 7.  **`ovis-backend-data-import`**
-    *   **Purpose:** Imports data based on `OVIS_IMPORT_MODE` (`demo`/`ccp`/`onkostar`).
+    *   **Purpose:** Imports data based on `OVIS_IMPORT_MODE` (`demo`/`ccp`/`onkostar`/`credos`).
     *   **Build Context:** `./Backend/Data-Import/${OVIS_IMPORT_MODE}`
     *   **Modes:**
         *   **CCP:** Fetches from FHIR server (requires FHIR_* variables)
+        *   **CREDOS:** Generates OMOCK from mounted CREDOS `.txt` export files, or uploads a mounted `omock.json` override
         *   **DEMO:** Uses demo data with omock.json
         *   **ONKOSTAR:** Connects to ONKOSTAR database (requires ONKOSTAR_DB_* variables)
-    *   **Output:** Places `omock.json` in the `shared_data` volume.
+    *   **Output:** Uploads the selected `omock.json` payload to the preprocessing service.
 
 ### Volumes
 
@@ -295,7 +297,7 @@ OVIS uses environment variables for configuration, simplified from 50+ to just 3
 
 ### Core Settings
 *   **`APP_DOMAIN`**: Hostname where the application is hosted (default: `localhost`)
-*   **`OVIS_IMPORT_MODE`**: Data import mode - `demo`, `ccp`, or `onkostar`
+*   **`OVIS_IMPORT_MODE`**: Data import mode - `demo`, `ccp`, `onkostar`, or `credos`
 *   **`PUBLIC_LOGIN_ENABLED`**: Enable/disable authentication - `true` or `false`
 
 ### Service Ports
@@ -345,6 +347,36 @@ Port numbers for direct access (when NGINX_PROXY_MODE=false):
 *   **`ONKOSTAR_DB_PORT`**: Database port (default: `3306`)
 *   **`ONKOSTAR_DB_USER`**: Database username
 *   **`ONKOSTAR_DB_PASSWORD`**: Database password
+
+#### CREDOS Exports (for `credos` mode)
+*   Source-compose reads CREDOS `.txt` exports from `Backend/Data-Import/credos/CREDOSExportFiles`, mounted read-only to `/input/CREDOSExportFiles` in the import container.
+*   Image-compose reads CREDOS `.txt` exports from `CREDOSExportFiles` under `OVIS_SITE_CONFIG_DIR` (or the current directory when unset), mounted read-only to `/input/CREDOSExportFiles` in the import container.
+*   The importer fails early when no `.txt` export files are present.
+*   **`OVIS_SITE_OMOCK_FILE`**: Optional generic `omock.json` override. When this file is mounted, CREDOS generation and export-file validation are skipped.
+*   Use lowercase `OVIS_IMPORT_MODE=credos`; uppercase `CREDOS` is not a valid Docker import mode.
+
+#### Large `omock.json` stress testing
+Use `scripts/generate-large-omock.py` to create a large demo-derived `omock.json` for import and preprocessing tests. By default, the generator duplicates all demo collections and remaps `patID`, `tumorID`, and `therapyID` values consistently across copies, so the generated file behaves like a larger linked export rather than only a large patient table.
+
+```bash
+python3 scripts/generate-large-omock.py \
+  --source Backend/Data-Import/demo/omock.json \
+  --output /tmp/ovis-large-omock.json \
+  --target-gib 2.1
+
+# Or scale every top-level collection to at least 100k rows:
+python3 scripts/generate-large-omock.py \
+  --source Backend/Data-Import/demo/omock.json \
+  --output /tmp/ovis-100k-linked-omock.json \
+  --min-rows-per-collection 100000
+
+OVIS_IMPORT_MODE=demo \
+OVIS_SITE_OMOCK_FILE=/tmp/ovis-large-omock.json \
+docker compose up --build ovis-backend-data-import
+```
+
+The preprocessing service streams large input files and writes MongoDB inserts in batches, so this test is intended to catch regressions that reintroduce full-file buffering or collection-wide catalogue reads.
+Use `--min-rows-per-collection 100000` when you want each top-level array to contain at least 100k rows. Use `--mode patient-payload` only when you intentionally want the older patient-only payload stress test.
 
 #### 3CT Database
 *   **`DCT_DB_HOST`**: Database host

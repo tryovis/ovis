@@ -1,0 +1,4 @@
+CREDOSExportFiles/**
+!CREDOSExportFiles/README.md
+omock*.json
+*.tmp

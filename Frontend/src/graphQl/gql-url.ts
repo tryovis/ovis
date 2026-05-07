@@ -1,10 +1,10 @@
-import { apiPath } from '$lib/path-utils';
+import { appPath } from '$lib/path-utils';
 import {
 	GRAPHQL_PROXY_REQUIRED_HEADER,
 	GRAPHQL_PROXY_REQUIRED_HEADER_VALUE
 } from '$lib/graphql-security';
 
-export const dataUrl = apiPath('graphql');
+export const dataUrl = appPath('graphql');
 
 // Required security header for GraphQL requests
 /**

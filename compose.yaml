@@ -266,6 +266,7 @@ services:
       # MongoDB address is always the same internally
       - ADDRESS=mongodb://ovis-backend-database-mongodb:27017
       - CATALOGUE_PATH=/app/generated/ovis-catalogue.json
+      - PREPROCESSOR_NODE_HEAP_MB=${PREPROCESSOR_NODE_HEAP_MB:-32768}
       - OVIS_PREPROC_DECEASED_KEYWORDS=${OVIS_PREPROC_DECEASED_KEYWORDS:-}
       - OVIS_PREPROC_REZIDIV_PREFIXES=${OVIS_PREPROC_REZIDIV_PREFIXES:-}
       - OVIS_PREPROC_REZIDIV_CANONICAL=${OVIS_PREPROC_REZIDIV_CANONICAL:-}
@@ -329,9 +330,12 @@ services:
       - http_proxy=${OVIS_HTTP_PROXY:-}
       - https_proxy=${OVIS_HTTPS_PROXY:-}
       - no_proxy=${OVIS_NO_PROXY:-}
+      - CREDOS_EXPORT_DIR=/input/CREDOSExportFiles
     volumes:
       # Optional: bind-mount for site-provided omock.json (only used if present)
       - ${OVIS_SITE_OMOCK_FILE:-./omock.json}:/input/omock.json:ro
+      # CREDOS .txt exports (used by OVIS_IMPORT_MODE=credos)
+      - ./Backend/Data-Import/credos/CREDOSExportFiles:/input/CREDOSExportFiles:ro
       
   # Authentication Services
   postgres:
