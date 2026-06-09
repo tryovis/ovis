@@ -1,0 +1,92 @@
+services:
+
+  postgres:
+    image: ghcr.io/baosystems/postgis:13-3.5
+    container_name: ovis-postgres
+    platform: linux/arm64
+    volumes:
+      - ./data/database:/var/lib/postgresql/data
+    restart: unless-stopped
+    networks:
+      - ovis-network
+    environment:
+      POSTGRES_DB: keycloak
+      POSTGRES_USER: ovis-dbkey-admin
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me}
+
+  keycloak:
+    depends_on:
+      - postgres
+    container_name: ovis-keycloak
+   # platform: linux/arm64
+    networks:
+      - ovis-network
+    volumes:
+      - ./themes:/opt/keycloak/themes
+      - ./configuration:/opt/keycloak/standalone/configuration
+    environment:
+      DB_VENDOR: postgres
+      DB_ADDR: postgres
+      DB_DATABASE: keycloak
+      DB_USER: ovis-dbkey-admin
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-change-me}
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-your-keycloak-admin}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-change-me}
+      KEYCLOAK_FRONTEND_URL: http://localhost:8080/auth
+      KEYCLOAK_HOSTNAME: localhost
+    image: keycloak/keycloak:24.0.3
+    ports:
+      - "${KEYCLOAK_PORT}:8080"
+    user: root
+    command: "start-dev --proxy-headers=xforwarded"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  keycloak-config:
+    image: docker:20.10
+    container_name: ovis-keycloak-config
+    platform: linux/arm64
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./Keycloak/ovis-realm.json:/ovis-realm.json
+    depends_on:
+      keycloak:
+        condition: service_healthy
+    command: >
+      sh -c "
+        echo 'Waiting for Keycloak to be ready...'
+        sleep 10
+        echo 'Copying realm file to Keycloak container...'
+        docker exec ovis-keycloak mkdir -p /import
+        docker cp /ovis-realm.json ovis-keycloak:/import/
+        echo 'Executing import command...'
+        docker exec ovis-keycloak ls -lah /import
+        docker exec ovis-keycloak /opt/keycloak/bin/kc.sh import --dir /import
+        echo 'Restarting Keycloak container...'
+        docker restart ovis-keycloak
+        echo 'Import process completed'
+      "
+    networks:
+      - ovis-network
+
+  express:
+    build: 
+      context: ./express
+      dockerfile: Dockerfile
+    image: ovis-express
+    container_name: ovis-express
+    ports:
+      - "${EXPRESS_PORT}:5000"
+    env_file: ./express/.env
+    volumes:
+      - ./express/src:/usr/src/app/src
+    networks:
+      - ovis-network
+
+networks:
+  ovis-network:
+    driver: bridge

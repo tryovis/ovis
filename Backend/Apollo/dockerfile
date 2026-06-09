@@ -1,0 +1,13 @@
+FROM node:24
+WORKDIR /app
+COPY . .
+
+#RUN npm config set cafile ./Certificates/lmu.pem --global
+RUN npm config set strict-ssl false --global
+
+# Install dependencies at build time
+RUN npm install
+
+# Production entrypoint (no watch mode)
+CMD ["node", "index.js"]
+USER node

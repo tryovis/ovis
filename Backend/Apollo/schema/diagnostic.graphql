@@ -1,0 +1,14 @@
+module.exports = `
+
+    extend type Query {
+        getDiagnosisDiagnosticTable(limit: Int, continueFromID: String, filter: String): [diag]
+    }
+
+    type diag {
+        tumorID: String
+        patID: String
+        investigationMethod: String
+        diagnosticOccurrenceDate: Float
+        _id: String
+    }
+`

@@ -1,0 +1,59 @@
+name: Daily public mirror
+
+on:
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: public-github-mirror
+  cancel-in-progress: false
+
+jobs:
+  public_github_mirror:
+    name: Publish sanitized GitLab mirror
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Install mirror dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bash git rsync tar findutils grep coreutils
+
+      - name: Clone GitLab source
+        env:
+          GITLAB_PUBLIC_MIRROR_TOKEN: ${{ secrets.GITLAB_PUBLIC_MIRROR_TOKEN }}
+          GITLAB_PUBLIC_MIRROR_USERNAME: ${{ secrets.GITLAB_PUBLIC_MIRROR_USERNAME }}
+        run: |
+          set -euo pipefail
+          test -n "${GITLAB_PUBLIC_MIRROR_TOKEN:-}" || {
+            echo "GITLAB_PUBLIC_MIRROR_TOKEN is required" >&2
+            exit 1
+          }
+
+          gitlab_username="${GITLAB_PUBLIC_MIRROR_USERNAME:-oauth2}"
+          askpass="$RUNNER_TEMP/gitlab-askpass.sh"
+          cat > "$askpass" <<'EOF'
+          #!/usr/bin/env bash
+          case "$1" in
+            *Username*) printf '%s\n' "${GITLAB_PUBLIC_MIRROR_USERNAME:-oauth2}" ;;
+            *Password*) printf '%s\n' "$GITLAB_PUBLIC_MIRROR_TOKEN" ;;
+            *) printf '\n' ;;
+          esac
+          EOF
+          chmod 700 "$askpass"
+
+          GITLAB_PUBLIC_MIRROR_USERNAME="$gitlab_username" \
+          GIT_ASKPASS="$askpass" \
+          GIT_TERMINAL_PROMPT=0 \
+          git clone --depth 1 --branch main https://gitlab.lrz.de/cccm/ovis/ovis.git source
+
+      - name: Publish public mirror
+        working-directory: source
+        env:
+          GITHUB_PUBLIC_MIRROR_TOKEN: ${{ secrets.GH_PUBLIC_MIRROR_PUSH_TOKEN }}
+          PUBLIC_MIRROR_WORK_DIR: ${{ runner.temp }}/public-mirror-work
+        run: bash Setup/ci/public-mirror.sh "$GITHUB_WORKSPACE/public-mirror-output"

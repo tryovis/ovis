@@ -1,0 +1,54 @@
+module.exports = `
+  extend type Query {
+    getAllPatient(limit: Int, continueFromID: String, filter: String): [Patientinformation]
+    getPatientCohortGenderChart(filter: String): countBarChart
+    getPatientCohortDeathChart(filter: String): countBarChart
+    getPatientCohortMapChart(level: cityMapping, filter: String): [genericCount]
+    getPatientSingleHeader(patID: String!): Patientinformation
+    getPatientOverview(patID: String!): [PatientOverview]
+  }
+
+  enum cityMapping {
+    country
+    state
+    postalCode
+    city
+    county
+  }
+
+
+  type Patientinformation {
+    patID: String
+    firstName: String
+    lastName: String
+    deathDate: Float
+    birthDate: Float
+    vitalDate: Float
+    _id: String
+    area: String
+    countryCode: String
+    countryName: String
+    county: String
+    state: String
+    district: String
+    gender: String
+    postalCode: String
+    ageAtDiagnosis: Int
+    diagnosis: String
+    vitalState: String
+  }
+
+    enum cityMapping {
+        countryCode
+        state
+        district
+        county
+    }
+
+
+  type PatientOverview {
+    x: Float
+    y: String
+    label: String
+  }
+`

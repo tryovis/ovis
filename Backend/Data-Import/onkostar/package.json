@@ -1,0 +1,18 @@
+{
+  "name": "ovis-onkostar-import",
+  "version": "1.0.0",
+  "description": "ONKOSTAR data import for OVIS",
+  "main": "mdbConnect.mjs",
+  "type": "module",
+  "scripts": {
+    "start": "node mdbConnect.mjs all",
+    "format": "prettier --config ../../../.prettierrc.cjs --ignore-path ../../../.prettierignore --write \"*.mjs\"",
+    "format:check": "prettier --config ../../../.prettierrc.cjs --ignore-path ../../../.prettierignore --check \"*.mjs\""
+  },
+  "devDependencies": {
+    "prettier": "^2.8.8"
+  },
+  "dependencies": {
+    "mariadb": "^3.2.3"
+  }
+}

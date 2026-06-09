@@ -1,0 +1,8 @@
+# Docker build context sanitation
+**/*.md
+.git
+.env
+**/.git
+**/node_modules
+**/vendor
+*.log

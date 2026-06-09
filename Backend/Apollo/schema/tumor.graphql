@@ -1,0 +1,68 @@
+module.exports = `
+
+    extend type Query {
+        getTumors(groupedBy: iGroup!, filter: String): countedByCategoryGrouped
+    }
+
+    input iGroup {
+        group: Group!,
+        genderWise: Boolean = false,
+        abscissa: outerGroup = years,
+        from: String,
+        until: String
+    }
+
+    enum Group {
+        ageAtDiagnosis,
+        centerCase,
+        diagnosisAssurance,
+        diagnosisReason,
+        distress,
+        ECOG_first,
+        ECOG_highest,
+        ECOG_last,
+        ECOG_lowest,
+        grading_first,
+        grading_highest,
+        grading_last,
+        grading_lowest,
+        Grading,
+        ICD_ICD10,
+        ICD_ICD10_3,
+        ICD_ICD10Group,
+        ICDO_histologyCode,
+        ICDO_localizationCode,
+        internal,
+        metastasis,
+        noGroup,
+        organizationalUnit,
+        patientCase,
+        previousConsultation_genetic,
+        previousConsultation_nutrition,
+        previousConsultation_psycho,
+        previousConsultation_social,
+        previousDiagnostic_radiology,
+        previousTherapy_radiation,
+        previousTherapy_surgery,
+        previousTherapy_systemic,
+        previousTumorboard_any,
+        previousTumorboard_prae,
+        previousTumorboard_post,
+        previousTumorboard_mtb,
+        primaryCase,
+        recurrence,
+        side,
+        VitalState
+    }
+
+
+    enum outerGroup {
+        years,
+        quarters
+        months,
+        weeks,
+        days,
+        ICD_ICD10_3,
+        none
+    }
+`

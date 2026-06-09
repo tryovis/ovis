@@ -1,0 +1,16 @@
+module.exports = `
+    extend type Query {
+        getSurvivalFollowUpAssessment(from:  String!, till: String!, includeTherapy: Boolean = true, includeVital: Boolean = true, filter:String): followUp
+    }
+
+    type followUp {
+        year: [Int],
+        followup: [followUpCalc]
+    }
+
+    type followUpCalc {
+        denominator: Int
+        numerator: Int
+        percentage: Float
+    }
+`

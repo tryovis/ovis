@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<link rel="icon" href="%sveltekit.assets%/favicon.ico" />
+		<meta name="viewport" content="width=device-width" />
+		<title>OVis</title>
+		%sveltekit.head%
+		<link
+			rel="preload"
+			href="%sveltekit.assets%/fonts/roboto-v51-latin-variable.woff2"
+			as="font"
+			type="font/woff2"
+			crossorigin
+		/>
+		<style>
+			@font-face {
+				font-family: 'Roboto';
+				src: url('%sveltekit.assets%/fonts/roboto-v51-latin-variable.woff2') format('woff2');
+				font-weight: 300 700;
+				font-style: normal;
+				font-display: block;
+			}
+
+			@font-face {
+				font-family: 'Roboto';
+				src: url('%sveltekit.assets%/fonts/roboto-v51-latin-italic-400.woff2') format('woff2');
+				font-weight: 400;
+				font-style: italic;
+				font-display: block;
+			}
+		</style>
+	</head>
+	<body data-sveltekit-preload-data="hover">
+		<div style="display: contents">%sveltekit.body%</div>
+	</body>
+</html>
+

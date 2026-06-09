@@ -1,0 +1,35 @@
+module.exports = `
+    extend type Query {
+        getSurvivalKaplanMeierChart(type: kpType!, strat: stratification!, source: kpcol = prp, filter: String): [kpData]
+    }
+
+    type kpData {
+        dateDiff: Float,
+        status: Int,
+        groupe: String,
+        tumorID: String
+    }
+
+    enum kpcol {
+        sql
+        prp
+    }
+
+    enum kpType {
+        overallSurvival
+        metastasis
+        recurrence
+        progression
+        postprogression
+        dfs
+        diseaseFreeSurvival
+    }
+
+    enum stratification {
+        none,
+        gender,
+        age,
+        UICC,
+        TStage,
+        metastasisStrat
+    }`

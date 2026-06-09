@@ -1,0 +1,26 @@
+{
+  "name": "keycloak-express",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js",
+    "format": "prettier --config ../../../.prettierrc.cjs --ignore-path ../../../.prettierignore --write \"src/**/*.{js,mjs}\"",
+    "format:check": "prettier --config ../../../.prettierrc.cjs --ignore-path ../../../.prettierignore --check \"src/**/*.{js,mjs}\""
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "prettier": "^2.8.8"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.1",
+    "express": "^4.19.2",
+    "nodemailer": "^6.10.0"
+  }
+}

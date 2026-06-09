@@ -1,0 +1,143 @@
+module.exports = `#graphql
+        enum collection {
+        progress
+        therapy
+        tnm
+        study
+        consultation
+        patient
+        supplementary
+        diagnosis
+        metastasis
+        tumorBoard
+        diagnostic
+        followUp
+        status
+        bioMaterial
+        molecularMarker
+        operation
+        systemic
+        radiation
+        histology
+    }
+
+    enum EventFilter {
+        all
+        newest
+        oldest
+    }
+
+    type CountedBy {
+        count: Int
+        label: String
+    }
+    
+    type consultation {
+        type: String
+        consultationOccurrenceDate: Float
+        status: String
+        _id: String
+        tumorID: String
+        patID: String
+        consultationDaysSinceDiagnosis: Int
+    }
+
+    type tumorBoard {
+        type: String
+        tumorBoardOccurrenceDate: Float
+        _id: String
+        tumorID: String
+        patID: String
+        tumorBoardDaysSinceDiagnosis: Int
+        recommendation: String
+    }
+
+    input iFilter {
+        field: String!
+        value: String!
+    }
+
+    type DocCount {
+        collection: String
+        count: Int
+    }
+
+    type countedByCategoryGrouped {
+        category: [String],
+        groups: [CategoryCount]
+    }
+    
+    type CategoryCount {
+        label: String,
+        count: [Int],
+        description: String,
+        gender: String,
+        code: String, 
+        category: String
+    }
+
+    type user {
+        _id: String
+        createdAt: Float
+        createdBy: String
+        firstLogin: Float
+        lastLogin: Float
+        firstName: String
+        lastName: String
+        timeOnline: Int
+        language: String
+        colorTheme: String
+        darkMode: Boolean
+        pseudonymization: Boolean
+        userFilter: [String]
+        role: String
+        group: String
+        email: String
+        status: String
+        lastModifiedAt: Float
+        lastModifiedBy: String
+    }
+
+    input iuser {
+        _id: String
+        createdAt: Float
+        createdBy: String
+        firstLogin: Float
+        lastLogin: Float
+        firstName: String
+        lastName: String
+        timeOnline: Int
+        language: String
+        colorTheme: String
+        darkMode: Boolean
+        pseudonymization: Boolean
+        userFilter: [String]
+        role: String
+        group: String
+        email: String
+        status: String
+        lastModifiedAt: Float
+        lastModifiedBy: String
+    }
+
+    type Query {
+        getUser(limit: Int, continueFromID: String, filter: String): [user]
+        getConsultation(limit: Int, continueFromID: String, filter: String): [consultation]
+        getTumorBoard(limit: Int, continueFromID: String, filter: String): [tumorBoard]
+        getQuicktoolsCountOverview(collection: [collection]!, filter: String): [DocCount]
+    }
+
+    type dbWriteResult {
+        acknowledged: Boolean
+        insertedId: String 
+        deletedCount: Int
+        modifiedCount: Int
+        matchedCount: Int
+    }
+
+    type Mutation {
+        createUser(input: iuser): dbWriteResult
+        updateUser(id: String, input: iuser): dbWriteResult
+        deleteUser(users: [String!]!): dbWriteResult
+    }
+`;

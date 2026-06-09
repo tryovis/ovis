@@ -1,0 +1,26 @@
+module.exports = `
+    extend type Query {
+        # getStudies(limit: Int, continueFromID: String, filter: String): [study]
+        getAllStudies(limit: Int, continueFromID: String, filter: String): [study]
+        
+    }
+    type study {
+        studyID: String
+        status: String
+        type: String
+        organisationFull: String
+        studyPatients: [spat]
+        organisationShort: String
+        permission: String
+        shortname: String
+        eudract: String
+        start: Float
+        phase: String
+        firstPatInPlanned: Float
+        _id: String
+    }
+  type spat {
+    patID: String
+    recruitmentDate: Float
+  }
+`

@@ -1,0 +1,4 @@
+# Docker build context exclusions
+node_modules/
+generated/
+Preprocessing/omock.json

@@ -1,0 +1,26 @@
+{
+    "name": "app",
+    "version": "1.0.0",
+    "description": "an graphQl server for mongo",
+    "main": "index.js",
+    "scripts": {
+        "test": "echo \"Error: no test specified\" && exit 1",
+        "format": "prettier --config ../../.prettierrc.cjs --ignore-path ../../.prettierignore --write \"*.js\" \"*.mjs\" \"Preprocessing/**/*.mjs\"",
+        "format:check": "prettier --config ../../.prettierrc.cjs --ignore-path ../../.prettierignore --check \"*.js\" \"*.mjs\" \"Preprocessing/**/*.mjs\""
+    },
+    "keywords": [
+        "mongo",
+        "grapQl"
+    ],
+    "author": "jordan",
+    "license": "ISC",
+    "devDependencies": {
+        "prettier": "^2.8.8"
+    },
+    "dependencies": {
+        "@apollo/server": "^4.7.1",
+        "express": "^4.17.1",
+        "graphql": "^16.6.0",
+        "mongodb": "^6.2.0"
+    }
+}
