@@ -15,6 +15,7 @@ This GitHub repository is the public open-source distribution of OVIS. Developme
 ### Changed
 
 - GitHub `main` is now published from sanitized GitLab `main` snapshots.
+- Public mirror commits now include the public `CHANGELOG.md` summary and sanitized-tree diff metadata instead of only a generic snapshot message.
 - Public GitHub history is represented through this changelog and future GitHub releases rather than raw internal GitLab commits.
 
 ### Notes for users
