@@ -11,77 +11,84 @@ const aggregations = (
 	const timeunit = groupIdDate.substring(0, groupIdDate.length - 1);
 	const dateiff = diff ? '$progressTime' : '$date';
 
-	// Resolve collection-specific OccurrenceDate field once (expression or path)
-	const collectionOccurrenceDate = collection
-		? {
-				$getField: {
-					field: { $concat: [collection, 'OccurrenceDate'] },
-					input: '$$ROOT'
-				}
-		  }
-		: '$occurrenceDate';
+	// Prefer a direct field path over $getField where possible.
+	// This is simpler and gives MongoDB a better chance to use indexes.
+	const occurrenceField = collection ? `${collection}OccurrenceDate` : 'occurrenceDate';
+	const occurrencePath = `$${occurrenceField}`;
 
 	const aggregation = [
 		{
 			$set: {
 				progressTime: {
 					$dateDiff: {
-						endDate: collectionOccurrenceDate,
+						endDate: occurrencePath,
 						startDate: '$diagnosisDate',
 						unit: timeunit,
 						startOfWeek: 'mon'
 					}
 				},
-				collectionOccurrenceDate: collectionOccurrenceDate,
-				date: { $dateTrunc: { date: collectionOccurrenceDate, unit: timeunit } }
+				collectionOccurrenceDate: occurrencePath,
+				date: {
+					$dateTrunc: {
+						date: occurrencePath,
+						unit: timeunit
+					}
+				}
 			}
 		},
-		// /* DEBUG: expose resolved endDate for troubleshooting */
-		// , { $set: { _debug_endDate: "$collectionOccurrenceDate" } }
 		{
 			$match: {
 				progressTime: { $gte: 0 },
-				[label]: { $exists: true, $nin: [null, 'X'] }
+				[label]: { $exists: true, $nin: [null, 'X', ''] }
 			}
 		},
 		{
 			$group: {
-				_id: { label: '$' + label, date: dateiff },
-				tumors: { $push: { tumorID: '$tumorID' } },
-				count: { $count: {} }
+				_id: {
+					label: `$${label}`,
+					date: dateiff
+				},
+				// Do not push tumorIDs for the normal chart response.
+				// The frontend only needs label, date and count.
+				// If tumorIDs are needed for drilldown later, create a separate lazy query.
+				count: { $sum: 1 }
 			}
 		},
 		{ $sort: { '_id.date': 1 } }
 	];
 
-	const pregroup = (age = 'newest') => {
-		const filter = [
-			{
-				$group: {
-					_id: { tumor: '$tumorID', label: '$' + label },
-					progs: {
-						$top: {
-							output: '$$ROOT',
-							sortBy: { collectionOccurrenceDate: sortOrder[age] }
+	const pregroup = (age = 'newest') => [
+		{
+			$group: {
+				_id: {
+					tumor: '$tumorID',
+					label: `$${label}`
+				},
+				progs: {
+					$top: {
+						output: '$$ROOT',
+						sortBy: {
+							collectionOccurrenceDate: sortOrder[age]
 						}
 					}
 				}
-			},
-			{
-				$replaceRoot: { newRoot: '$progs' }
 			}
-		];
-		return filter;
-	};
+		},
+		{
+			$replaceRoot: {
+				newRoot: '$progs'
+			}
+		}
+	];
 
-	//insert extra grouping >> filter the highest | lowest date
-	if (eventfiltering !== 'all') aggregation.splice(2, 0, ...pregroup(eventfiltering));
+	// Insert extra grouping to select first/last occurrence per tumor and label.
+	if (eventfiltering !== 'all') {
+		aggregation.splice(2, 0, ...pregroup(eventfiltering));
+	}
 
-	//insert match -> remove empty label field
-	//aggregation[1].$match[label] = { $exists: true, $nin: [null, "X"] }
+	// Avoid console.dir/log in production because large aggregations and resultsets are expensive.
+	// console.dir(aggregation, { depth: null });
 
-	console.dir(aggregation, { depth: null });
-	console.log('agg');
 	return aggregation;
 };
 
@@ -92,17 +99,25 @@ const Query = {
 		context
 	) => {
 		const ccol = context.collections[collection];
-		let agg = [];
-		if (filter) agg = await filter2match({ value: filter, column: ccol, db: context.db });
+		const agg = [];
+
+		if (filter) {
+			agg.push(...(await filter2match({ value: filter, column: ccol, db: context.db })));
+		}
+
 		agg.push(...aggregations(timePeriod, eventsUsed, group, datediff, collection));
-		let result = await context.db.collection(ccol).aggregate(agg).toArray();
-		console.dir(result, { depth: null });
+
+		const result = await context.db.collection(ccol).aggregate(agg, {
+			allowDiskUse: true
+		}).toArray();
+
+		// Return only the data the chart actually needs.
 		return result.map((ele) => ({
 			label: ele._id.label,
 			date: ele._id.date,
-			tumorid: ele.tumors.map((t) => t.tumorID),
 			count: ele.count
 		}));
 	}
 };
+
 module.exports = { Query };
