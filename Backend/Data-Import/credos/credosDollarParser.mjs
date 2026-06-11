@@ -1,5 +1,6 @@
 // credosDollarParser.mjs
-import fs from "node:fs/promises";
+import { createReadStream } from "node:fs";
+import { createInterface } from "node:readline/promises";
 
 /**
  * Liest eine CREDOS-Exportdatei, die wie CSV aufgebaut ist,
@@ -17,22 +18,32 @@ export async function parseCredosDollarFile(filePath, options = {}) {
     emptyAsNull = true
   } = options;
 
-  const content = await fs.readFile(filePath, encoding);
+  const input = createReadStream(filePath, { encoding });
+  const lines = createInterface({
+    input,
+    crlfDelay: Infinity
+  });
 
-  const lines = content
-    .split(/\r?\n/)
-    .map(line => line.trimEnd())
-    .filter(line => line.trim() !== "");
+  let headers = null;
+  let nonEmptyLineNumber = 0;
+  const rows = [];
 
-  if (lines.length === 0) {
-    return [];
-  }
+  for await (const rawLine of lines) {
+    const line = rawLine.trimEnd();
 
-  const headers = lines[0]
-    .split(delimiter)
-    .map(header => header.trim());
+    if (line.trim() === "") {
+      continue;
+    }
 
-  return lines.slice(1).map((line, lineIndex) => {
+    nonEmptyLineNumber += 1;
+
+    if (!headers) {
+      headers = line
+        .split(delimiter)
+        .map(header => header.trim());
+      continue;
+    }
+
     const values = line.split(delimiter);
     const row = {};
 
@@ -52,9 +63,11 @@ export async function parseCredosDollarFile(filePath, options = {}) {
 
     row.__meta = {
       sourceFile: filePath,
-      lineNumber: lineIndex + 2
+      lineNumber: nonEmptyLineNumber
     };
 
-    return row;
-  });
+    rows.push(row);
+  }
+
+  return rows;
 }

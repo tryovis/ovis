@@ -1,31 +1,30 @@
 // credosImporter.mjs
-import fs from "node:fs/promises";
+
 import { existsSync } from "node:fs";
+import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { parseCredosDollarFile } from "./credosDollarParser.mjs";
-
-import { mapPatient } from "./mappers/patientMapper.mjs";
-import { mapDiagnosis } from "./mappers/diagnosisMapper.mjs";
-import { mapTherapy } from "./mappers/therapyMapper.mjs";
-import { mapDiagnostic } from "./mappers/diagnosticMapper.mjs";
-import { mapProgress } from "./mappers/progressMapper.mjs";
-import { mapTnmsForRow } from "./mappers/tnmMapper.mjs";
-import { mapMetastasis } from "./mappers/metastasisMapper.mjs";
-import { mapTumorBoardsForRow } from "./mappers/tumorBoardMapper.mjs";
 import { mapConsultation } from "./mappers/consultationMapper.mjs";
-import { mapSupplementary } from "./mappers/supplementaryMapper.mjs";
+import { mapDiagnosis } from "./mappers/diagnosisMapper.mjs";
+import { mapDiagnostic } from "./mappers/diagnosticMapper.mjs";
+import { mapMetastasis } from "./mappers/metastasisMapper.mjs";
 import { mapMolecularMarker } from "./mappers/molecularMarkerMapper.mjs";
+import { mapPatient } from "./mappers/patientMapper.mjs";
+import { mapProgress } from "./mappers/progressMapper.mjs";
 import { mapSingleRadiation } from "./mappers/singleRadiationMapper.mjs";
-
-import { indexBy } from "./utils/indexBy.mjs";
-import { keepLatestCredosDocumentVersions } from "./utils/credosVersioning.mjs";
-import { createStableNumericIdFactory } from "./utils/idFactory.mjs";
-import { createDd07vLookup } from "./utils/dd07vLookup.mjs";
-import { createComplicationLookup } from "./utils/complicationLookup.mjs";
-import { createMolecularMarkerLookup } from "./utils/molecularMarkerLookup.mjs";
+import { mapSupplementary } from "./mappers/supplementaryMapper.mjs";
+import { mapTherapy } from "./mappers/therapyMapper.mjs";
+import { mapTnmsForRow } from "./mappers/tnmMapper.mjs";
+import { mapTumorBoardsForRow } from "./mappers/tumorBoardMapper.mjs";
 import { buildStudiesForUlm } from "./UTMS_ULM.mjs";
+import { createComplicationLookup } from "./utils/complicationLookup.mjs";
+import { keepLatestCredosDocumentVersions } from "./utils/credosVersioning.mjs";
+import { createDd07vLookup } from "./utils/dd07vLookup.mjs";
+import { createStableNumericIdFactory } from "./utils/idFactory.mjs";
+import { indexBy } from "./utils/indexBy.mjs";
+import { createMolecularMarkerLookup } from "./utils/molecularMarkerLookup.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -161,48 +160,60 @@ async function main() {
 
   const npatRows = await parseCredosDollarFile(sourceFiles.npat);
 
-  const rawTzpiRows = await parseCredosDollarFile(sourceFiles.tzpi);
-  const tzpiRows = keepLatestCredosDocumentVersions(rawTzpiRows, {
+  const {
+    rows: tzpiRows,
+    rawCount: tzpiRawCount
+  } = await parseLatestCredosDocumentVersions(sourceFiles.tzpi, {
     documentNumberField: "DOKNR",
     documentVersionField: "DOKVR",
     deleteFlagField: "TZ_LOEKZ",
     deleteFlagValue: "X"
   });
 
-  const rawTzesRows = await parseCredosDollarFile(sourceFiles.tzes);
-  const tzesRows = keepLatestCredosDocumentVersions(rawTzesRows, {
+  const {
+    rows: tzesRows,
+    rawCount: tzesRawCount
+  } = await parseLatestCredosDocumentVersions(sourceFiles.tzes, {
     documentNumberField: "DOKNR",
     documentVersionField: "DOKVR",
     deleteFlagField: "TZ_LOEKZ",
     deleteFlagValue: "X"
   });
 
-  const rawTzeyRows = await parseOptionalCredosFile(sourceFiles.tzey);
-  const tzeyRows = keepLatestCredosDocumentVersions(rawTzeyRows, {
+  const {
+    rows: tzeyRows,
+    rawCount: tzeyRawCount
+  } = await parseOptionalLatestCredosDocumentVersions(sourceFiles.tzey, {
     documentNumberField: "DOKNR",
     documentVersionField: "DOKVR",
     deleteFlagField: "TZ_LOEKZ",
     deleteFlagValue: "X"
   });
 
-  const rawTzvsRows = await parseCredosDollarFile(sourceFiles.tzvs);
-  const tzvsRows = keepLatestCredosDocumentVersions(rawTzvsRows, {
+  const {
+    rows: tzvsRows,
+    rawCount: tzvsRawCount
+  } = await parseLatestCredosDocumentVersions(sourceFiles.tzvs, {
     documentNumberField: "DOKNR",
     documentVersionField: "DOKVR",
     deleteFlagField: "TZ_LOEKZ",
     deleteFlagValue: "X"
   });
 
-  const rawTzvyRows = await parseOptionalCredosFile(sourceFiles.tzvy);
-  const tzvyRows = keepLatestCredosDocumentVersions(rawTzvyRows, {
+  const {
+    rows: tzvyRows,
+    rawCount: tzvyRawCount
+  } = await parseOptionalLatestCredosDocumentVersions(sourceFiles.tzvy, {
     documentNumberField: "DOKNR",
     documentVersionField: "DOKVR",
     deleteFlagField: "TZ_LOEKZ",
     deleteFlagValue: "X"
   });
 
-  const rawTzthRows = await parseOptionalCredosFile(sourceFiles.tzth);
-  const tzthRows = keepLatestCredosDocumentVersions(rawTzthRows, {
+  const {
+    rows: tzthRows,
+    rawCount: tzthRawCount
+  } = await parseOptionalLatestCredosDocumentVersions(sourceFiles.tzth, {
     documentNumberField: "DOKNR",
     documentVersionField: "DOKVR",
     deleteFlagField: "TZ_LOEKZ",
@@ -236,16 +247,20 @@ async function main() {
   const tzesFmRows = await parseOptionalCredosFile(sourceFiles.tzesFm);
   const tzvsFmRows = await parseOptionalCredosFile(sourceFiles.tzvsFm);
 
-  const rawTzesTbRows = await parseOptionalCredosFile(sourceFiles.tzesTb);
-  const tzesTbRows = keepLatestCredosDocumentVersions(rawTzesTbRows, {
+  const {
+    rows: tzesTbRows,
+    rawCount: tzesTbRawCount
+  } = await parseOptionalLatestCredosDocumentVersions(sourceFiles.tzesTb, {
     documentNumberField: "DOKNR",
     documentVersionField: "DOKVR",
     deleteFlagField: "TZ_LOEKZ",
     deleteFlagValue: "X"
   });
 
-  const rawTzvsTbRows = await parseOptionalCredosFile(sourceFiles.tzvsTb);
-  const tzvsTbRows = keepLatestCredosDocumentVersions(rawTzvsTbRows, {
+  const {
+    rows: tzvsTbRows,
+    rawCount: tzvsTbRawCount
+  } = await parseOptionalLatestCredosDocumentVersions(sourceFiles.tzvsTb, {
     documentNumberField: "DOKNR",
     documentVersionField: "DOKVR",
     deleteFlagField: "TZ_LOEKZ",
@@ -294,8 +309,10 @@ async function main() {
   const tzvsGenRows = await parseOptionalCredosFile(sourceFiles.tzvsGen);
   const tzvyGenRows = await parseOptionalCredosFile(sourceFiles.tzvyGen);
 
-  const rawTztiRows = await parseCredosDollarFile(sourceFiles.tzti);
-  const tztiRows = keepLatestCredosDocumentVersions(rawTztiRows, {
+  const {
+    rows: tztiRows,
+    rawCount: tztiRawCount
+  } = await parseLatestCredosDocumentVersions(sourceFiles.tzti, {
     documentNumberField: "doknr",
     documentVersionField: "dokvr",
     deleteFlagField: "loekz",
@@ -502,22 +519,22 @@ async function main() {
     throw error;
   }
 
-  console.log(`tzpi roh: ${rawTzpiRows.length}`);
+  console.log(`tzpi roh: ${tzpiRawCount}`);
   console.log(`tzpi nach Versionierung/Löschkennzeichen: ${tzpiRows.length}`);
 
-  console.log(`tzes roh: ${rawTzesRows.length}`);
+  console.log(`tzes roh: ${tzesRawCount}`);
   console.log(`tzes nach Versionierung/Löschkennzeichen: ${tzesRows.length}`);
 
-  console.log(`tzey roh: ${rawTzeyRows.length}`);
+  console.log(`tzey roh: ${tzeyRawCount}`);
   console.log(`tzey nach Versionierung/Löschkennzeichen: ${tzeyRows.length}`);
 
-  console.log(`tzvs roh: ${rawTzvsRows.length}`);
+  console.log(`tzvs roh: ${tzvsRawCount}`);
   console.log(`tzvs nach Versionierung/Löschkennzeichen: ${tzvsRows.length}`);
 
-  console.log(`tzvy roh: ${rawTzvyRows.length}`);
+  console.log(`tzvy roh: ${tzvyRawCount}`);
   console.log(`tzvy nach Versionierung/Löschkennzeichen: ${tzvyRows.length}`);
 
-  console.log(`tzth roh: ${rawTzthRows.length}`);
+  console.log(`tzth roh: ${tzthRawCount}`);
   console.log(`tzth nach Versionierung/Löschkennzeichen: ${tzthRows.length}`);
 
   console.log(`tzth_kp roh: ${tzthKpRows.length}`);
@@ -532,10 +549,10 @@ async function main() {
   console.log(`tzes_fm roh: ${tzesFmRows.length}`);
   console.log(`tzvs_fm roh: ${tzvsFmRows.length}`);
 
-  console.log(`tzes_tb roh: ${rawTzesTbRows.length}`);
+  console.log(`tzes_tb roh: ${tzesTbRawCount}`);
   console.log(`tzes_tb nach Versionierung/Löschkennzeichen: ${tzesTbRows.length}`);
 
-  console.log(`tzvs_tb roh: ${rawTzvsTbRows.length}`);
+  console.log(`tzvs_tb roh: ${tzvsTbRawCount}`);
   console.log(`tzvs_tb nach Versionierung/Löschkennzeichen: ${tzvsTbRows.length}`);
 
   console.log(`tzes_br roh: ${tzesBrRows.length}`);
@@ -560,7 +577,7 @@ async function main() {
   console.log(`tzvs_gen roh: ${tzvsGenRows.length}`);
   console.log(`tzvy_gen roh: ${tzvyGenRows.length}`);
 
-  console.log(`tzti roh: ${rawTztiRows.length}`);
+  console.log(`tzti roh: ${tztiRawCount}`);
   console.log(`tzti nach Versionierung/Löschkennzeichen: ${tztiRows.length}`);
 }
 
@@ -713,6 +730,31 @@ async function parseOptionalCredosFile(filePath) {
     if (error.code === "ENOENT") {
       console.warn(`Optionale Datei nicht gefunden: ${filePath}`);
       return [];
+    }
+
+    throw error;
+  }
+}
+
+async function parseLatestCredosDocumentVersions(filePath, options) {
+  const rawRows = await parseCredosDollarFile(filePath);
+
+  return {
+    rawCount: rawRows.length,
+    rows: keepLatestCredosDocumentVersions(rawRows, options)
+  };
+}
+
+async function parseOptionalLatestCredosDocumentVersions(filePath, options) {
+  try {
+    return await parseLatestCredosDocumentVersions(filePath, options);
+  } catch (error) {
+    if (error.code === "ENOENT") {
+      console.warn(`Optionale Datei nicht gefunden: ${filePath}`);
+      return {
+        rawCount: 0,
+        rows: []
+      };
     }
 
     throw error;
