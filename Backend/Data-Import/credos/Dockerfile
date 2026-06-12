@@ -10,5 +10,6 @@ ENV OVIS_PREPROCESSOR_URL="http://ovis-backend-mongodb-data-preprocessing:9000/o
 ENV OVIS_OMOCK_FILE="/input/omock.json"
 ENV CREDOS_EXPORT_DIR="/input/CREDOSExportFiles"
 ENV CREDOS_OMOCK_OUTPUT="/shared/omock.json"
+ENV CREDOS_IMPORTER_NODE_HEAP_MB="8192"
 
 CMD ["./entrypoint.sh"]

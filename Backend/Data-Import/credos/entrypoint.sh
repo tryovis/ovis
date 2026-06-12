@@ -19,7 +19,12 @@ else
   node credosImportMode.mjs validate "$CREDOS_EXPORT_DIR"
 
   echo "Generating CREDOS omock.json from source files..."
-  node credosImporter.mjs
+  if [ -n "${CREDOS_IMPORTER_NODE_HEAP_MB:-}" ]; then
+    echo "CREDOS importer heap limit: ${CREDOS_IMPORTER_NODE_HEAP_MB} MB"
+    node "--max-old-space-size=$CREDOS_IMPORTER_NODE_HEAP_MB" credosImporter.mjs
+  else
+    node credosImporter.mjs
+  fi
 
   export OMOCK_TO_UPLOAD="$CREDOS_OMOCK_OUTPUT"
 fi

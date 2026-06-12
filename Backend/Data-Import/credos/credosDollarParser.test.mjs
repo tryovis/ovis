@@ -7,69 +7,96 @@ import test from "node:test";
 import { parseCredosDollarFile } from "./credosDollarParser.mjs";
 
 async function withTempDir(callback) {
-	const dir = await fs.mkdtemp(path.join(os.tmpdir(), "credos-dollar-parser-"));
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), "credos-dollar-parser-"));
 
-	try {
-		return await callback(dir);
-	} finally {
-		await fs.rm(dir, { recursive: true, force: true });
-	}
+  try {
+    return await callback(dir);
+  } finally {
+    await fs.rm(dir, { recursive: true, force: true });
+  }
 }
 
-test("parses CREDOS dollar files without full-file read buffering", async () => {
-	const source = await fs.readFile(
-		new URL("./credosDollarParser.mjs", import.meta.url),
-		"utf8",
-	);
+test("parses CREDOS dollar files with existing trimming and metadata semantics", async () => {
+  await withTempDir(async dir => {
+    const filePath = path.join(dir, "sample.txt");
+    await fs.writeFile(
+      filePath,
+      "PATID$NAME$EMPTY$MISSING\r\n  1 $ Alice $ $\r\n\r\n2$Bob$value$extra\r\n",
+      "utf8"
+    );
 
-	assert.doesNotMatch(
-		source,
-		/fs\.readFile\(/,
-		"parser must stream input instead of buffering full export files",
-	);
+    const rows = await parseCredosDollarFile(filePath);
+
+    assert.deepEqual(rows, [
+      {
+        PATID: "1",
+        NAME: "Alice",
+        EMPTY: null,
+        MISSING: null,
+        __meta: {
+          sourceFile: filePath,
+          lineNumber: 2
+        }
+      },
+      {
+        PATID: "2",
+        NAME: "Bob",
+        EMPTY: "value",
+        MISSING: "extra",
+        __meta: {
+          sourceFile: filePath,
+          lineNumber: 3
+        }
+      }
+    ]);
+  });
 });
 
-test("parses non-empty rows and keeps empty values as null", async () => {
-	await withTempDir(async (dir) => {
-		const filePath = path.join(dir, "export.txt");
-		await fs.writeFile(
-			filePath,
-			"id$name$note\r\n 1 $ Alice $ \r\n\r\n2$Bob$ok\n",
-			"utf8",
-		);
+test("parses large files without using fs.promises.readFile", async () => {
+  await withTempDir(async dir => {
+    const filePath = path.join(dir, "large.txt");
+    const rowsToWrite = 50_000;
+    const lines = ["PATID$VALUE"];
 
-		const rows = await parseCredosDollarFile(filePath);
+    for (let index = 0; index < rowsToWrite; index += 1) {
+      lines.push(`${index}$value-${index}`);
+    }
 
-		assert.deepEqual(rows, [
-			{
-				id: "1",
-				name: "Alice",
-				note: null,
-				__meta: {
-					sourceFile: filePath,
-					lineNumber: 2,
-				},
-			},
-			{
-				id: "2",
-				name: "Bob",
-				note: "ok",
-				__meta: {
-					sourceFile: filePath,
-					lineNumber: 3,
-				},
-			},
-		]);
-	});
+    await fs.writeFile(filePath, `${lines.join("\n")}\n`, "utf8");
+
+    const originalReadFile = fs.readFile;
+    let readFileCalled = false;
+    fs.readFile = async (...args) => {
+      readFileCalled = true;
+      return await originalReadFile(...args);
+    };
+
+    try {
+      const rows = await parseCredosDollarFile(filePath);
+
+      assert.equal(readFileCalled, false);
+      assert.equal(rows.length, rowsToWrite);
+      assert.deepEqual(rows[49_999], {
+        PATID: "49999",
+        VALUE: "value-49999",
+        __meta: {
+          sourceFile: filePath,
+          lineNumber: 50_001
+        }
+      });
+    } finally {
+      fs.readFile = originalReadFile;
+    }
+  });
 });
 
 test("returns an empty array for empty exports", async () => {
-	await withTempDir(async (dir) => {
-		const filePath = path.join(dir, "empty.txt");
-		await fs.writeFile(filePath, "\n\r\n", "utf8");
+  await withTempDir(async dir => {
+    const filePath = path.join(dir, "empty.txt");
+    await fs.writeFile(filePath, "\n\r\n", "utf8");
 
-		const rows = await parseCredosDollarFile(filePath);
+    const rows = await parseCredosDollarFile(filePath);
 
-		assert.deepEqual(rows, []);
-	});
+    assert.deepEqual(rows, []);
+  });
 });

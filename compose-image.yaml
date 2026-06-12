@@ -195,6 +195,7 @@ services:
       - https_proxy=${OVIS_HTTPS_PROXY:-}
       - no_proxy=${OVIS_NO_PROXY:-}
       - CREDOS_EXPORT_DIR=/input/CREDOSExportFiles
+      - CREDOS_IMPORTER_NODE_HEAP_MB=${CREDOS_IMPORTER_NODE_HEAP_MB:-8192}
     volumes:
       # Optional: bind-mount for site-provided omock.json (only used if present)
       - ${OVIS_SITE_OMOCK_FILE:-./omock.json}:/input/omock.json:ro
