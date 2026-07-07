@@ -1,6 +1,7 @@
 const { filter2match } = require('../astTranslator');
 const projection = {
 	ageAtDiagnosis: '$ageAtDiagnosis',
+	ageAtDiagnosisGroup: '$ageAtDiagnosisGroup',
 	ICD_ICD10_3: '$ICD.ICD10_3',
 	ICD10_3Text: '$ICD.ICD10_3Text',
 	ICD10Text: '$ICD.ICD10Text',
@@ -113,6 +114,133 @@ const projection = {
 	}
 };
 
+const timeSetProjection = {
+	years: { $toString: { $year: '$diagnosisDate' } },
+	months: { $toString: { $month: '$diagnosisDate' } },
+	weeks: { $toString: { $week: '$diagnosisDate' } },
+	quarters: {
+		$toString: {
+			$ceil: {
+				$divide: [{ $month: '$diagnosisDate' }, 3]
+			}
+		}
+	}
+};
+
+const icdoDiagnosisProjection = {
+	$first: {
+		$filter: {
+			input: '$ICDO',
+			cond: { $eq: ['$$this.source', 'diagnosis'] }
+		}
+	}
+};
+
+const ecogFeatureProjection = {
+	fECOG: {
+		$filter: { input: '$ECOG', as: 'e', cond: { $in: ['$$e', ['0', '1', '2', '3', '4']] } }
+	},
+	xECOG: { $filter: { input: '$ECOG', as: 'e', cond: { $in: ['$$e', ['X']] } } }
+};
+
+const icdoGradingProjection = {
+	$map: {
+		input: '$ICDO.grading',
+		as: 'it',
+		in: {
+			grading: '$$it',
+			ordinal: {
+				$switch: {
+					branches: [
+						{ case: { $eq: ['$$it', 'unbekannt'] }, then: -2 },
+						{ case: { $eq: ['$$it', 'Trifft nicht zu'] }, then: -1 },
+						{ case: { $eq: ['$$it', 'Differenzierungsgrad nicht bestimmbar'] }, then: 0 },
+						{ case: { $eq: ['$$it', '0'] }, then: 1 },
+						{ case: { $eq: ['$$it', '1'] }, then: 2 },
+						{
+							case: {
+								$regexMatch: { input: '$$it', regex: '^niedriggradig', options: 'i' }
+							},
+							then: 3
+						},
+						{ case: { $eq: ['$$it', '2'] }, then: 4 },
+						{
+							case: {
+								$regexMatch: {
+									input: '$$it',
+									regex: '^mittelgradig maligne',
+									options: 'i'
+								}
+							},
+							then: 5
+						},
+						{ case: { $eq: ['$$it', '3'] }, then: 6 },
+						{
+							case: {
+								$regexMatch: { input: '$$it', regex: '^hochgradig', options: 'i' }
+							},
+							then: 7
+						},
+						{ case: { $eq: ['$$it', '4'] }, then: 8 }
+					],
+					default: -3
+				}
+			}
+		}
+	}
+};
+
+const timeFeatures = new Set(['years', 'quarters', 'months', 'weeks']);
+const icdoFeatures = new Set(['ICDO_localizationCode', 'ICDO_histologyCode']);
+const gradingFeatures = new Set([
+	'grading_first',
+	'grading_highest',
+	'grading_last',
+	'grading_lowest'
+]);
+const ecogFeatures = new Set(['ECOG_first', 'ECOG_highest', 'ECOG_last', 'ECOG_lowest']);
+
+const addTimeProjection = (target, feature) => {
+	if (feature === 'none' || !timeFeatures.has(feature)) return;
+	target.years = timeSetProjection.years;
+	if (feature !== 'years') target[feature] = timeSetProjection[feature];
+};
+
+const buildPreProjectSet = ({ group, abscissa, from, until }) => {
+	const requestedFeatures = new Set([group]);
+	if (abscissa !== 'none') requestedFeatures.add(abscissa);
+	if (from || until) requestedFeatures.add('months');
+
+	const $set = {};
+	for (const feature of requestedFeatures) addTimeProjection($set, feature);
+
+	const needsICDO = [...requestedFeatures].some(
+		(feature) => icdoFeatures.has(feature) || gradingFeatures.has(feature)
+	);
+	if (needsICDO) $set.ICDO = icdoDiagnosisProjection;
+
+	if ([...requestedFeatures].some((feature) => ecogFeatures.has(feature))) {
+		Object.assign($set, ecogFeatureProjection);
+	}
+
+	if ([...requestedFeatures].some((feature) => gradingFeatures.has(feature))) {
+		$set.icdograding = icdoGradingProjection;
+	}
+
+	return $set;
+};
+
+const buildPostProjectSet = ({ group, abscissa }) => {
+	if (!gradingFeatures.has(group) && !gradingFeatures.has(abscissa)) return null;
+
+	return {
+		grading_first: '$grading_first.grading',
+		grading_last: '$grading_last.grading',
+		grading_lowest: '$grading_lowest.grading',
+		grading_highest: '$grading_highest.grading'
+	};
+};
+
 const Query = {
 	getTumors: async (
 		_parent,
@@ -129,121 +257,6 @@ const Query = {
 				column: context.collections.diagnosis,
 				db: context.db
 			});
-		aggregations.push(
-			{
-				$set: {
-					years: { $toString: { $year: '$diagnosisDate' } },
-					months: { $toString: { $month: '$diagnosisDate' } },
-					weeks: { $toString: { $week: '$diagnosisDate' } },
-					quarters: {
-						$toString: {
-							$ceil: {
-								$divide: [{ $month: '$diagnosisDate' }, 3]
-							}
-						}
-					},
-					ICDO: {
-						$first: {
-							$filter: {
-								input: '$ICDO',
-								cond: { $eq: ['$$this.source', 'diagnosis'] }
-							}
-						}
-					},
-					fECOG: {
-						$filter: { input: '$ECOG', as: 'e', cond: { $in: ['$$e', ['0', '1', '2', '3', '4']] } }
-					},
-					xECOG: { $filter: { input: '$ECOG', as: 'e', cond: { $in: ['$$e', ['X']] } } },
-					icdograding: {
-						$map: {
-							input: '$ICDO.grading',
-							as: 'it',
-							in: {
-								grading: '$$it',
-								ordinal: {
-									$switch: {
-										branches: [
-											{ case: { $eq: ['$$it', 'unbekannt'] }, then: -2 },
-											{ case: { $eq: ['$$it', 'Trifft nicht zu'] }, then: -1 },
-											{ case: { $eq: ['$$it', 'Differenzierungsgrad nicht bestimmbar'] }, then: 0 },
-											{ case: { $eq: ['$$it', '0'] }, then: 1 },
-											{ case: { $eq: ['$$it', '1'] }, then: 2 },
-											{
-												case: {
-													$regexMatch: { input: '$$it', regex: '^niedriggradig', options: 'i' }
-												},
-												then: 3
-											},
-											{ case: { $eq: ['$$it', '2'] }, then: 4 },
-											{
-												case: {
-													$regexMatch: {
-														input: '$$it',
-														regex: '^mittelgradig maligne',
-														options: 'i'
-													}
-												},
-												then: 5
-											},
-											{ case: { $eq: ['$$it', '3'] }, then: 6 },
-											{
-												case: {
-													$regexMatch: { input: '$$it', regex: '^hochgradig', options: 'i' }
-												},
-												then: 7
-											},
-											{ case: { $eq: ['$$it', '4'] }, then: 8 }
-										],
-										default: -3
-									}
-								}
-							}
-						}
-					}
-				}
-			},
-			{
-				$project
-			},
-			{
-				$set: {
-					grading_first: '$grading_first.grading',
-					grading_last: '$grading_last.grading',
-					grading_lowest: '$grading_lowest.grading',
-					grading_highest: '$grading_highest.grading'
-				}
-			},
-			{
-				$match
-			},
-			{
-				$group: {
-					_id: { label: `$${group}` },
-					pre: { $push: '$$ROOT' },
-					sum: { $count: {} }
-				}
-			},
-			{
-				$unwind: '$pre'
-			},
-			{
-				$sort: { sum: -1 }
-			},
-			{
-				$replaceRoot: { newRoot: { $mergeObjects: ['$pre', { sum: '$sum' }] } }
-			},
-			{
-				$group: {
-					_id,
-					extra: { $first: '$ICD10Text' },
-					//extra: { $addToSet: "$ICD10Text" },
-					count: { $count: {} }
-				}
-			},
-			{
-				$sort: { '_id.sum': -1, '_id.label': 1, '_id.gender': 1 }
-			}
-		);
 
 		if (genderWise) {
 			_id.gender = '$gender';
@@ -290,63 +303,78 @@ const Query = {
 			$project.months = projection.months;
 		}
 
-		if (group === 'ageAtDiagnosis') {
-			const ageGroup = [
-				{
-					$bucket: {
-						groupBy: '$ageAtDiagnosis',
-						boundaries: [0, 18, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110],
-						default: 'Other',
-						output: {
-							props: {
-								$push: {
-									[`${abscissa}`]: `$${abscissa}`,
-									gender: '$gender',
-									icd10Order: '$icd10Order'
+		const abscissaAgg =
+			abscissa === 'ICD_ICD10_3'
+				? [
+						{
+							$group: {
+								_id: '$ICD_ICD10_3',
+								count: { $count: {} },
+								props: {
+									$push: {
+										gender: '$gender',
+										//   ICD_ICD10: '$icd10',
+										ICD10Text: '$ICD10Text',
+										[`${group}`]: `$${group}`
+									}
+								}
+							}
+						},
+						{
+							$unwind: '$props'
+						},
+						{
+							$replaceRoot: {
+								newRoot: {
+									$mergeObjects: ['$props', { ICD_ICD10_3: '$_id', icd10Order: '$count' }]
 								}
 							}
 						}
-					}
-				},
-				{
-					$unwind: '$props'
-				},
-				{
-					$replaceRoot: { newRoot: { $mergeObjects: ['$props', { ageAtDiagnosis: '$_id' }] } }
-				}
-			];
-			aggregations.splice(4, 0, ...ageGroup);
-		}
-
-		if (abscissa === 'ICD_ICD10_3') {
-			const abscissaAgg = [
-				{
-					$group: {
-						_id: '$ICD_ICD10_3',
-						count: { $count: {} },
-						props: {
-							$push: {
-								gender: '$gender',
-								//   ICD_ICD10: '$icd10',
-								ICD10Text: '$ICD10Text',
-								[`${group}`]: `$${group}`
-							}
-						}
-					}
-				},
-				{
-					$unwind: '$props'
-				},
-				{
-					$replaceRoot: {
-						newRoot: { $mergeObjects: ['$props', { ICD_ICD10_3: '$_id', icd10Order: '$count' }] }
-					}
-				}
-			];
-			aggregations.splice(4, 0, ...abscissaAgg);
-		}
+					]
+				: [];
 
 		if (Object.keys($match.months).length === 0) delete $match.months;
+		const preProjectSet = buildPreProjectSet({ group, abscissa, from, until });
+		if (Object.keys(preProjectSet).length > 0) aggregations.push({ $set: preProjectSet });
+		aggregations.push({ $project });
+
+		const postProjectSet = buildPostProjectSet({ group, abscissa });
+		if (postProjectSet) aggregations.push({ $set: postProjectSet });
+
+		aggregations.push(
+			{
+				$match
+			},
+			...abscissaAgg,
+			{
+				$group: {
+					_id: { label: `$${group}` },
+					pre: { $push: '$$ROOT' },
+					sum: { $count: {} }
+				}
+			},
+			{
+				$unwind: '$pre'
+			},
+			{
+				$sort: { sum: -1 }
+			},
+			{
+				$replaceRoot: { newRoot: { $mergeObjects: ['$pre', { sum: '$sum' }] } }
+			},
+			{
+				$group: {
+					_id,
+					extra: { $first: '$ICD10Text' },
+					//extra: { $addToSet: "$ICD10Text" },
+					count: { $count: {} }
+				}
+			},
+			{
+				$sort: { '_id.sum': -1, '_id.label': 1, '_id.gender': 1 }
+			}
+		);
+
 		let result = await context.db
 			.collection(context.collections.diagnosis)
 			.aggregate(aggregations)

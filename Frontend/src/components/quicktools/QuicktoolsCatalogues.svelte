@@ -4,7 +4,6 @@
 	import { onMount, tick } from 'svelte';
 	import type { LensDataPasser } from '@samply/lens';
 	import { reloadOnly } from '../../store/reloadStore';
-	import { addNumberInterval } from '../extendedAstFunctions';
 	import { iconPath } from '$lib/path-utils';
 
 	const infoIcon = iconPath('info-outlined.svg');
@@ -69,6 +68,16 @@
 				values: [{ name: value, value: 'true', queryBindId: 'Auch eine random UUID' }]
 			};
 		}
+		if (value && value.startsWith('agegroups_')) {
+			queryItem = {
+				id: 'Random generierte UUID',
+				key: 'ageAtDiagnosisGroup',
+				name: label,
+				type: 'EQUALS',
+				system: 'diagnosis',
+				values: [{ name: label, value: label, queryBindId: 'Auch eine random UUID' }]
+			};
+		}
 
 		console.log('QUERY ITEM TO ADD', queryItem);
 		if (!queryItem) return;
@@ -92,7 +101,7 @@
 		id: string;
 		label: string; // sichtbarer Text im Menü
 		icd: string[]; // ein oder mehrere ICD-10 Codes
-		age?: { min: number; max: number }; // optional
+		ageGroup?: string; // optional
 	};
 
 	const DKH_CATEGORIES: Record<string, DkhCategory> = {
@@ -173,7 +182,7 @@
 			id: 'pediatric_all',
 			label: 'Pädiatrische Tumoren (<18)',
 			icd: [],
-			age: { min: 0, max: 17 }
+			ageGroup: '0-17'
 		}
 	};
 
@@ -201,183 +210,396 @@
 		// ICDs hinzufügen (bei Uterus z.B. C54 ODER C55 => zwei Items)
 		cat.icd.forEach(addICD);
 
-		// Altersgruppe hinzufügen
-		if (cat.age) {
-			dataPasser.setQueryStoreFromAstAPI(
-				addNumberInterval(
-					Number(cat.age.min),
-					Number(cat.age.max),
-					dataPasser.getAstAPI(),
-					'diagnosis', // z. B. "diagnosis" / "tnm"
-					'ageAtDiagnosis' // z. B. "ageAtDiagnosis" / "tumorID"
-				) as Parameters<LensDataPasser['setQueryStoreFromAstAPI']>[0]
-			);
+		if (cat.ageGroup) {
+			addItem({
+				id: '-',
+				key: 'ageAtDiagnosisGroup',
+				name: 'Age group at diagnosis',
+				type: 'EQUALS',
+				system: 'diagnosis',
+				values: [{ name: cat.ageGroup, value: cat.ageGroup, queryBindId: '-' }]
+			});
 			reloadOnly();
 		}
 	}
 	// --------------------- ENDE: DKH Kategorien -----------------------
 </script>
 
-<lens-data-passer bind:this={dataPasser} />
+<!-- prettier-ignore -->
+<lens-data-passer bind:this={dataPasser}></lens-data-passer>
 
 <div class="quicktool-label-container">
-    <b>{$t("QuicktoolsCatalogues.predefinedCatalogues")}:</b>
-    <button class="iconRoundButton tooltip">
-        <span class="tooltiptext" style="transform: translateY(-200px);">{@html $t("tooltip_QuicktoolsCatalogues")}</span>
-        <img src={infoIcon} alt="info" class="iconRound" />
-    </button>
+	<b>{$t('QuicktoolsCatalogues.predefinedCatalogues')}:</b>
+	<button class="iconRoundButton tooltip">
+		<span class="tooltiptext" style="transform: translateY(-200px);"
+			>{@html $t('tooltip_QuicktoolsCatalogues')}</span
+		>
+		<img src={infoIcon} alt="info" class="iconRound" />
+	</button>
 </div>
 
 <div class="dropdown-container">
-    <div class="hdropdown">
-        <div class="menu catalogue">
-            <ul>
-                <li >
-                    <font class ="placeholder">{selectedCatalog.label}</font>
-                    <select class="carret-decoration"></select>
-                    <ul>
-                        <li>
-                            {$t("onkozertOrganClassification")}
-                            <ul>
-                                <li>
-                                    Kopf-Hals
-                                    <ul>
-                                        <li class="link"><button on:click={() => selectCatalog("oz_khtGesamt", "Kopf-Hals gesamt")}>Gesamt</button></li>
-                                        <li class="link"><button on:click={() => selectCatalog("oz_khtMundhoehle", "Kopf-Hals · Mundhöhle")}>Mundhöhle</button></li>
-                                        <li class="link"><button on:click={() => selectCatalog("oz_khtNasenhauptUndNebenhoehlen", "Kopf-Hals · Nasenhaupt & Nebenhöhlen")}>Nasenhaupt & Nebenhöhlen</button></li>
-                                        <li class="link"><button on:click={() => selectCatalog("oz_khtRachen", "Kopf-Hals · Rachen")}>Rachen</button></li>
-                                        <li class="link"><button on:click={() => selectCatalog("oz_khtLarynx", "Kopf-Hals · Larynx")}>Larynx</button></li>
-                                        <li class="link"><button on:click={() => selectCatalog("oz_khtSpeicheldruesen", "Kopf-Hals · Speicheldrüsen")}>Speicheldrüsen</button></li>
-                                        <li class="link"><button on:click={() => selectCatalog("oz_khtSonstige", "Kopf-Hals · sonstige")}>Sonstige</button></li>
-                                    </ul>
-                                </li>
-                                <li>
-                                    Viszeral
-                                    <ul>
-                                        <li class="link"><button on:click={() => selectCatalog("oz_viszeralzentrum", "Viszeralzentrum")}>Gesamt</button></li>
-                                        <li class="link"><button on:click={() => selectCatalog("oz_viszeralMagen", "Viszeral · Magen")}>Magen</button></li>
-                                        <li class="link"><button on:click={() => selectCatalog("oz_viszeralSpeiseroehre", "Viszeral · Speiseröhre")}>Speiseröhre</button></li>
-                                        <li class="link"><button on:click={() => selectCatalog("oz_viszeralDarm", "Viszeral · Darm")}>Darm</button></li>
-                                        <li class="link"><button on:click={() => selectCatalog("oz_viszeralPankreas", "Viszeral · Pankreas")}>Pankreas</button></li>
-                                        <li class="link"><button on:click={() => selectCatalog("oz_viszeralHcc", "Viszeral · HCC")}>HCC</button></li>
-                                        <li class="link"><button on:click={() => selectCatalog("oz_viszeralBiliaer", "Viszeral · biliär")}>Biliär</button></li>
-                                        <li class="link"><button on:click={() => selectCatalog("oz_viszeralAnal", "Viszeral · Anal")}>Anal</button></li>
-                                    </ul>
-                                </li>
-                                <li>
-                                    Gynäkologie
-                                    <ul>
-                                        <li class="link"><button on:click={() => selectCatalog("oz_gynGesamt", "Gyn · gesamt")}>Gesamt</button></li>
-                                        <li class="link"><button on:click={() => selectCatalog("oz_gynCervix", "Gyn · Cervix")}>Cervix</button></li>
-                                        <li class="link"><button on:click={() => selectCatalog("oz_gynOvarium", "Gyn · Ovarium")}>Ovarium</button></li>
-                                        <li class="link"><button on:click={() => selectCatalog("oz_gynTube", "Gyn · Tube")}>Tube</button></li>
-                                        <li class="link"><button on:click={() => selectCatalog("oz_gynPeritoneal", "Gyn · Peritoneal")}>Peritoneal</button></li>
-                                    </ul>
-                                </li>
-                                <li>
-                                    Uroonkologie
-                                    <ul>
-                                        <li class="link"><button on:click={() => selectCatalog("oz_uroGesamt", "Uro · gesamt")}>Gesamt</button></li>
-                                        <li class="link"><button on:click={() => selectCatalog("oz_uroProstata", "Uro · Prostata")}>Prostata</button></li>
-                                        <li class="link"><button on:click={() => selectCatalog("oz_uroNiere", "Uro · Niere")}>Niere</button></li>
-                                        <li class="link"><button on:click={() => selectCatalog("oz_uroHarnblase", "Uro · Harnblase")}>Harnblase</button></li>
-                                        <li class="link"><button on:click={() => selectCatalog("oz_uroHoden", "Uro · Hoden")}>Hoden</button></li>
-                                        <li class="link"><button on:click={() => selectCatalog("oz_uroPenis", "Uro · Penis")}>Penis</button></li>
-                                    </ul>
-                                </li>
-                                <li>
-                                    Hämatologie
-                                    <ul>
-                                        <li class="link"><button on:click={() => selectCatalog("oz_haemGesamt", "Hämatologie · gesamt")}>Gesamt</button></li>
-                                        <li class="link"><button on:click={() => selectCatalog("oz_haemAkut", "Akute Leukämien & Burkitt")}>Akute Leukämien & Burkitt</button></li>
-                                        <li class="link"><button on:click={() => selectCatalog("oz_haemLymphPlasma", "Lymphome & Plasmazellneoplasien")}>Lymphome & Plasmazellneoplasien</button></li>
-                                        <li class="link"><button on:click={() => selectCatalog("oz_haemMdsMpn", "MDS/MPN")}>MDS/MPN</button></li>
-                                        <li class="link"><button on:click={() => selectCatalog("oz_haemSonstige", "Sonstige")}>Sonstige</button></li>
-                                    </ul>
-                                </li>
-                                <li>
-                                    Sarkome
-                                    <ul>
-                                        <li class="link"><button on:click={() => selectCatalog("oz_sarcomaGesamt", "Sarkome · gesamt")}>Gesamt</button></li>
-                                        <li class="link"><button on:click={() => selectCatalog("oz_sarcomaWeichgewebe", "Sarkome · Weichgewebe")}>Weichgewebe</button></li>
-                                        <li class="link"><button on:click={() => selectCatalog("oz_sarcomaKnochen", "Sarkome · Knochen")}>Knochen</button></li>
-                                        <li class="link"><button on:click={() => selectCatalog("oz_sarcomaGist", "Sarkome · GIST")}>GIST</button></li>
-                                    </ul>
-                                </li>
-                                <li class="link"><button on:click={() => selectCatalog("oz_hautGesamt", "Haut")}>Haut</button></li>
-                                <li class="link"><button on:click={() => selectCatalog("oz_breast", "Brust")}>Brust</button></li>
-                                <li class="link"><button on:click={() => selectCatalog("oz_lung", "Lunge")}>Lunge</button></li>
-                                <li class="link"><button on:click={() => selectCatalog("oz_mesotheliom", "Mesotheliom")}>Mesotheliom</button></li>
-                            </ul>
-                        </li>
+	<div class="hdropdown">
+		<div class="menu catalogue">
+			<ul>
+				<li>
+					<font class="placeholder">{selectedCatalog.label}</font>
+					<!-- prettier-ignore -->
+					<select class="carret-decoration"></select>
+					<ul>
+						<li>
+							{$t('onkozertOrganClassification')}
+							<ul>
+								<li>
+									Kopf-Hals
+									<ul>
+										<li class="link">
+											<button on:click={() => selectCatalog('oz_khtGesamt', 'Kopf-Hals gesamt')}
+												>Gesamt</button
+											>
+										</li>
+										<li class="link">
+											<button
+												on:click={() => selectCatalog('oz_khtMundhoehle', 'Kopf-Hals · Mundhöhle')}
+												>Mundhöhle</button
+											>
+										</li>
+										<li class="link">
+											<button
+												on:click={() =>
+													selectCatalog(
+														'oz_khtNasenhauptUndNebenhoehlen',
+														'Kopf-Hals · Nasenhaupt & Nebenhöhlen'
+													)}>Nasenhaupt & Nebenhöhlen</button
+											>
+										</li>
+										<li class="link">
+											<button on:click={() => selectCatalog('oz_khtRachen', 'Kopf-Hals · Rachen')}
+												>Rachen</button
+											>
+										</li>
+										<li class="link">
+											<button on:click={() => selectCatalog('oz_khtLarynx', 'Kopf-Hals · Larynx')}
+												>Larynx</button
+											>
+										</li>
+										<li class="link">
+											<button
+												on:click={() =>
+													selectCatalog('oz_khtSpeicheldruesen', 'Kopf-Hals · Speicheldrüsen')}
+												>Speicheldrüsen</button
+											>
+										</li>
+										<li class="link">
+											<button
+												on:click={() => selectCatalog('oz_khtSonstige', 'Kopf-Hals · sonstige')}
+												>Sonstige</button
+											>
+										</li>
+									</ul>
+								</li>
+								<li>
+									Viszeral
+									<ul>
+										<li class="link">
+											<button
+												on:click={() => selectCatalog('oz_viszeralzentrum', 'Viszeralzentrum')}
+												>Gesamt</button
+											>
+										</li>
+										<li class="link">
+											<button on:click={() => selectCatalog('oz_viszeralMagen', 'Viszeral · Magen')}
+												>Magen</button
+											>
+										</li>
+										<li class="link">
+											<button
+												on:click={() =>
+													selectCatalog('oz_viszeralSpeiseroehre', 'Viszeral · Speiseröhre')}
+												>Speiseröhre</button
+											>
+										</li>
+										<li class="link">
+											<button on:click={() => selectCatalog('oz_viszeralDarm', 'Viszeral · Darm')}
+												>Darm</button
+											>
+										</li>
+										<li class="link">
+											<button
+												on:click={() => selectCatalog('oz_viszeralPankreas', 'Viszeral · Pankreas')}
+												>Pankreas</button
+											>
+										</li>
+										<li class="link">
+											<button on:click={() => selectCatalog('oz_viszeralHcc', 'Viszeral · HCC')}
+												>HCC</button
+											>
+										</li>
+										<li class="link">
+											<button
+												on:click={() => selectCatalog('oz_viszeralBiliaer', 'Viszeral · biliär')}
+												>Biliär</button
+											>
+										</li>
+										<li class="link">
+											<button on:click={() => selectCatalog('oz_viszeralAnal', 'Viszeral · Anal')}
+												>Anal</button
+											>
+										</li>
+									</ul>
+								</li>
+								<li>
+									Gynäkologie
+									<ul>
+										<li class="link">
+											<button on:click={() => selectCatalog('oz_gynGesamt', 'Gyn · gesamt')}
+												>Gesamt</button
+											>
+										</li>
+										<li class="link">
+											<button on:click={() => selectCatalog('oz_gynCervix', 'Gyn · Cervix')}
+												>Cervix</button
+											>
+										</li>
+										<li class="link">
+											<button on:click={() => selectCatalog('oz_gynOvarium', 'Gyn · Ovarium')}
+												>Ovarium</button
+											>
+										</li>
+										<li class="link">
+											<button on:click={() => selectCatalog('oz_gynTube', 'Gyn · Tube')}
+												>Tube</button
+											>
+										</li>
+										<li class="link">
+											<button on:click={() => selectCatalog('oz_gynPeritoneal', 'Gyn · Peritoneal')}
+												>Peritoneal</button
+											>
+										</li>
+									</ul>
+								</li>
+								<li>
+									Uroonkologie
+									<ul>
+										<li class="link">
+											<button on:click={() => selectCatalog('oz_uroGesamt', 'Uro · gesamt')}
+												>Gesamt</button
+											>
+										</li>
+										<li class="link">
+											<button on:click={() => selectCatalog('oz_uroProstata', 'Uro · Prostata')}
+												>Prostata</button
+											>
+										</li>
+										<li class="link">
+											<button on:click={() => selectCatalog('oz_uroNiere', 'Uro · Niere')}
+												>Niere</button
+											>
+										</li>
+										<li class="link">
+											<button on:click={() => selectCatalog('oz_uroHarnblase', 'Uro · Harnblase')}
+												>Harnblase</button
+											>
+										</li>
+										<li class="link">
+											<button on:click={() => selectCatalog('oz_uroHoden', 'Uro · Hoden')}
+												>Hoden</button
+											>
+										</li>
+										<li class="link">
+											<button on:click={() => selectCatalog('oz_uroPenis', 'Uro · Penis')}
+												>Penis</button
+											>
+										</li>
+									</ul>
+								</li>
+								<li>
+									Hämatologie
+									<ul>
+										<li class="link">
+											<button
+												on:click={() => selectCatalog('oz_haemGesamt', 'Hämatologie · gesamt')}
+												>Gesamt</button
+											>
+										</li>
+										<li class="link">
+											<button
+												on:click={() => selectCatalog('oz_haemAkut', 'Akute Leukämien & Burkitt')}
+												>Akute Leukämien & Burkitt</button
+											>
+										</li>
+										<li class="link">
+											<button
+												on:click={() =>
+													selectCatalog('oz_haemLymphPlasma', 'Lymphome & Plasmazellneoplasien')}
+												>Lymphome & Plasmazellneoplasien</button
+											>
+										</li>
+										<li class="link">
+											<button on:click={() => selectCatalog('oz_haemMdsMpn', 'MDS/MPN')}
+												>MDS/MPN</button
+											>
+										</li>
+										<li class="link">
+											<button on:click={() => selectCatalog('oz_haemSonstige', 'Sonstige')}
+												>Sonstige</button
+											>
+										</li>
+									</ul>
+								</li>
+								<li>
+									Sarkome
+									<ul>
+										<li class="link">
+											<button on:click={() => selectCatalog('oz_sarcomaGesamt', 'Sarkome · gesamt')}
+												>Gesamt</button
+											>
+										</li>
+										<li class="link">
+											<button
+												on:click={() =>
+													selectCatalog('oz_sarcomaWeichgewebe', 'Sarkome · Weichgewebe')}
+												>Weichgewebe</button
+											>
+										</li>
+										<li class="link">
+											<button
+												on:click={() => selectCatalog('oz_sarcomaKnochen', 'Sarkome · Knochen')}
+												>Knochen</button
+											>
+										</li>
+										<li class="link">
+											<button on:click={() => selectCatalog('oz_sarcomaGist', 'Sarkome · GIST')}
+												>GIST</button
+											>
+										</li>
+									</ul>
+								</li>
+								<li class="link">
+									<button on:click={() => selectCatalog('oz_hautGesamt', 'Haut')}>Haut</button>
+								</li>
+								<li class="link">
+									<button on:click={() => selectCatalog('oz_breast', 'Brust')}>Brust</button>
+								</li>
+								<li class="link">
+									<button on:click={() => selectCatalog('oz_lung', 'Lunge')}>Lunge</button>
+								</li>
+								<li class="link">
+									<button on:click={() => selectCatalog('oz_mesotheliom', 'Mesotheliom')}
+										>Mesotheliom</button
+									>
+								</li>
+							</ul>
+						</li>
 
+						<!-- NEU: DKH Kategorien -->
+						<li>
+							DKH (Appendix 4 - 9th Call)
+							<ul class="dkh-list">
+								{#each Object.values(DKH_CATEGORIES) as cat}
+									<li class="link">
+										<button on:click={() => selectDKH(cat.id)}>{cat.label}</button>
+									</li>
+								{/each}
+							</ul>
+						</li>
+						<li>
+							SCLC/NSCLC
+							<ul>
+								<li class="link">
+									<button on:click={() => selectCatalog('sclc', 'SCLC')}>SCLC</button>
+								</li>
+								<li class="link">
+									<button on:click={() => selectCatalog('nsclc', 'NSCLC')}>NSCLC</button>
+								</li>
+							</ul>
+						</li>
+						<li class="link">
+							<button on:click={() => selectCatalog('euracan', $t('rareCancers'))}>
+								{$t('rareCancers')} (SEER, 2020)
+							</button>
+						</li>
+						<li class="link">
+							<button on:click={() => selectCatalog('enets', 'ENETS GEPNET')}>
+								<font color="gray">ENETS GEPNET (TODO)</font>
+							</button>
+						</li>
 
-
-                        <!-- NEU: DKH Kategorien -->
-                        <li>
-                            DKH (Appendix 4 - 9th Call)
-                            <ul class="dkh-list">
-        {#each Object.values(DKH_CATEGORIES) as cat}
-          <li class="link"><button on:click={() => selectDKH(cat.id)}>{cat.label}</button></li>
-        {/each}
-      </ul>
-                        </li>
-                                               <li>
-                            SCLC/NSCLC
-                            <ul>
-                                <li class="link"><button on:click={() => selectCatalog("sclc", "SCLC")}>SCLC</button></li>
-                                <li class="link"><button on:click={() => selectCatalog("nsclc", "NSCLC")}>NSCLC</button></li>
-                            </ul>
-                        </li>
-                                    <li class="link">
-                              <button on:click={() => selectCatalog("euracan", $t("rareCancers"))}>
-                                {$t("rareCancers")} (SEER, 2020)
-                            </button>
-                        </li>
-                        <li class="link">
-                            <button on:click={() => selectCatalog("enets", "ENETS GEPNET")}>
-                                <font color="gray">ENETS GEPNET (TODO)</font>
-                            </button>
-                        </li>
-
-                        <li>
-                            <font color="gray">Lokale Organisationseinheit (TODO)</font>
-                            <ul>
-                                <li class="link disabled"><button on:click={() => selectCatalog("organisationBrust", "Brustzentrum")}>Brustzentrum</button></li>
-                                <li class="link disabled"><button on:click={() => selectCatalog("organisationDarm", "Darmzentrum")}>Darmzentrum</button></li>
-                            </ul>
-                        </li>
-                        <li>
-                            <font color="gray">Altersgruppen (TODO)</font>
-                            <ul>
-                                <li class="link disabled"><button on:click={() => selectCatalog("agegroupsYoung", "0-18")}>0-18</button></li>
-                                <li class="link disabled"><button on:click={() => selectCatalog("agegroupsRest", "Rest")}>Rest</button></li>
-                            </ul>
-                        </li>
-
-                    </ul>
-                </li>
-            </ul>
-        </div>
-    </div>
+						<li>
+							<font color="gray">Lokale Organisationseinheit (TODO)</font>
+							<ul>
+								<li class="link disabled">
+									<button on:click={() => selectCatalog('organisationBrust', 'Brustzentrum')}
+										>Brustzentrum</button
+									>
+								</li>
+								<li class="link disabled">
+									<button on:click={() => selectCatalog('organisationDarm', 'Darmzentrum')}
+										>Darmzentrum</button
+									>
+								</li>
+							</ul>
+						</li>
+						<li>
+							Altersgruppen
+							<ul>
+								<li class="link">
+									<button on:click={() => selectCatalog('agegroups_0_17', '0-17')}>0-17</button>
+								</li>
+								<li class="link">
+									<button on:click={() => selectCatalog('agegroups_18_19', '18-19')}>18-19</button>
+								</li>
+								<li class="link">
+									<button on:click={() => selectCatalog('agegroups_20_29', '20-29')}>20-29</button>
+								</li>
+								<li class="link">
+									<button on:click={() => selectCatalog('agegroups_30_39', '30-39')}>30-39</button>
+								</li>
+								<li class="link">
+									<button on:click={() => selectCatalog('agegroups_40_49', '40-49')}>40-49</button>
+								</li>
+								<li class="link">
+									<button on:click={() => selectCatalog('agegroups_50_59', '50-59')}>50-59</button>
+								</li>
+								<li class="link">
+									<button on:click={() => selectCatalog('agegroups_60_69', '60-69')}>60-69</button>
+								</li>
+								<li class="link">
+									<button on:click={() => selectCatalog('agegroups_70_79', '70-79')}>70-79</button>
+								</li>
+								<li class="link">
+									<button on:click={() => selectCatalog('agegroups_80_89', '80-89')}>80-89</button>
+								</li>
+								<li class="link">
+									<button on:click={() => selectCatalog('agegroups_90_99', '90-99')}>90-99</button>
+								</li>
+								<li class="link">
+									<button on:click={() => selectCatalog('agegroups_100_plus', '100+')}>100+</button>
+								</li>
+							</ul>
+						</li>
+					</ul>
+				</li>
+			</ul>
+		</div>
+	</div>
 </div>
 
 <style>
-    .link.disabled button {
-        opacity: 0.5;
-        pointer-events: none;
-        cursor: not-allowed;
-    }
-    .placeholder {
-        font-style: italic;
-        color: gray;
-    }
-    .dkh-list {
-        max-height: 250px;   /* maximale Höhe */
-        overflow-y: auto;    /* Scrollbar bei Bedarf */
-        padding: 0;
-        margin: 0;
-        list-style: none;    /* optional, je nach gewünschtem Look */
-    }
-
+	.link.disabled button {
+		opacity: 0.5;
+		pointer-events: none;
+		cursor: not-allowed;
+	}
+	.placeholder {
+		font-style: italic;
+		color: gray;
+	}
+	.dkh-list {
+		max-height: 250px; /* maximale Höhe */
+		overflow-y: auto; /* Scrollbar bei Bedarf */
+		padding: 0;
+		margin: 0;
+		list-style: none; /* optional, je nach gewünschtem Look */
+	}
 </style>

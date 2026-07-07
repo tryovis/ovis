@@ -1,8 +1,27 @@
+import { createCachedRequest } from './request-cache.js';
 import { dataUrl, graphqlFetch } from './gql-url'
 const localeOptions:Intl.DateTimeFormatOptions = {
   day: '2-digit',
   month: '2-digit',
   year: 'numeric'
+};
+
+type DiagnosisBarChartQuery = {
+  genderWise: boolean;
+  group: string;
+  abscissa: string;
+};
+
+type DiagnosisBarChartGroup = {
+  count: number[];
+  gender: string | null;
+  label: string | null;
+  description: string | null;
+};
+
+type DiagnosisBarChartResult = {
+  category: (string | null)[];
+  groups: DiagnosisBarChartGroup[];
 };
 
   export const getDiagnosisHistologyTable = (continueFromID: string | undefined | null, limit: number, filter: string) => graphqlFetch(dataUrl, {
@@ -44,7 +63,7 @@ const localeOptions:Intl.DateTimeFormatOptions = {
   return result.data.getDiagnosisHistologyTable
 })
 
-export const getDiagnosisDiagnosticTable = (continueFromID: string | undefined | null, limit: number, filter: String) => graphqlFetch(dataUrl, {
+export const getDiagnosisDiagnosticTable = (continueFromID: string | undefined | null, limit: number, filter: string) => graphqlFetch(dataUrl, {
   method: 'POST',
   headers: {
       'Content-Type': 'application/json'
@@ -75,10 +94,20 @@ result.data.getDiagnosisDiagnosticTable.forEach(element => {
 return result.data.getDiagnosisDiagnosticTable
 })
 
-export const getDiagnosisBarChart = (group: any, filter: String) => {
+const getDiagnosisBarChartCacheKey = (group: DiagnosisBarChartQuery, filter: string) =>
+  JSON.stringify({ group, filter });
 
-  
-  return graphqlFetch(dataUrl, {
+const cloneDiagnosisBarChartResult = (result: DiagnosisBarChartResult): DiagnosisBarChartResult => ({
+  category: [...result.category],
+  groups: result.groups.map((group) => ({
+    ...group,
+    count: [...group.count]
+  }))
+});
+
+const getDiagnosisBarChartRequest = createCachedRequest(
+  (_cacheKey: string, group: DiagnosisBarChartQuery, filter: string) =>
+  graphqlFetch(dataUrl, {
   method: 'POST',
   headers: {
       'Content-Type': 'application/json'
@@ -106,5 +135,9 @@ export const getDiagnosisBarChart = (group: any, filter: String) => {
    ),
 })
 .then(resp => resp.json() )
-.then(result => result.data.getTumors)
-}
+.then((result: { data: { getTumors: DiagnosisBarChartResult } }) => result.data.getTumors)
+);
+
+export const getDiagnosisBarChart = (group: DiagnosisBarChartQuery, filter: string) =>
+  getDiagnosisBarChartRequest(getDiagnosisBarChartCacheKey(group, filter), group, filter)
+    .then(cloneDiagnosisBarChartResult)

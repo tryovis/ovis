@@ -12,6 +12,7 @@ import { rareCancers } from './rareCancers.mjs';
 import { ozRules } from './onkozertRules.mjs';
 import { config, normalizeLower } from './env-config.mjs';
 import { performance } from 'node:perf_hooks';
+import { formatAgeAtDiagnosisGroup } from './ageAtDiagnosisGroup.mjs';
 
 const timingEnabled = false;
 const profilingEnabled = false;
@@ -1311,22 +1312,6 @@ const isRezidiv = (progress) => {
 const metatype = ({ startDate, endDate }) =>
 	isDiffLess3Month({ startDate, endDate }) ? 'synchron' : 'metachron';
 
-// (Wird im Diagnosis-Block nicht mehr verwendet, bleibt jedoch für evtl. andere Stellen verfügbar)
-const metatypePro = ({ hasMetastasis, progress, metastasis }) => {
-	let synchron = false,
-		metachron = false;
-	if (hasMetastasis) synchron = true;
-	if (metastasis.some((it) => it.type === 'metachron')) metachron = true;
-	if (metastasis.some((it) => it.type === 'synchron')) synchron = true;
-	if (progress.some((it) => it.type === 'metachron')) metachron = true;
-	if (progress.some((it) => it.type === 'synchron')) synchron = true;
-
-	if (synchron && metachron) return 'both';
-	if (metachron) return 'metachron';
-	if (synchron) return 'synchron';
-	return null;
-};
-
 function deserializeDate(it) {
 	if (!it) return it;
 	for (const key in it) {
@@ -1589,7 +1574,7 @@ function genKaplanMeier(diagnosis, patient, pprogress, mmetastasis, tnm, therapy
 			? allDiagSamePat.find((d) => {
 					const dd = sanitizeDate(d.diagnosisDate);
 					return dd && dd > d0;
-			  })
+				})
 			: null;
 		const secondPrimaryDate = secondPrimary?.diagnosisDate ?? null;
 
@@ -1675,7 +1660,7 @@ function genKaplanMeier(diagnosis, patient, pprogress, mmetastasis, tnm, therapy
 				.filter(
 					(tit) =>
 						matchesNormalizedSet(tit.localRState, config.dfs.localRStateSuccessNormalized) &&
-						it.hasMetastasis === 0 &&
+						metastasis !== 2 &&
 						tit.tumorID === it.tumorID
 				)
 				.map((tit) => sanitizeDate(tit.therapyOccurrenceDate))
@@ -1830,7 +1815,7 @@ async function write2mon(genFun, ins, collection, nested) {
 							nestedDurationMs += performance.now() - nestedStartedAt;
 							nestedCount += 1;
 						}
-				  }
+					}
 				: nested;
 			it = genFun(it, timedNested);
 			genFunDurationMs += performance.now() - genFunStartedAt;
@@ -1893,8 +1878,7 @@ const compactPatient = (patient) => ({
 const compactDiagnosis = (diagnosis) => ({
 	patID: diagnosis.patID,
 	tumorID: diagnosis.tumorID,
-	diagnosisDate: diagnosis.diagnosisDate,
-	hasMetastasis: diagnosis.hasMetastasis
+	diagnosisDate: diagnosis.diagnosisDate
 });
 
 const compactTherapy = (therapy) => ({
@@ -1967,6 +1951,7 @@ const runPreprocessor = async () => {
 			const millis = Math.abs(sanitizeDate(it.diagnosisDate) - sanitizeDate(fpa.birthDate));
 			let millisecondsInYear = 1000 * 60 * 60 * 24 * 365.2425;
 			obj.ageAtDiagnosis = Math.round(millis / millisecondsInYear);
+			obj.ageAtDiagnosisGroup = formatAgeAtDiagnosisGroup(obj.ageAtDiagnosis);
 		}
 		obj.vitalDate = fpa?.vitalDate;
 		obj.vitalState = fpa?.vitalState;

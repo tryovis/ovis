@@ -204,19 +204,6 @@ export function mapDiagnosis(row, context = {}) {
     "TZY_D_SEI"
   ]);
 
-  const metastasisRaw = getFirstValue(row, [
-    /**
-     * TZES
-     */
-    "TZES_M_FM",
-
-    /**
-     * TZEY
-     */
-    "TZEY_M_FM",
-    "TZY_M_FM"
-  ]);
-
   const reportId = getFirstValue(row, [
     "TZ_LKR_TAN",
     "LKR_TAN"
@@ -306,8 +293,6 @@ export function mapDiagnosis(row, context = {}) {
       sideRaw
     ),
 
-    hasMetastasis: mapHasMetastasis(metastasisRaw),
-
     reportDate,
     reportID: reportId ?? null,
 
@@ -371,28 +356,6 @@ function numericOrNull(value) {
   }
 
   return null;
-}
-
-function mapHasMetastasis(value) {
-  if (value === null || value === undefined || value === "") {
-    return 0;
-  }
-
-  const normalized = String(value).trim().toLowerCase();
-
-  if (["0", "n", "nein", "false", "m0"].includes(normalized)) {
-    return 0;
-  }
-
-  if (["1", "j", "ja", "true", "m1"].includes(normalized)) {
-    return 1;
-  }
-
-  /**
-   * Falls TZES_M_FM/TZEY_M_FM ein konkreter Code ist,
-   * interpretieren wir vorhandene Werte erstmal als "hat Metastase".
-   */
-  return 1;
 }
 
 function mapInternal(orgfa) {
