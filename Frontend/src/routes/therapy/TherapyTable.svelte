@@ -67,7 +67,6 @@
 	};
 
 	let loading: boolean = true;
-	let loadingStatus: number = 0;
 	let combinedData: TherapyTableType[];
 	onMount(async () => {
 		let initialData: TherapyTableType[] = await getTherapyTable(null, 100);
@@ -75,7 +74,6 @@
 		initialData = stringifyObject(initialData);
 
 		combinedData = initialData;
-		loadingStatus = initialData.length;
 	
 		therapyGeneralTable = createTable(
 			'therapyGeneralTable',
@@ -137,7 +135,6 @@ function stringifyOpsObject(remainingData:any){
 
 		// Kombiniere die aktuellen Daten mit den neu geladenen Daten
 		combinedData = currentData.concat(remainingData);
-		loadingStatus = combinedData.length;
 		// Überprüfe, ob es noch mehr Daten gibt, und lade sie rekursiv
 		if (remainingData.length > 0) {
 			// Fortsetzen von der ID des letzten Elements plus 1
@@ -168,7 +165,6 @@ function stringifyOpsObject(remainingData:any){
 	headlineChartJSElement={null}
 	headlineD3Element={null}
 	headlineLoading={loading}
-	headlineLoadingStatus={loadingStatus}
 	on:maximized={handleMaximized}
 />
 <div>

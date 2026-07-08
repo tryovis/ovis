@@ -1,7 +1,7 @@
 module.exports = `
 
     extend type Query {
-        getDiagnosisDiagnosticTable(limit: Int, continueFromID: String, filter: String): [diag]
+        getDiagnosisDiagnosticTable(limit: Int, continueFromID: String, filter: String, offset: Int, sortField: String, sortDirection: String, columnFilters: [TableColumnFilter!]): [diag]
     }
 
     type diag {

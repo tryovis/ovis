@@ -13,6 +13,7 @@ import { ozRules } from './onkozertRules.mjs';
 import { config, normalizeLower } from './env-config.mjs';
 import { performance } from 'node:perf_hooks';
 import { formatAgeAtDiagnosisGroup } from './ageAtDiagnosisGroup.mjs';
+import { parseSurgeon } from './therapyFieldParsers.mjs';
 
 const timingEnabled = false;
 const profilingEnabled = false;
@@ -1168,6 +1169,7 @@ function genThpy(it, addin) {
 		let ops4 = code.substring(0, 4);
 		return { code, text, ops4 };
 	});
+	it.surgeon = parseSurgeon(it.surgeon);
 
 	return addin(it);
 }
@@ -1574,7 +1576,7 @@ function genKaplanMeier(diagnosis, patient, pprogress, mmetastasis, tnm, therapy
 			? allDiagSamePat.find((d) => {
 					const dd = sanitizeDate(d.diagnosisDate);
 					return dd && dd > d0;
-				})
+			  })
 			: null;
 		const secondPrimaryDate = secondPrimary?.diagnosisDate ?? null;
 
@@ -1815,7 +1817,7 @@ async function write2mon(genFun, ins, collection, nested) {
 							nestedDurationMs += performance.now() - nestedStartedAt;
 							nestedCount += 1;
 						}
-					}
+				  }
 				: nested;
 			it = genFun(it, timedNested);
 			genFunDurationMs += performance.now() - genFunStartedAt;

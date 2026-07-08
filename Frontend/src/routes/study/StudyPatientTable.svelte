@@ -26,10 +26,6 @@
 		});
 	}
 
-	function countLoadedStudies(rows: { _id: string }[]) {
-		return new Set(rows.map((row) => row._id)).size;
-	}
-
 </script>
 
 <GenericTable
@@ -41,6 +37,5 @@
 	headlineTitle={$t("studyPatientTableTitle")}
 	loadingActive={true}
 	maxStoreValue={maximizeStudyPatientTable}
-	loadingStatusMapper={countLoadedStudies}
 	on:maximized={handleMaximized}
 />

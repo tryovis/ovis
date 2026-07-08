@@ -673,7 +673,7 @@
 		reloadOnly();
 
 		if (currentLevel < maxLevel) {
-			if (label == 'Berlin' || label == 'Bremen' || label == 'Hamburg') currentLevel += 2;
+			if (label === 'Berlin' || label === 'Bremen' || label === 'Hamburg') currentLevel += 2;
 			else currentLevel += 1;
 
 			updateSVG(currentLevel);
@@ -708,7 +708,7 @@
 				break;
 			case 4:
 				oldSVG_level3 = currentSVG;
-				if (oldSVG_level2 == '') oldSVG_level2 = oldSVG_level3;
+				if (oldSVG_level2 === '') oldSVG_level2 = oldSVG_level3;
 				break;
 			default:
 				break;
@@ -940,7 +940,6 @@
 	headlineChartJSElement={null}
 	headlineD3Element={svgObject}
 	headlineLoading={null}
-	headlineLoadingStatus={null}
 	on:maximized={handleMaximized}
 	on:chartToggled={handleChartToggled}
 	on:logarithmToggled={handleLogarithmToggled}

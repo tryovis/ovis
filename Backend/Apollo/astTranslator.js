@@ -622,7 +622,7 @@ function genArryFilterStage(filter, colname) {
 		const rawKey = filter.children[0].key;
 		const cleanKey = rawKey.startsWith('!') ? rawKey.slice(1) : rawKey;
 		const [arr, field] = cleanKey.split('.', 2);
-		if (!arrayFields.includes(arr)) return [];
+		if (!field || !arrayFields.includes(arr)) return [];
 
 		const orConds = filter.children.map((c) => {
 			let { min, max } = c.value;
@@ -673,7 +673,7 @@ function genArryFilterStage(filter, colname) {
 		const rawKey = filter.children[0].key;
 		const cleanKey = rawKey.startsWith('!') ? rawKey.slice(1) : rawKey;
 		const [arr, field] = cleanKey.split('.', 2);
-		if (!arrayFields.includes(arr)) return [];
+		if (!field || !arrayFields.includes(arr)) return [];
 
 		const values = filter.children.map((c) => parseBooleanString(c.value));
 		const condList = values.length === 1 && values[0] === '-' ? nullValues : values;

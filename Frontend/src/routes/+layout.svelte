@@ -25,6 +25,8 @@
   import { env } from '$env/dynamic/public';
   import { apiPath, appPath, publicAssetPath, iconPath } from '$lib/path-utils';
 
+  const loadingIcon = iconPath('spinner.svg');
+
   let filterActive = true;
   let showDatePicker = false;
   let showNumberPicker = false;
@@ -332,8 +334,14 @@ function startUpdateTimer() {
 
 </script>
 {#if isInitializing}
-  <div style="display: flex; justify-content: center; align-items: center; height: 100vh;">
-    <div>Validating session...</div>
+  <div class="initializing-spinner-container" role="status" aria-label="Loading">
+    <img
+      class="bigSpinner initializing-spinner"
+      id="spinner"
+      src={loadingIcon}
+      alt=""
+      aria-hidden="true"
+    />
   </div>
 {:else if !$authStore}
   <Login/>
@@ -451,6 +459,18 @@ function startUpdateTimer() {
 
 <!-- Style für Toast Nachrichten -->
 <style>
+  .initializing-spinner-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100dvh;
+    width: 100%;
+  }
+
+  .initializing-spinner {
+    max-width: 7rem;
+  }
+
   .toast {
     position: fixed;
     bottom: 20px;

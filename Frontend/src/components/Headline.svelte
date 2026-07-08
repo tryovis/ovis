@@ -3,7 +3,6 @@
 	import { showToast } from '../store/toastStore';
 	import { get } from 'svelte/store';
 	import { t } from '../store/languageStore';
-	import { getHeadlineOverview } from '../graphQl/gql-generic';
 	import type { LensDataPasser } from '@samply/lens';
 	import { iconPath } from '$lib/path-utils';
 
@@ -35,9 +34,7 @@
 	export let headlineChartJSElement: HTMLCanvasElement | null = null;
 	export let headlineD3Element: HTMLObjectElement | SVGSVGElement | null = null;
 	export let headlineLoading: boolean | null = null;
-	export let headlineLoadingStatus: number | null = null;
 	export let headlineNull: boolean | null = null;
-	export let headlineCollection: string | null = null;
 	export let headlineIsPaused: boolean | null = null;
 	export let headlineLoadingComplete: boolean | null = null;
 
@@ -115,7 +112,7 @@
 
 	function exportD3Chart() {
 		if (headlineD3Element != null) {
-			let svgElement;
+			let svgElement: SVGSVGElement | null = null;
 			if (headlineD3Element instanceof HTMLObjectElement) {
 				// Wenn es sich um ein <object>-Element handelt, das SVG extrahieren
 				const objectDoc = headlineD3Element.contentDocument;
@@ -258,7 +255,6 @@
 	}
 
 	let dataPasser: LensDataPasser;
-	let loadingMaxValue = 1;
 
 	onMount(async () => {
 		await import('@samply/lens');
@@ -266,13 +262,6 @@
 			headlineIsChart = headlineShowChart;
 		}
 		downloadName = convertToCamelCase(headlineTitle);
-
-		let filter = JSON.stringify(dataPasser.getAstAPI());
-		let result;
-		if (headlineCollection) {
-			result = await getHeadlineOverview(headlineCollection, filter);
-			loadingMaxValue = result[0].count / 100;
-		}
 	});
 
 	let mouseX = 0;
@@ -307,8 +296,7 @@
 			<b>{headlineTitle}</b>
 			{#if headlineLoading}
 				<i
-					>→ {translate(headlineLoadingComplete ? 'loadingCapReached' : 'loadingContent')}
-					{Math.round((headlineLoadingStatus ?? 0) / loadingMaxValue)} %</i
+					>→ {translate(headlineLoadingComplete ? 'loadingCapReached' : 'loadingContent')}</i
 				>
 				{#if headlineIsPaused && !headlineLoadingComplete}
 					<button

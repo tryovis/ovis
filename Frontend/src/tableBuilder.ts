@@ -10,7 +10,13 @@ import { reloadOnly } from '../src/store/reloadStore';
 import { datePickerStore } from './store/datePickerStore'; // Importiere den Store
 import { numberPickerStore } from './store/numberPickerStore'; // Importiere den Store
 import { TNMPickerStore } from './store/TNMPickerStore'; // Importiere den Store
-import type { AggregatedValue } from './types/query';
+import {
+	appendQueryItemToFirstGroup,
+	createArrayFilterItems,
+	isArrayFilterColumn,
+	queryContainsValue
+} from './tableFilterItems';
+import type { QueryItem } from './tableFilterItems';
 
 let currentDataPasser: LensDataPasser | null = null;
 
@@ -41,41 +47,61 @@ const tnmPickerStore = TNMPickerStore as unknown as WritableSet<TNMPickerState>;
 const numberStore = numberPickerStore as unknown as WritableSet<NumberPickerState>;
 const dateStore = datePickerStore as unknown as WritableSet<DatePickerState>;
 
-type QueryItem = {
-	id: string;
-	key: string;
-	name: string;
-	type: string;
-	system?: string;
-	values: QueryValue[];
-	description?: string;
+type TableColumnFilter = {
+	field: string;
+	value: string;
 };
 
-type QueryValue = {
-	name: string;
-	value: string | { min: number; max: number } | AggregatedValue[][] | number | null;
-	queryBindId: string;
-	description?: string;
+type TablePageRequest = {
+	offset: number;
+	limit: number;
+	sortField: string | null;
+	sortDirection: 'asc' | 'desc';
+	columnFilters: TableColumnFilter[];
 };
+
+type TablePageResult = {
+	rows: unknown[];
+	total: number;
+	filtered: number;
+};
+
+type ServerSideTableOptions = {
+	fetchPage: (request: TablePageRequest) => Promise<TablePageResult>;
+};
+
+const normalizeColumnSearch = (value: string): string =>
+	value.replace(/^\(+/, '').replace(/\)+$/, '');
 
 const addItem = (queryObject: QueryItem): void => {
 	if (!currentDataPasser) {
 		return;
 	}
-	if (queryObject.key === 'tumorID') {
-		queryObject.system = 'diagnosis';
-	} else if (queryObject.key === 'patID') {
-		queryObject.system = 'patient';
-	}
-	if (queryObject.system === 'histology') {
-		queryObject.system = 'diagnosis';
-	}
+	const system =
+		queryObject.key === 'tumorID'
+			? 'diagnosis'
+			: queryObject.key === 'patID'
+			? 'patient'
+			: queryObject.system === 'histology'
+			? 'diagnosis'
+			: queryObject.system;
+	const normalizedQueryObject = { ...queryObject, system };
 	console.log('ADDED QUERY ITEM', queryObject);
+	const queryBeforeAdd = currentDataPasser.getQueryAPI();
 	currentDataPasser.addStratifierToQueryAPI({
 		label: String(queryObject.values[0]?.value ?? ''),
 		catalogueGroupCode: queryObject.key,
-		parentGroupCode: String(queryObject.system ?? '')
+		parentGroupCode: String(system ?? '')
 	});
+	const queryAfterAdd = currentDataPasser.getQueryAPI();
+	if (!queryContainsValue(queryAfterAdd, normalizedQueryObject)) {
+		currentDataPasser.setQueryStoreAPI(
+			appendQueryItemToFirstGroup(
+				queryAfterAdd.length > 0 ? queryAfterAdd : queryBeforeAdd,
+				normalizedQueryObject
+			)
+		);
+	}
 	console.log(currentDataPasser.getQueryAPI());
 };
 
@@ -88,7 +114,8 @@ export function createTable(
 	rowCount: number,
 	sortingIndex: number,
 	sortingDirection?: string | null,
-	enableCellClick?: boolean
+	enableCellClick?: boolean,
+	serverSideOptions?: ServerSideTableOptions | null
 ): Api<unknown>;
 export function createTable(
 	tableID: string,
@@ -97,7 +124,8 @@ export function createTable(
 	rowCount: number,
 	sortingIndex: number,
 	sortingDirection?: string | null,
-	enableCellClick?: boolean
+	enableCellClick?: boolean,
+	serverSideOptions?: ServerSideTableOptions | null
 ): Api<unknown>;
 export function createTable(
 	collectionOrTableID: string,
@@ -108,7 +136,8 @@ export function createTable(
 	rowCountOrSortingDirection: number | string | null = null,
 	sortingIndexOrEnableCellClick: number | boolean | null = null,
 	sortingDirection: string | null = null,
-	enableCellClick = true // New argument with default value
+	enableCellClick: boolean | ServerSideTableOptions | null = true,
+	serverSideOptions: ServerSideTableOptions | null = null
 ): Api<unknown> {
 	const usesLegacySignature = Array.isArray(dataPasserOrTableData);
 	const collection = usesLegacySignature ? '' : collectionOrTableID;
@@ -127,16 +156,25 @@ export function createTable(
 		? (columnsOrSortingIndex as number)
 		: (sortingIndexOrEnableCellClick as number);
 	const effectiveSortingDirection = usesLegacySignature
-		? (typeof rowCountOrSortingDirection === 'string' ? rowCountOrSortingDirection : null)
+		? typeof rowCountOrSortingDirection === 'string'
+			? rowCountOrSortingDirection
+			: null
 		: sortingDirection;
 	const effectiveEnableCellClick = usesLegacySignature
 		? typeof sortingIndexOrEnableCellClick === 'boolean'
 			? sortingIndexOrEnableCellClick
 			: false
-		: enableCellClick;
+		: typeof enableCellClick === 'boolean'
+		? enableCellClick
+		: true;
+	const effectiveServerSideOptions = usesLegacySignature
+		? typeof enableCellClick === 'object'
+			? enableCellClick
+			: serverSideOptions
+		: serverSideOptions ?? (typeof enableCellClick === 'object' ? enableCellClick : null);
 
-	const existingTable = jQuery(`#${tableID}`).DataTable() as Api<unknown> | undefined;
-	if (existingTable) {
+	if (DataTable.isDataTable(`#${tableID}`)) {
+		const existingTable = jQuery(`#${tableID}`).DataTable() as Api<unknown>;
 		existingTable.clear(); // Clear only the table body
 		existingTable.destroy();
 	}
@@ -157,9 +195,13 @@ export function createTable(
 
 		// Remove sorting icons from cloned header
 		clonedHeader.find('th').removeClass('sorting_asc sorting_desc sorting');
+		clonedHeader.find('th').each(function (this: HTMLTableCellElement) {
+			const title = jQuery(this).text();
+			jQuery(this).html('<input style="width: 80%" type="text" placeholder="' + title + '" />');
+		});
 	}
 
-	const dataTable: Api<unknown> = new DataTable(`#${tableID}`, {
+	const dataTableConfig: Record<string, unknown> = {
 		dom: 'rtip',
 		orderCellsTop: true,
 		order: effectiveSortingDirection
@@ -200,7 +242,11 @@ export function createTable(
 						return processedData && processedData.length > maxLength
 							? `<span class="tooltip">
                 <span class="tooltiptext">${processedData}</span>
-                ${typeof processedData === 'string' ? processedData.substring(0, maxLength) + '…' : ''}
+                ${
+									typeof processedData === 'string'
+										? processedData.substring(0, maxLength) + '…'
+										: ''
+								}
               </span>`
 							: processedData;
 					}
@@ -219,97 +265,14 @@ export function createTable(
 						truncateCellData(tableCell, cellData, colIndex);
 					}
 
-					if (effectiveEnableCellClick) {
-						const isDate = moment(cellData, 'DD.MM.YYYY', true).isValid();
-						if (!isDate) {
-							tableCell.addEventListener('click', function () {
-								let processedCellData = cellData;
-								if (processedCellData === '' || processedCellData === null || processedCellData === undefined) {
-									processedCellData = '-';
-								}
-								const settings = dataTable.settings()[0];
-								if (settings && settings.aoColumns) {
-									let columnName = settings.aoColumns[colIndex].data as string;
-									//alert(`Zelle wurde geklickt. Inhalt: ${cellData}, Spalte: ${columnName}`);
-									columnName = columnName.replace('.', '_');
-									// TNM quick case (T/N/M) - for now only console log
-									if (columnName === 'T' || columnName === 'N' || columnName === 'M') {
-										const v = String(processedCellData ?? '').trim();
-
-										// nur bei exakt 1,2,3,4 picker öffnen
-										if (v === '1' || v === '2' || v === '3' || v === '4') {
-											tnmPickerStore.set({
-												show: true,
-												selectedTNM: v,
-												collection,
-												typeOfTNM: columnName
-											});
-											return; // wichtig: nur hier abbrechen
-										}
-
-										// sonst: NICHT returnen -> es läuft Standard-Verhalten weiter
-									}
-
-									if (
-										columnName !== 'tumorID' &&
-										columnName !== 'ageAtDiagnosis' &&
-										!/DaysSinceDiagnosis$/.test(columnName)
-									) {
-										//ArrayCase
-										if (
-											columnName === 'ops' ||
-											columnName === 'surgeon' ||
-											columnName === 'substance' ||
-											columnName === 'complication' ||
-											columnName === 'metastasisResection'
-										) {
-											handleArray(columnName, processedCellData);
-										} else {
-											//Normal Case
-											const queryItem = {
-												id: '-', //uuidv4(),
-												key: columnName, //theoretisch metastasis => Im Katalog hinterlegt
-												name: '-', //Im Katalog hinterlegt
-												type: 'EQUALS',
-												system: collection, //TODO: generisch
-												values: [
-													{
-														name: processedCellData + '', //Anzeigename
-														value: processedCellData + '', // theoreitsch label z.B. BRA Backendvalue
-														queryBindId: '-' //Storebindung
-													}
-												]
-											};
-
-											addItem(queryItem);
-											reloadOnly();
-										}
-									} else {
-										numberStore.set({
-											show: true,
-											selectedNumber: processedCellData as string | number,
-											collection,
-											fieldName: columnName
-										});
-									}
-								}
-							});
-						} else {
-							tableCell.addEventListener('click', function () {
-								const settings = dataTable.settings()[0];
-								if (settings && settings.aoColumns) {
-									const columnName = settings.aoColumns[colIndex].data as string;
-									console.log('DATUMSKLICK', cellData, columnName);
-									dateStore.set({
-										show: true,
-										selectedDate: cellData as string | null,
-										collection,
-										typeOfDate: columnName
-									});
-								}
-							});
-						}
-					}
+					bindCellClickHandler(
+						() => dataTable,
+						tableCell,
+						cellData,
+						colIndex,
+						collection,
+						effectiveEnableCellClick
+					);
 				}
 			}
 		],
@@ -321,32 +284,42 @@ export function createTable(
 				const cell = jQuery(`.${tableID}-filters th`).eq(
 					jQuery(api.column(colIdx).header()).index()
 				);
-				const title = jQuery(cell).text();
-				jQuery(cell).html('<input style="width: 80%" type="text" placeholder="' + title + '" />');
+				let input = jQuery('input', cell);
+				if (!input.length) {
+					const title = jQuery(api.column(colIdx).header()).text();
+					jQuery(cell).html(
+						'<input style="width: 80%" type="text" placeholder="' + title + '" />'
+					);
+					input = jQuery('input', cell);
+				}
 
-				jQuery(
-					'input',
-					jQuery(`.${tableID}-filters th`).eq(jQuery(api.column(colIdx).header()).index())
-				)
+				let filterTimer: ReturnType<typeof setTimeout> | null = null;
+				const applySearch = (inputElement: HTMLInputElement) => {
+					const searchValue = inputElement.value;
+					inputElement.setAttribute('title', searchValue);
+					const regexr = '({search})';
+					api
+						.column(colIdx)
+						.search(
+							searchValue !== '' ? regexr.replace('{search}', '(((' + searchValue + ')))') : '',
+							searchValue !== '',
+							searchValue === ''
+						)
+						.draw();
+				};
+
+				input
 					.off('keyup change')
 					.on('change', function (e) {
-						const inputElement = e.target as HTMLInputElement;
-						const searchValue = inputElement.value;
-
-						inputElement.setAttribute('title', searchValue);
-						const regexr = '({search})';
-						api
-							.column(colIdx)
-							.search(
-								searchValue !== '' ? regexr.replace('{search}', '(((' + searchValue + ')))') : '',
-								searchValue !== '',
-								searchValue === ''
-							)
-							.draw();
+						applySearch(e.target as HTMLInputElement);
 					})
 					.on('keyup', function (e) {
 						e.stopPropagation();
-						jQuery(this).trigger('change');
+						const inputElement = e.target as HTMLInputElement;
+						if (filterTimer) {
+							clearTimeout(filterTimer);
+						}
+						filterTimer = setTimeout(() => applySearch(inputElement), 500);
 					});
 			});
 		},
@@ -361,20 +334,66 @@ export function createTable(
 						if (tableID !== 'userManagementTable') {
 							truncateCellData(this, cellData, _colIdx);
 						}
+						bindCellClickHandler(
+							() => dataTable,
+							this,
+							cellData,
+							_colIdx,
+							collection,
+							effectiveEnableCellClick
+						);
 					});
 			});
 			if (tableID !== 'userManagementTable') {
 				adjustColumnWidths(api, columns);
 			}
 		},
-		data: tableData,
+		data: effectiveServerSideOptions ? undefined : tableData,
 		deferRender: true,
 		paging: true,
 		pageLength: rowCount,
 		lengthChange: false,
 		columns: columns,
 		autoWidth: false
-	});
+	};
+
+	if (effectiveServerSideOptions) {
+		dataTableConfig.serverSide = true;
+		dataTableConfig.searchDelay = 500;
+		dataTableConfig.ajax = async function (request: any, callback: (data: unknown) => void) {
+			const order = request.order?.[0];
+			const orderColumnIndex = typeof order?.column === 'number' ? order.column : sortingIndex;
+			const orderedColumn = request.columns?.[orderColumnIndex];
+			const sortField = typeof orderedColumn?.data === 'string' ? orderedColumn.data : null;
+			const sortDirection = order?.dir === 'asc' ? 'asc' : 'desc';
+			const columnFilters = (request.columns ?? [])
+				.map((column: any) => ({
+					field: column.data,
+					value: normalizeColumnSearch(column.search?.value ?? '')
+				}))
+				.filter(
+					(columnFilter: TableColumnFilter) =>
+						columnFilter.field && columnFilter.value.trim() !== ''
+				);
+
+			const page = await effectiveServerSideOptions.fetchPage({
+				offset: request.start ?? 0,
+				limit: request.length ?? rowCount,
+				sortField,
+				sortDirection,
+				columnFilters
+			});
+
+			callback({
+				draw: request.draw,
+				recordsTotal: page.total,
+				recordsFiltered: page.filtered,
+				data: page.rows
+			});
+		};
+	}
+
+	const dataTable: Api<unknown> = new DataTable(`#${tableID}`, dataTableConfig);
 
 	if (tableID === 'userManagementTable') {
 		const columnWidths = [100, 200, 50, 50, 50, 50, 100, 400, 50, 50, 50, 50, 50];
@@ -404,7 +423,11 @@ export function createTable(
 	return dataTable;
 }
 
-function truncateCellData(cell: HTMLElement, cellData: string | string[] | null | undefined, colIndex: number) {
+function truncateCellData(
+	cell: HTMLElement,
+	cellData: string | string[] | null | undefined,
+	colIndex: number
+) {
 	const processedCellData = Array.isArray(cellData) ? cellData.join(', ') : (cellData ?? '') + '';
 	requestAnimationFrame(() => {
 		const charWidth = 7; // Average character width in pixels (adjust if necessary)
@@ -486,35 +509,12 @@ export function changeRowCount(dataTable: Api<unknown>, newRowCount: number) {
 }
 
 function handleArray(columnName: string, cellData: string | string[]) {
-	// Mapping für Spalten → Key-Suffix
-	const SPECIAL_SUFFIX: Record<string, string> = {
-		ops: '_code',
-		substance: '_substance',
-		metastasisResection: ''
-	};
-
 	// === OPS & SUBSTANCE (gemeinsamer Zweig) ===
-	if (Object.prototype.hasOwnProperty.call(SPECIAL_SUFFIX, columnName)) {
-		const suffix = SPECIAL_SUFFIX[columnName];
+	if (isArrayFilterColumn(columnName)) {
+		const queryItems = createArrayFilterItems(columnName, cellData);
+		queryItems.forEach(addItem);
 
-		const list = Array.isArray(cellData)
-			? cellData.map((value) => String(value).trim()).filter(Boolean)
-			: String(cellData ?? '')
-					.split(',')
-					.map((s) => s.trim())
-					.filter(Boolean);
-		list.forEach((single) => {
-			addItem({
-				id: '-',
-				key: columnName + suffix,
-				name: '-',
-				type: 'EQUALS',
-				system: 'therapy',
-				values: [{ name: single, value: single, queryBindId: '-' }]
-			});
-		});
-
-		reloadOnly?.();
+		if (queryItems.length > 0) reloadOnly?.();
 		return;
 	}
 
@@ -562,4 +562,102 @@ function handleArray(columnName: string, cellData: string | string[]) {
 	// addItem({...});
 	// numberPickerStore.set({...});
 	// reloadOnly?.();
+}
+
+function bindCellClickHandler(
+	getDataTable: () => Api<unknown>,
+	tableCell: HTMLElement,
+	cellData: unknown,
+	colIndex: number,
+	collection: string,
+	enableCellClick: boolean
+) {
+	if (!enableCellClick) {
+		tableCell.onclick = null;
+		return;
+	}
+
+	const isDate = moment(cellData, 'DD.MM.YYYY', true).isValid();
+	if (isDate) {
+		tableCell.onclick = function () {
+			const settings = getDataTable().settings()[0];
+			if (settings && settings.aoColumns) {
+				const columnName = settings.aoColumns[colIndex].data as string;
+				console.log('DATUMSKLICK', cellData, columnName);
+				dateStore.set({
+					show: true,
+					selectedDate: cellData as string | null,
+					collection,
+					typeOfDate: columnName
+				});
+			}
+		};
+		return;
+	}
+
+	tableCell.onclick = function () {
+		let processedCellData = cellData;
+		if (processedCellData === '' || processedCellData === null || processedCellData === undefined) {
+			processedCellData = '-';
+		}
+		const settings = getDataTable().settings()[0];
+		if (settings && settings.aoColumns) {
+			let columnName = settings.aoColumns[colIndex].data as string;
+			columnName = columnName.replace('.', '_');
+			if (columnName === 'T' || columnName === 'N' || columnName === 'M') {
+				const v = String(processedCellData ?? '').trim();
+
+				if (v === '1' || v === '2' || v === '3' || v === '4') {
+					tnmPickerStore.set({
+						show: true,
+						selectedTNM: v,
+						collection,
+						typeOfTNM: columnName
+					});
+					return;
+				}
+			}
+
+			if (
+				columnName !== 'tumorID' &&
+				columnName !== 'ageAtDiagnosis' &&
+				!/DaysSinceDiagnosis$/.test(columnName)
+			) {
+				if (
+					columnName === 'ops' ||
+					columnName === 'surgeon' ||
+					columnName === 'substance' ||
+					columnName === 'complication' ||
+					columnName === 'metastasisResection'
+				) {
+					handleArray(columnName, processedCellData as string | string[]);
+				} else {
+					const queryItem = {
+						id: '-',
+						key: columnName,
+						name: '-',
+						type: 'EQUALS',
+						system: collection,
+						values: [
+							{
+								name: processedCellData + '',
+								value: processedCellData + '',
+								queryBindId: '-'
+							}
+						]
+					};
+
+					addItem(queryItem);
+					reloadOnly();
+				}
+			} else {
+				numberStore.set({
+					show: true,
+					selectedNumber: processedCellData as string | number,
+					collection,
+					fieldName: columnName
+				});
+			}
+		}
+	};
 }

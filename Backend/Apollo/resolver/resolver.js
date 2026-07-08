@@ -1,4 +1,4 @@
-const { aggregationArry } = require('../utils');
+const { aggregationArry, countAggregationArry } = require('../utils');
 const { filter2match } = require('../astTranslator');
 
 const genericGetAll = async (db, colname, args) => {
@@ -6,6 +6,33 @@ const genericGetAll = async (db, colname, args) => {
 		.collection(colname)
 		.aggregate(await aggregationArry(args, colname, db))
 		.toArray();
+};
+
+const collectionNameForCount = (context, collection) => {
+	const collectionMap = {
+		bioMaterial: context.collections.bioMaterial,
+		molecularMarker: context.collections.molecularmarker,
+		operation: context.collections.therapy,
+		systemic: context.collections.therapy,
+		radiation: context.collections.therapy,
+		histology: context.collections.diagnosis
+	};
+	return collectionMap[collection] ?? context.collections[collection] ?? collection;
+};
+
+const tableCount = async (db, colname, args) => {
+	const result = await db
+		.collection(colname)
+		.aggregate(await countAggregationArry(args, colname, db))
+		.next();
+	return result?.count ?? 0;
+};
+
+const toStringArray = (value) => {
+	if (Array.isArray(value))
+		return value.filter((entry) => typeof entry === 'string' && entry.trim());
+	if (typeof value === 'string' && value.trim()) return [value];
+	return value ?? null;
 };
 
 const genericCount = async (collection, selectedType, flaten, filter) => {
@@ -72,6 +99,9 @@ module.exports = {
 		getAllPatient: (_parent, input, context) =>
 			genericGetAll(context.db, context.collections.patient, input),
 
+		getTableCount: (_parent, input, context) =>
+			tableCount(context.db, collectionNameForCount(context, input.collection), input),
+
 		getFirstAssessment: (_parent, input, context) =>
 			genericGetAll(context.db, context.collections.diagnosis, input),
 
@@ -136,6 +166,8 @@ module.exports = {
 						};
 				});
 				it.ops = codes;
+				it.surgeon = toStringArray(it.surgeon);
+				it.metastasisResection = toStringArray(it.metastasisResection);
 				delete it.ops4;
 				delete it.opscode;
 			}

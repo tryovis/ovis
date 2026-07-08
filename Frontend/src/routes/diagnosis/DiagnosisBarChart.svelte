@@ -261,6 +261,14 @@
 		console.log(dataPasser.getQueryAPI());
 	};
 
+	const getClickFilterTarget = (featureValue: string) => {
+		if (featureValue === 'VitalState') {
+			return { key: 'vitalState', system: 'patient' };
+		}
+
+		return { key: featureValue, system: 'diagnosis' };
+	};
+
 	async function createBarChart() {
 		const loadToken = ++chartLoadToken;
 		const requestedSelectedGender = selectedGender;
@@ -494,13 +502,14 @@
 						const label = chartConfig.data.datasets[datasetIndex].label;
 						const gender = chartConfig.data.datasets[datasetIndex]?.stack || 'unknown';
 						const category = chartConfig.data.labels[elementIndex];
+						const clickFilterTarget = getClickFilterTarget(requestedSelectedFeature.value);
 
 						if (label !== 'Sonstige') {
 							let queryItem1 = {
 								id: 'Random generierte UUID',
-								key: requestedSelectedFeature.value,
+								key: clickFilterTarget.key,
 								name: 'childCategorie.name',
-								system: 'diagnosis',
+								system: clickFilterTarget.system,
 								type: 'EQUALS',
 								values: [{ name: label, value: label, queryBindId: 'Auch eine random UUID' }]
 							};
@@ -513,9 +522,9 @@
 							nonTop5Labels.forEach((label) => {
 								let queryItem = {
 									id: 'Random generierte UUID',
-									key: '!' + requestedSelectedFeature.value,
+									key: '!' + clickFilterTarget.key,
 									name: 'childCategorie.name',
-									system: 'diagnosis',
+									system: clickFilterTarget.system,
 									type: 'NEQUALS',
 									values: [{ name: label, value: label, queryBindId: 'Auch eine random UUID' }]
 								};

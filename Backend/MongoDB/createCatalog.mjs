@@ -2,6 +2,7 @@ import { closeConnection, oncdb } from './monConnector.js';
 import { promises as fs } from 'fs';
 import path from 'path';
 import { ops4 } from './Preprocessing/ops4.mjs';
+import { buildCollectionObject } from './catalogueFieldCollector.mjs';
 
 const cataloguePath = process.env.CATALOGUE_PATH || './ovis-catalogue.json';
 const odb = await oncdb();
@@ -29,142 +30,7 @@ try {
 
 	let outputData = [];
 
-	function sanitiseCatalogueText(value) {
-		return value.toString().replace(/\s+/g, ' ').trim();
-	}
-
-	function createCollectionBuilder(collectionName) {
-		let uniqueFields = new Set();
-		let fieldValues = {};
-		const excludedFields = excludedFieldsPerCollection[collectionName] || [];
-
-		function extractFields(doc, prefix = '') {
-			Object.keys(doc).forEach((key) => {
-				const value = doc[key];
-				const newKey = prefix ? `${prefix}_${key}` : key;
-
-				// Prüfe auf exklusive Felder
-				for (const [exclusiveCollection, fields] of Object.entries(exclusiveFields)) {
-					if (fields.includes(newKey) && exclusiveCollection !== collectionName) {
-						return; // Ignoriere, wenn das exklusive Feld in einer anderen Collection vorkommt
-					}
-				}
-
-				// Prüfe, ob im Feldnamen "Date" vorkommt oder ob der Feldtyp "number" ist
-				if (/date/i.test(newKey)) {
-					fieldValues[newKey] = {
-						key: newKey,
-						name: `TODO Name für ${newKey}`,
-						system: collectionName,
-						fieldType: 'date',
-						type: 'BETWEEN',
-						infoButtonText: [
-							`Date for ${collectionName} represents the relevant date for this field.`
-						],
-						criteria: []
-					};
-					uniqueFields.add(newKey);
-					return;
-				} else if (typeof value === 'number') {
-					fieldValues[newKey] = {
-						key: newKey,
-						name: `TODO Name für ${newKey}`,
-						system: collectionName,
-						fieldType: 'number',
-						type: 'BETWEEN',
-						infoButtonText: [`Number for ${collectionName} represents the range for this field.`],
-						criteria: []
-					};
-					uniqueFields.add(newKey);
-					return;
-				}
-
-				// Rekursive Verarbeitung von Objekten und Arrays
-				if (typeof value === 'object' && value !== null) {
-					if (value instanceof Date) {
-						if (!fieldValues[newKey]) {
-							fieldValues[newKey] = new Set();
-						}
-						fieldValues[newKey].add(value.toISOString());
-					} else if (Array.isArray(value)) {
-						value.forEach((item) => {
-							if (typeof item === 'object' && item !== null) {
-								extractFields(item, newKey);
-							} else {
-								if (!fieldValues[newKey]) {
-									fieldValues[newKey] = new Set();
-								}
-								if (item !== null && item !== undefined) {
-									fieldValues[newKey].add(item.toString());
-								}
-							}
-						});
-					} else {
-						extractFields(value, newKey);
-					}
-				} else {
-					if (!excludedFields.includes(newKey)) {
-						uniqueFields.add(newKey);
-
-						if (!fieldValues[newKey]) {
-							fieldValues[newKey] = new Set();
-						}
-						if (value !== null && value !== undefined) {
-							fieldValues[newKey].add(value.toString());
-						}
-					}
-				}
-			});
-		}
-
-		return {
-			addDocument: extractFields,
-			build() {
-				return {
-					key: collectionName,
-					name: 'TODO',
-					childCategories: [...uniqueFields].map((field) => {
-						if (
-							fieldValues[field]?.fieldType === 'date' ||
-							fieldValues[field]?.fieldType === 'number'
-						) {
-							return fieldValues[field];
-						}
-
-						const criteriaValues =
-							fieldValues[field] instanceof Set
-								? [...new Set([...fieldValues[field]].map(sanitiseCatalogueText).filter(Boolean))]
-								: [];
-
-						if (!criteriaValues.includes('-')) {
-							criteriaValues.push('-'); // Standardwert "-" hinzufügen
-						}
-
-						return {
-							key: field,
-							name: field,
-							fieldType: 'single-select',
-							type: 'EQUALS',
-							system: collectionName,
-							criteria: criteriaValues.map((value) => ({
-								key: value.toString(),
-								name: value.toString(),
-								description: ''
-							}))
-						};
-					})
-				};
-			}
-		};
-	}
-
-	async function buildCollectionObject(collectionName, documents) {
-		const builder = createCollectionBuilder(collectionName);
-		for await (const document of documents) {
-			builder.addDocument(document);
-		}
-		return builder.build();
-	}
+	const catalogueOptions = { excludedFieldsPerCollection, exclusiveFields };
 
 	for (const collectionInfo of collections) {
 		const collectionName = collectionInfo.name;
@@ -179,11 +45,11 @@ try {
 		const collection = odb.collection(collectionName);
 		const documents = collection.find({}, { projection: invalidFields });
 
-		outputData.push(await buildCollectionObject(collectionName, documents));
+		outputData.push(await buildCollectionObject(collectionName, documents, catalogueOptions));
 	}
 
 	if (opsDocuments.length > 0) {
-		outputData.push(await buildCollectionObject('ops', opsDocuments));
+		outputData.push(await buildCollectionObject('ops', opsDocuments, catalogueOptions));
 	}
 
 	// Erstelle eine duplizierte Version mit ! vor den Keys, nur wenn "system" existiert

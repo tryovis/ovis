@@ -1,7 +1,7 @@
 module.exports = `
     extend type Query {
-        # getStudies(limit: Int, continueFromID: String, filter: String): [study]
-        getAllStudies(limit: Int, continueFromID: String, filter: String): [study]
+        # getStudies(limit: Int, continueFromID: String, filter: String, offset: Int, sortField: String, sortDirection: String, columnFilters: [TableColumnFilter!]): [study]
+        getAllStudies(limit: Int, continueFromID: String, filter: String, offset: Int, sortField: String, sortDirection: String, columnFilters: [TableColumnFilter!]): [study]
         
     }
     type study {

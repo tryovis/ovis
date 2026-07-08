@@ -1,12 +1,12 @@
 module.exports = `#graphql
     extend type Query {
-        getSupplementary(limit: Int, continueFromID: String, filter: String): [supplementary]
+        getSupplementary(limit: Int, continueFromID: String, filter: String, offset: Int, sortField: String, sortDirection: String, columnFilters: [TableColumnFilter!]): [supplementary]
         getSupplementaryChart(filter: String): countedByCategoryGrouped
-        getMolecularMarker(limit: Int, continueFromID: String, filter: String): [molekularmarker]
+        getMolecularMarker(limit: Int, continueFromID: String, filter: String, offset: Int, sortField: String, sortDirection: String, columnFilters: [TableColumnFilter!]): [molekularmarker]
         getMolecularMarkerChart(filter: String): countedByCategoryGrouped
-        getBioMaterial(limit: Int, continueFromID: String, filter: String): [biomater]
+        getBioMaterial(limit: Int, continueFromID: String, filter: String, offset: Int, sortField: String, sortDirection: String, columnFilters: [TableColumnFilter!]): [biomater]
         getBioMaterialChart(filter: String): countedByCategoryGrouped
-        getStatus(limit: Int, continueFromID: String, filter: String): [stat]
+        getStatus(limit: Int, continueFromID: String, filter: String, offset: Int, sortField: String, sortDirection: String, columnFilters: [TableColumnFilter!]): [stat]
         getStatusChart(filter: String): countedByCategoryGrouped
     }
     type stat {

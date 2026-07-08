@@ -1,12 +1,12 @@
 module.exports = `
     extend type Query {
-        getAllTherapies(limit: Int, continueFromID: String, filter: String): [Therapy]
+        getAllTherapies(limit: Int, continueFromID: String, filter: String, offset: Int, sortField: String, sortDirection: String, columnFilters: [TableColumnFilter!]): [Therapy]
         getTherapyGroupedByKey(groupedBy: Groupe!): [genericCount]
         getTypeOfTherapyCountOverTimeScale: [GroupedTherapyTypeWithTimeScale]
         getTherapyOperationOPSTable(filter: String): OPSTable
         getTherapySystemicSubstanceTable(filter: String): [substanceCount]
         getTherapyGeneralComplicationChart(filter: String): countedByCategoryGrouped
-        getTherapyRadiationTable(limit: Int, continueFromID: String, filter: String): [trad]
+        getTherapyRadiationTable(limit: Int, continueFromID: String, filter: String, offset: Int, sortField: String, sortDirection: String, columnFilters: [TableColumnFilter!]): [trad]
         getTherapyRadiationMap(level: radiationMapping, filter: String): [genericCount]
     }
 

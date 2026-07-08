@@ -1,6 +1,6 @@
 module.exports = `
   extend type Query {
-    getAllPatient(limit: Int, continueFromID: String, filter: String): [Patientinformation]
+    getAllPatient(limit: Int, continueFromID: String, filter: String, offset: Int, sortField: String, sortDirection: String, columnFilters: [TableColumnFilter!]): [Patientinformation]
     getPatientCohortGenderChart(filter: String): countBarChart
     getPatientCohortDeathChart(filter: String): countBarChart
     getPatientCohortMapChart(level: cityMapping, filter: String): [genericCount]

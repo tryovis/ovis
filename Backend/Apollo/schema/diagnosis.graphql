@@ -1,12 +1,12 @@
 module.exports = `
 
     extend type Query {
-        getFirstAssessment(limit: Int, continueFromID: String, filter: String): [Diagnosis]
-        getDiagnosisHistologyTable(limit: Int, continueFromID: String, filter: String): [DiagnosisHistologyTable]
+        getFirstAssessment(limit: Int, continueFromID: String, filter: String, offset: Int, sortField: String, sortDirection: String, columnFilters: [TableColumnFilter!]): [Diagnosis]
+        getDiagnosisHistologyTable(limit: Int, continueFromID: String, filter: String, offset: Int, sortField: String, sortDirection: String, columnFilters: [TableColumnFilter!]): [DiagnosisHistologyTable]
         getPatientCohortAgeChart(filter: String): [PatientAgeChart]
         getQuicktoolsBasicsIcd10: [String]
         getQuicktoolsBasicsHistology: [String]
-        getPatientCohortHistoryTable(limit: Int, continueFromID: String, filter: String): [PatientCohort]
+        getPatientCohortHistoryTable(limit: Int, continueFromID: String, filter: String, offset: Int, sortField: String, sortDirection: String, columnFilters: [TableColumnFilter!]): [PatientCohort]
     }
 
     type PatientAgeChart {

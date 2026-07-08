@@ -1,7 +1,7 @@
 module.exports = `
 
     extend type Query {
-        getCourses(limit: Int, continueFromID: String, filter: String): [course]
+        getCourses(limit: Int, continueFromID: String, filter: String, offset: Int, sortField: String, sortDirection: String, columnFilters: [TableColumnFilter!]): [course]
         getTimeChart(
             collection: collection = progress
             timePeriod: Period = months, 

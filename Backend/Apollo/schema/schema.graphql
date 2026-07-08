@@ -57,6 +57,11 @@ module.exports = `#graphql
         value: String!
     }
 
+    input TableColumnFilter {
+        field: String!
+        value: String!
+    }
+
     type DocCount {
         collection: String
         count: Int
@@ -121,9 +126,10 @@ module.exports = `#graphql
     }
 
     type Query {
-        getUser(limit: Int, continueFromID: String, filter: String): [user]
-        getConsultation(limit: Int, continueFromID: String, filter: String): [consultation]
-        getTumorBoard(limit: Int, continueFromID: String, filter: String): [tumorBoard]
+        getTableCount(collection: collection!, filter: String, columnFilters: [TableColumnFilter!]): Int
+        getUser(limit: Int, continueFromID: String, filter: String, offset: Int, sortField: String, sortDirection: String, columnFilters: [TableColumnFilter!]): [user]
+        getConsultation(limit: Int, continueFromID: String, filter: String, offset: Int, sortField: String, sortDirection: String, columnFilters: [TableColumnFilter!]): [consultation]
+        getTumorBoard(limit: Int, continueFromID: String, filter: String, offset: Int, sortField: String, sortDirection: String, columnFilters: [TableColumnFilter!]): [tumorBoard]
         getQuicktoolsCountOverview(collection: [collection]!, filter: String): [DocCount]
     }
 

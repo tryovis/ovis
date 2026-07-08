@@ -1,10 +1,10 @@
 module.exports = `
 
     extend type Query {
-        getTnmMetastases(limit: Int, continueFromID: String, filter: String): [tnm]
+        getTnmMetastases(limit: Int, continueFromID: String, filter: String, offset: Int, sortField: String, sortDirection: String, columnFilters: [TableColumnFilter!]): [tnm]
         getTnmCount(group: tnmGrouping!, filter: String): [ctnm]
         getTnmBodyMap(art: art, filter: String): [CountedBy]
-        getTNMMetastasisTable(limit: Int, continueFromID: String, filter: String): [distantmetastases]
+        getTNMMetastasisTable(limit: Int, continueFromID: String, filter: String, offset: Int, sortField: String, sortDirection: String, columnFilters: [TableColumnFilter!]): [distantmetastases]
     }
 
     type tnm {

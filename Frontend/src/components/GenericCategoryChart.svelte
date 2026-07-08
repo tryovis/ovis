@@ -399,7 +399,6 @@
 	headlineD3Element={null}
 	headlineNull={showNullStoreValue}
 	headlineLoading={null}
-	headlineLoadingStatus={null}
 	on:chartToggled={handleChartToggled}
 	on:logarithmToggled={handleLogarithmToggled}
 	on:top5Toggled={handleTop5Toggled}
