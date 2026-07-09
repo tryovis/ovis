@@ -7,6 +7,8 @@
 	import { filterActiveStore } from '../store/filterActiveStore.js';
 	import { addUserFilter } from '../components/UserFilter';
 	import { t, locale, locales } from '../store/languageStore';
+	import { buildTableHeaders, filterColumnsForImportMode } from '../tableColumnVariants';
+	import { calculateTableShownRows } from '../tableRows';
 	import {
 		fetchTableRows,
 		getTableCount,
@@ -21,9 +23,9 @@
 	});
 	let filter = JSON.stringify({ operand: 'OR', children: [] });
 
-	let isCCP: boolean;
+	let importMode: string | undefined;
 	variantStore.subscribe((value: any) => {
-		({ isCCP } = value);
+		({ importMode } = value);
 	});
 
 	export let columns: any;
@@ -49,6 +51,7 @@
 	let tooltip = '<p><b>' + headlineTitle + '</b><hr></p>';
 
 	let genericTable: any;
+	let tableContainer: HTMLDivElement;
 
 	function handleMaximized(event: any) {
 		maxStoreValue = event.detail.headlineMaximize;
@@ -68,12 +71,7 @@
 		dispatch('maximized', { maxStoreValue });
 	}
 
-	const headers = [
-		'_id',
-		...(columns.length > 0 && columns.some((column) => column.header)
-			? columns.map((column) => column.header) // Use actual headers if available
-			: columns.map((_, index) => `col${index + 1}`)) // Fallback to default column names
-	];
+	$: headers = buildTableHeaders(columns);
 
 	//console.log("headers", headers);
 
@@ -151,34 +149,19 @@
 		await tick();
 		//console.log("table ID", tableIdName);
 
-		if (isCCP) {
-			columns = columns.filter((column: any) => column.ccp !== false);
-			columns = columns.filter((column: any) => column.ovis !== true);
-		} else {
-			columns = columns.filter((column: any) => column.ccp !== true);
-			columns = columns.filter((column: any) => column.ovis !== false);
-		}
+		columns = filterColumnsForImportMode(columns, importMode);
+		await tick();
 
 		calculateTooltip();
 
-		// let heightTableDiv = document.querySelector('.data-table')?.parentElement?.clientHeight;
-		let heightTableDiv = document.querySelector(
-			'div[class*="table"][class*="box_level2"]'
-		)?.clientHeight;
-
-		if (heightTableDiv) {
-			// Check if there is a div with class "straight-line-container" inside
-			const navBarContainer = document.querySelector(
-				'div[class*="table"][class*="box_level2"] .navbar'
-			);
-			//console.log("nav bar", navBarContainer);
-			const adjustment = navBarContainer ? 45 : 0;
-
-			tableShownRows = Math.floor((heightTableDiv - 170 - adjustment) / 32);
-		}
-		if (tableShownRows <= 0) {
-			tableShownRows = 10;
-		}
+		const tablePanel = tableContainer.closest(
+			'div[class*="table"][class*="box_level2"], .box_level2'
+		);
+		tableShownRows = calculateTableShownRows({
+			panelHeight: tablePanel instanceof HTMLElement ? tablePanel.clientHeight : undefined,
+			hasNavbar: tablePanel?.querySelector('.navbar') != null,
+			fallbackRows: 10
+		});
 
 		genericTable = createTable(
 			collection,
@@ -261,7 +244,7 @@
 />
 <lens-data-passer bind:this={dataPasser} />
 <div class="data">
-	<div class="data-table">
+	<div class="data-table" bind:this={tableContainer}>
 		<table id={tableIdName} class="display" style="width: 100%;">
 			<thead>
 				<tr>

@@ -1,10 +1,11 @@
 <script lang="ts">
+	import { KaplanMeierWithGrouping, InitSvg, dsurv } from './kaplan-meier-chart-function';
 	import {
-		KaplanMeierWithGrouping,
-		InitSvg,
-		dsurv,
-		getDaysDivider
-	} from './kaplan-meier-chart-function';
+		buildKaplanMeierTableData,
+		fetchKaplanMeierTablePage,
+		type KaplanMeierTablePageRequest,
+		type KaplanMeierTableRow
+	} from './kaplan-meier-table-page';
 	//import { vecin as vecin_import } from './MockDataExampleQuery.js';
 	import { onMount } from 'svelte';
 
@@ -276,16 +277,8 @@
 			? columns.map((column) => column.header) // Use actual headers if available
 			: columns.map((_, index) => `col${index + 1}`); // Fallback to default column names
 
-	let tableData: any;
-	let reorderedTableData: any;
-
-	function formatiereObjektMitZweiNachkommastellen(obj: any) {
-		for (const key in obj) {
-			if (key !== 'group' && typeof obj[key] === 'number') {
-				obj[key] = parseFloat(obj[key].toFixed(2));
-			}
-		}
-	}
+	let tableData: KaplanMeierTableRow[] = [];
+	let reorderedTableData: KaplanMeierTableRow[] = [];
 
 	let filterActive = true;
 	// Abonnieren des filterActiveStore und den Wert aktualisieren
@@ -429,38 +422,20 @@
 		const nextTableDataKey = `${lastKmKey}|${selectedTimeType}`;
 		if (tableDataKey === nextTableDataKey) return;
 
-		const daysDivider = getDaysDivider(selectedTimeType);
-		const hideConfidenceInterval = selectedConfidenceType === 'Kein Konf.-Intervall';
-		tableData = [];
-		reorderedTableData = [];
-
-		for (let i = 0; i < cachedVec.length; ++i) {
-			const entry = cachedVec[i];
-			if (entry.event === 2 || entry.status === 2) continue;
-
-			const row = { ...entry, time: entry.time / daysDivider };
-			formatiereObjektMitZweiNachkommastellen(row);
-			if (row.event === 0) {
-				row.event = 'Zensur';
-			} else if (row.event === 1) {
-				row.event = $t('event');
-			}
-			if (hideConfidenceInterval) {
-				row.upper = '';
-				row.lower = '';
-			}
-
-			tableData.push(row);
-
-			const reorderedRow = {};
-			for (let columnIndex = 0; columnIndex < columns.length; ++columnIndex) {
-				const column = columns[columnIndex];
-				reorderedRow[column.data] = row[column.data];
-			}
-			reorderedTableData.push(reorderedRow);
-		}
+		const builtTableData = buildKaplanMeierTableData(cachedVec, {
+			selectedTimeType,
+			selectedConfidenceType,
+			columns,
+			eventLabel: $t('event')
+		});
+		tableData = builtTableData.rows;
+		reorderedTableData = builtTableData.reorderedRows;
 
 		tableDataKey = nextTableDataKey;
+	}
+
+	function fetchKaplanMeierPage(request: KaplanMeierTablePageRequest) {
+		return Promise.resolve(fetchKaplanMeierTablePage(tableData, request));
 	}
 
 	function initializeDataTable() {
@@ -470,11 +445,13 @@
 			'kaplanMeier',
 			dataPasser,
 			'survivalKaplanMeierTable',
-			tableData,
+			[],
 			columns,
 			tableShownRows,
 			sortingIndex,
-			sortingDirection
+			sortingDirection,
+			true,
+			{ fetchPage: fetchKaplanMeierPage }
 		);
 		renderedTableDataKey = tableDataKey;
 	}

@@ -21,6 +21,8 @@
 	import { configStore } from '../../store/configStore';
 	import { addUserFilter } from '../../components/UserFilter';
 	import { iconPath } from '$lib/path-utils';
+	import { getDiagnosisBarChartClickFilterTarget } from './diagnosisBarChartFilterTarget';
+	import { appendQueryItemToFirstGroup, queryContainsValue } from '../../tableFilterItems';
 	let filterActive = true;
 
 	// Abonnieren des filterActiveStore und den Wert aktualisieren
@@ -51,6 +53,7 @@
 	const tableShownRowsMax = 19;
 	const tableShownRowsMin = 8;
 	const sortingIndex = 4;
+	const sortingIndexWithoutLongText = 3;
 	const aspectRatioMax = 2.3;
 	const aspectRatioMin = 2.6;
 
@@ -83,6 +86,8 @@
 	let headers: any;
 	let barChartData: ChartDataset[] = [];
 	let barChartData2: ChartDataset[] = [];
+	let showLongTextColumn = true;
+	let tableRenderKey = 0;
 	let minSliderLabel = 0;
 	let maxSliderLabel = 0;
 	let leftSlider = 0;
@@ -172,6 +177,20 @@
 	function isMounted() {
 		return mounted;
 	}
+
+	function destroyDiagnosisBarChartTable() {
+		if (diagnosisBarChartTable) {
+			diagnosisBarChartTable.destroy();
+			diagnosisBarChartTable = null;
+		}
+	}
+
+	async function redrawDiagnosisBarChartTable() {
+		destroyDiagnosisBarChartTable();
+		tableRenderKey += 1;
+		await tick();
+	}
+
 	let filter = JSON.stringify({ operand: 'OR', children: [] });
 	let abscissaKey = '';
 
@@ -225,13 +244,14 @@
 		}
 	}
 
-	function handleChartToggled(event: any) {
+	async function handleChartToggled(event: any) {
 		showChart = event.detail.headlineShowChart;
 		configStore.update((storeValues) => {
 			storeValues.DiagnosisBarChartShowChart = showChart;
 			return storeValues;
 		});
 		if (!showChart) {
+			await tick();
 			diagnosisBarChartTable = createTable(
 				'diagnosis',
 				dataPasser,
@@ -239,7 +259,7 @@
 				tableData,
 				columns,
 				tableShownRows,
-				sortingIndex
+				showLongTextColumn ? sortingIndex : sortingIndexWithoutLongText
 			);
 		}
 	}
@@ -253,20 +273,22 @@
 	}
 
 	const addItem = (queryObject: QueryItem): void => {
+		const queryBeforeAdd = dataPasser.getQueryAPI();
 		dataPasser.addStratifierToQueryAPI({
 			label: queryObject.values[0].value,
 			catalogueGroupCode: queryObject.key,
 			parentGroupCode: queryObject.system
 		});
-		console.log(dataPasser.getQueryAPI());
-	};
-
-	const getClickFilterTarget = (featureValue: string) => {
-		if (featureValue === 'VitalState') {
-			return { key: 'vitalState', system: 'patient' };
+		const queryAfterAdd = dataPasser.getQueryAPI();
+		if (!queryContainsValue(queryAfterAdd, queryObject)) {
+			dataPasser.setQueryStoreAPI(
+				appendQueryItemToFirstGroup(
+					queryAfterAdd.length > 0 ? queryAfterAdd : queryBeforeAdd,
+					queryObject
+				)
+			);
 		}
-
-		return { key: featureValue, system: 'diagnosis' };
+		console.log(dataPasser.getQueryAPI());
 	};
 
 	async function createBarChart() {
@@ -329,15 +351,19 @@
 					[requestedSelectedFeature.value]: label,
 					count: count
 				});
-				columns = [
-					{ data: requestedAbscissaKey }, //selectedAbscissa.label
-					{ data: 'gender' }, //Geschlecht
-					{ data: requestedSelectedFeature.value }, //Feature
-					{ data: requestedSelectedFeature.value + 'Text' }, //Langtext
-					{ data: 'count' } //Anzahl
-				];
 			});
 		}
+		showLongTextColumn = tableData.some((row) =>
+			String(row[requestedSelectedFeature.value + 'Text'] ?? '').trim()
+		);
+		columns = [
+			{ data: requestedAbscissaKey }, //selectedAbscissa.label
+			{ data: 'gender' }, //Geschlecht
+			{ data: requestedSelectedFeature.value }, //Feature
+			...(showLongTextColumn ? [{ data: requestedSelectedFeature.value + 'Text' }] : []), //Langtext
+			{ data: 'count' } //Anzahl
+		];
+		await redrawDiagnosisBarChartTable();
 
 		diagnosisBarChartTable = createTable(
 			'diagnosis',
@@ -346,7 +372,7 @@
 			tableData,
 			columns,
 			tableShownRows,
-			sortingIndex
+			showLongTextColumn ? sortingIndex : sortingIndexWithoutLongText
 		);
 
 		if (requestedShowTop5) {
@@ -502,7 +528,9 @@
 						const label = chartConfig.data.datasets[datasetIndex].label;
 						const gender = chartConfig.data.datasets[datasetIndex]?.stack || 'unknown';
 						const category = chartConfig.data.labels[elementIndex];
-						const clickFilterTarget = getClickFilterTarget(requestedSelectedFeature.value);
+						const clickFilterTarget = getDiagnosisBarChartClickFilterTarget(
+							requestedSelectedFeature.value
+						);
 
 						if (label !== 'Sonstige') {
 							let queryItem1 = {
@@ -694,7 +722,7 @@
 			requestedSelectedAbscissa.label,
 			$t('gender'),
 			requestedSelectedFeature.label,
-			$t('longText'),
+			...(showLongTextColumn ? [$t('longText')] : []),
 			$t('count')
 		];
 
@@ -1247,18 +1275,22 @@
 </div>
 <div class="data">
 	<div class="data-table" style={!showChart ? '' : 'display: none;'}>
-		<div class="data-table">
-			<table id="diagnosisBarChartTable" class="display" style="width:100%">
-				<thead>
-					<tr>
-						<th class={abscissaKey === 'diagnosisDate' ? 'dateColumn' : ''}>{$t('xAxis')}</th>
-						<th>{$t('gender')}</th>
-						<th>{selectedFeature.label}</th>
-						<th>{$t('longText')}</th>
-						<th>{$t('count')}</th>
-					</tr>
-				</thead>
-			</table>
-		</div>
+		{#key tableRenderKey}
+			<div class="data-table">
+				<table id="diagnosisBarChartTable" class="display" style="width:100%">
+					<thead>
+						<tr>
+							<th class={abscissaKey === 'diagnosisDate' ? 'dateColumn' : ''}>{$t('xAxis')}</th>
+							<th>{$t('gender')}</th>
+							<th>{selectedFeature.label}</th>
+							{#if showLongTextColumn}
+								<th>{$t('longText')}</th>
+							{/if}
+							<th>{$t('count')}</th>
+						</tr>
+					</thead>
+				</table>
+			</div>
+		{/key}
 	</div>
 </div>
