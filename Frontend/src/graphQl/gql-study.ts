@@ -53,14 +53,12 @@ export const getStudyOverviewTable = (continueFromID: string | undefined | null,
     body: JSON.stringify({
       query: `
         query getStudyPatientTable($continueFromID: String, $limit: Int, $filter: String) {
-          getAllStudies(continueFromID: $continueFromID, limit: $limit, filter: $filter) {
+          getStudyPatientTable(continueFromID: $continueFromID, limit: $limit, filter: $filter) {
             _id
             studyID
             shortname
-            studyPatients {
-              patID
-              recruitmentDate
-            }
+            patID
+            recruitmentDate
           }
         }
       `,
@@ -73,20 +71,10 @@ export const getStudyOverviewTable = (continueFromID: string | undefined | null,
   })
   .then(resp => resp.json())
   .then(result => {
-    const studyPatientEntries = [];
-    result.data.getAllStudies.forEach(study => {
-      study.studyPatients.forEach(patient => {
-        studyPatientEntries.push({
-          _id: study._id, 
-          studyID: study.studyID,
-          shortname: study.shortname,
-          patID: patient.patID,
-          recruitmentDate: new Date(patient.recruitmentDate).toLocaleDateString('de-DE', localeOptions)
-        });
-      });
+    result.data.getStudyPatientTable.forEach(element => {
+      if(element.recruitmentDate) element.recruitmentDate = new Date(element.recruitmentDate).toLocaleDateString('de-DE', localeOptions);
     });
-    return studyPatientEntries;
+    return result.data.getStudyPatientTable;
   });
-
 
 

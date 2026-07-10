@@ -4,6 +4,7 @@ module.exports = `#graphql
         therapy
         tnm
         study
+        studyPatient
         consultation
         patient
         supplementary

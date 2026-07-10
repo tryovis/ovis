@@ -30,6 +30,7 @@
 
 <GenericTable
 	collection="study"
+	countCollection="studyPatient"
 	columns={columns}
 	getTableData={getStudyPatientTable}
 	sortingIndex={sortingIndex}

@@ -30,6 +30,7 @@
 
 	export let columns: any;
 	export let collection: string;
+	export let countCollection: string | undefined = undefined;
 	export let getTableData: any;
 	export let sortingIndex: number;
 	export let tableIdName: string;
@@ -113,10 +114,11 @@
 		loadingComplete = false;
 		const activeFilter = await getActiveFilter();
 		const rows = prepareTableRows(await fetchTableRows(getTableData, request, activeFilter));
+		const countTarget = countCollection ?? collection;
 		const totalCacheKey = activeFilter;
 		let total = totalCountCache.get(totalCacheKey);
 		if (total == null) {
-			total = await getTableCount(collection, activeFilter, []);
+			total = await getTableCount(countTarget, activeFilter, []);
 			totalCountCache.set(totalCacheKey, total);
 		}
 
@@ -125,7 +127,7 @@
 			const filteredCacheKey = `${activeFilter}:${JSON.stringify(request.columnFilters)}`;
 			const cachedFiltered = filteredCountCache.get(filteredCacheKey);
 			if (cachedFiltered == null) {
-				filtered = await getTableCount(collection, activeFilter, request.columnFilters);
+				filtered = await getTableCount(countTarget, activeFilter, request.columnFilters);
 				filteredCountCache.set(filteredCacheKey, filtered);
 			} else {
 				filtered = cachedFiltered;

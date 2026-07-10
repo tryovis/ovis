@@ -1,5 +1,6 @@
 const { aggregationArry, countAggregationArry } = require('../utils');
 const { filter2match } = require('../astTranslator');
+const { getStudyPatientCount, getStudyPatientTable } = require('./studyPatientTable');
 
 const genericGetAll = async (db, colname, args) => {
 	return db
@@ -100,7 +101,9 @@ module.exports = {
 			genericGetAll(context.db, context.collections.patient, input),
 
 		getTableCount: (_parent, input, context) =>
-			tableCount(context.db, collectionNameForCount(context, input.collection), input),
+			input.collection === 'studyPatient'
+				? getStudyPatientCount(input, context)
+				: tableCount(context.db, collectionNameForCount(context, input.collection), input),
 
 		getFirstAssessment: (_parent, input, context) =>
 			genericGetAll(context.db, context.collections.diagnosis, input),
@@ -279,6 +282,8 @@ module.exports = {
 
 			return context.db.collection(studyCol).aggregate(agg).toArray();
 		},
+
+		getStudyPatientTable: (_parent, input, context) => getStudyPatientTable(input, context),
 
 		getSupplementary: (_parent, input, context) =>
 			genericGetAll(context.db, context.collections.supplementary, input),
