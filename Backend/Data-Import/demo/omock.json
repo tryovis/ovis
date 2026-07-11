@@ -625815,97 +625815,145 @@
             "tumorID": 3456,
             "type": "post-therapeutic",
             "recommendation": "HO,OP",
-            "tumorBoardOccurrenceDate": "2024-03-03T00:00:00Z"
+            "tumorBoardOccurrenceDate": "2024-03-03T00:00:00Z",
+            "presentationMode": "Vor Ort",
+            "praepost": "prae",
+            "tbInternal": "intern"
         },
         {
             "tumorID": 3457,
             "type": "post-therapeutic",
             "recommendation": "HO,CH,OP",
-            "tumorBoardOccurrenceDate": "2024-04-06T00:00:00Z"
+            "tumorBoardOccurrenceDate": "2024-04-06T00:00:00Z",
+            "presentationMode": "Online",
+            "praepost": "post",
+            "tbInternal": "intern"
         },
         {
             "tumorID": 3462,
             "type": "pre-therapeutic",
             "recommendation": "HO,OP",
-            "tumorBoardOccurrenceDate": "2024-05-29T00:00:00Z"
+            "tumorBoardOccurrenceDate": "2024-05-29T00:00:00Z",
+            "presentationMode": "Hybrid",
+            "praepost": "prae",
+            "tbInternal": "extern"
         },
         {
             "tumorID": 3463,
             "type": "MTB",
             "recommendation": "HO,CH,OP",
-            "tumorBoardOccurrenceDate": "2024-07-10T00:00:00Z"
+            "tumorBoardOccurrenceDate": "2024-07-10T00:00:00Z",
+            "presentationMode": "Vor Ort",
+            "praepost": "post",
+            "tbInternal": "extern"
         },
         {
             "tumorID": 3466,
             "type": "post-operative",
             "recommendation": "HO,OP",
-            "tumorBoardOccurrenceDate": "2024-09-05T00:00:00Z"
+            "tumorBoardOccurrenceDate": "2024-09-05T00:00:00Z",
+            "presentationMode": "Online",
+            "praepost": "prae",
+            "tbInternal": "intern"
         },
         {
             "tumorID": 3467,
             "type": "post-therapeutic",
             "recommendation": "CH,OP",
-            "tumorBoardOccurrenceDate": "2020-02-29T00:00:00Z"
+            "tumorBoardOccurrenceDate": "2020-02-29T00:00:00Z",
+            "presentationMode": "Hybrid",
+            "praepost": "post",
+            "tbInternal": "intern"
         },
         {
             "tumorID": 3468,
             "type": "pre-therapeutic",
             "recommendation": "ST,OP",
-            "tumorBoardOccurrenceDate": "2021-06-12T00:00:00Z"
+            "tumorBoardOccurrenceDate": "2021-06-12T00:00:00Z",
+            "presentationMode": "Vor Ort",
+            "praepost": "prae",
+            "tbInternal": "extern"
         },
         {
             "tumorID": 3469,
             "type": "post-therapeutic",
             "recommendation": "HO,CH",
-            "tumorBoardOccurrenceDate": "2023-09-07T00:00:00Z"
+            "tumorBoardOccurrenceDate": "2023-09-07T00:00:00Z",
+            "presentationMode": "Online",
+            "praepost": "post",
+            "tbInternal": "extern"
         },
         {
             "tumorID": 3470,
             "type": "MTB",
             "recommendation": "HO,OP",
-            "tumorBoardOccurrenceDate": "2025-02-11T00:00:00Z"
+            "tumorBoardOccurrenceDate": "2025-02-11T00:00:00Z",
+            "presentationMode": "Hybrid",
+            "praepost": "prae",
+            "tbInternal": "intern"
         },
         {
             "tumorID": 3475,
             "type": "MTB",
             "recommendation": "HO,CH,OP",
-            "tumorBoardOccurrenceDate": "2024-09-30T00:00:00Z"
+            "tumorBoardOccurrenceDate": "2024-09-30T00:00:00Z",
+            "presentationMode": "Vor Ort",
+            "praepost": "post",
+            "tbInternal": "intern"
         },
         {
             "tumorID": 3476,
             "type": "post-operative",
             "recommendation": "OP",
-            "tumorBoardOccurrenceDate": "2024-02-15T00:00:00Z"
+            "tumorBoardOccurrenceDate": "2024-02-15T00:00:00Z",
+            "presentationMode": "Online",
+            "praepost": "prae",
+            "tbInternal": "extern"
         },
         {
             "tumorID": 3479,
             "type": "post-therapeutic",
             "recommendation": "HO,CH,ST",
-            "tumorBoardOccurrenceDate": "2024-10-22T00:00:00Z"
+            "tumorBoardOccurrenceDate": "2024-10-22T00:00:00Z",
+            "presentationMode": "Hybrid",
+            "praepost": "post",
+            "tbInternal": "extern"
         },
         {
             "tumorID": 3480,
             "type": "post-operative",
             "recommendation": "HO,OP",
-            "tumorBoardOccurrenceDate": "2024-01-01T00:00:00Z"
+            "tumorBoardOccurrenceDate": "2024-01-01T00:00:00Z",
+            "presentationMode": "Vor Ort",
+            "praepost": "prae",
+            "tbInternal": "intern"
         },
         {
             "tumorID": 3481,
             "type": "pre-therapeutic",
             "recommendation": "HO,OP,ST",
-            "tumorBoardOccurrenceDate": "2024-01-14T00:00:00Z"
+            "tumorBoardOccurrenceDate": "2024-01-14T00:00:00Z",
+            "presentationMode": "Online",
+            "praepost": "post",
+            "tbInternal": "intern"
         },
         {
             "tumorID": 3483,
             "type": "pre-therapeutic",
             "recommendation": "HO,OP",
-            "tumorBoardOccurrenceDate": "2025-03-17T00:00:00Z"
+            "tumorBoardOccurrenceDate": "2025-03-17T00:00:00Z",
+            "presentationMode": "Hybrid",
+            "praepost": "prae",
+            "tbInternal": "extern"
         },
         {
             "tumorID": 3485,
             "type": "post-therapeutic",
             "recommendation": "HO,CH,OP",
-            "tumorBoardOccurrenceDate": "2024-07-24T00:00:00Z"
+            "tumorBoardOccurrenceDate": "2024-07-24T00:00:00Z",
+            "presentationMode": "Vor Ort",
+            "praepost": "post",
+            "tbInternal": "extern"
         }
     ]
 }

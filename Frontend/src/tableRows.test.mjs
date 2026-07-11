@@ -32,3 +32,23 @@ test('calculateTableShownRows uses the current table panel height instead of ano
 	assert.equal(firstPanelRows, 8);
 	assert.equal(currentPanelRows, 5);
 });
+
+test('calculateTableShownRows uses fallback only when panel height is missing', () => {
+	assert.equal(
+		calculateTableShownRows({
+			panelHeight: undefined,
+			hasNavbar: false,
+			fallbackRows: 10
+		}),
+		10
+	);
+
+	assert.equal(
+		calculateTableShownRows({
+			panelHeight: 120,
+			hasNavbar: false,
+			fallbackRows: 10
+		}),
+		1
+	);
+});

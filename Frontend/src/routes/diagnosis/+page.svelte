@@ -105,4 +105,9 @@
         min-height: 0;
     }
 
+	.histology-table,
+	.diagnostic-table {
+		overflow: auto;
+	}
+
 </style>

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { createTable, changeRowCount } from '../tableBuilder';
-	import { createEventDispatcher, onMount, tick } from 'svelte';
+	import { createEventDispatcher, onDestroy, onMount, tick } from 'svelte';
 	import Headline from '../components/Headline.svelte';
 	import { variantStore } from '../store/variantStore.js';
 	import type { LensDataPasser } from '@samply/lens';
@@ -8,7 +8,7 @@
 	import { addUserFilter } from '../components/UserFilter';
 	import { t, locale, locales } from '../store/languageStore';
 	import { buildTableHeaders, filterColumnsForImportMode } from '../tableColumnVariants';
-	import { calculateTableShownRows } from '../tableRows';
+	import { calculateTableShownRowsForContainer, getTablePanel } from '../tableRows';
 	import {
 		fetchTableRows,
 		getTableCount,
@@ -53,6 +53,7 @@
 
 	let genericTable: any;
 	let tableContainer: HTMLDivElement;
+	let resizeObserver: ResizeObserver | undefined;
 
 	function handleMaximized(event: any) {
 		maxStoreValue = event.detail.headlineMaximize;
@@ -79,6 +80,14 @@
 	let tableData: any[] = [];
 	const totalCountCache = new Map<string, number>();
 	const filteredCountCache = new Map<string, number>();
+
+	function applyCurrentTableShownRows() {
+		const nextTableShownRows = calculateTableShownRowsForContainer(tableContainer, 10);
+		if (nextTableShownRows === tableShownRows) return;
+
+		tableShownRows = nextTableShownRows;
+		if (genericTable && !maxStoreValue) changeRowCount(genericTable, tableShownRows);
+	}
 
 	async function getActiveFilter() {
 		if (filterActive) {
@@ -156,14 +165,7 @@
 
 		calculateTooltip();
 
-		const tablePanel = tableContainer.closest(
-			'div[class*="table"][class*="box_level2"], .box_level2'
-		);
-		tableShownRows = calculateTableShownRows({
-			panelHeight: tablePanel instanceof HTMLElement ? tablePanel.clientHeight : undefined,
-			hasNavbar: tablePanel?.querySelector('.navbar') != null,
-			fallbackRows: 10
-		});
+		tableShownRows = calculateTableShownRowsForContainer(tableContainer, 10);
 
 		genericTable = createTable(
 			collection,
@@ -178,6 +180,16 @@
 			true,
 			{ fetchPage: fetchServerPage }
 		);
+
+		const tablePanel = getTablePanel(tableContainer);
+		if (tablePanel && typeof ResizeObserver !== 'undefined') {
+			resizeObserver = new ResizeObserver(applyCurrentTableShownRows);
+			resizeObserver.observe(tablePanel);
+		}
+	});
+
+	onDestroy(() => {
+		resizeObserver?.disconnect();
 	});
 
 	function calculateTooltip() {

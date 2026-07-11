@@ -26,6 +26,10 @@ module.exports = `
         y
         V
         type
+        presentationMode
+        praepost
+        tbInternal
+        recommendation
         multipleT
         version
         Pn

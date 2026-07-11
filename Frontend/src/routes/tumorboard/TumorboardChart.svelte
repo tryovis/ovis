@@ -2,13 +2,16 @@
 	import GenericCategoryChart from '../../components/GenericCategoryChart.svelte';
 
 	import { maxStore } from '../../store/maxStore';
-	import { t, locale, locales } from "../../store/languageStore";
+	import { t, locale, locales } from '../../store/languageStore';
 	import { configStore } from '../../store/configStore';
 
 	let dropdownObject = [
-        {label:'Art',value:'type'},
+		{ label: $t('type'), value: 'type' },
+		{ label: $t('presentationMode'), value: 'presentationMode' },
+		{ label: $t('prePost'), value: 'praepost' },
+		{ label: $t('internalExternal'), value: 'tbInternal' },
+		{ label: $t('recommendation'), value: 'recommendation' }
 	];
-
 
 	let maximizeTumorboardChart: boolean;
 	let TumorboardChartShowChart: boolean;
@@ -23,7 +26,7 @@
 
 	configStore.subscribe((value: any) => {
 		TumorboardChartShowChart = value.TumorboardChartShowChart;
-  		TumorboardChartShowTop5 = value.TumorboardChartShowTop5;
+		TumorboardChartShowTop5 = value.TumorboardChartShowTop5;
 		TumorboardChartShowNull = value.TumorboardChartShowNull;
 		TumorboardChartShowLogarithm = value.TumorboardChartShowLogarithm;
 		TumorboardChartInitialDropdown = value.TumorboardChartInitialDropdown;
@@ -77,16 +80,17 @@
 			return storeValues;
 		});
 	}
-
-	
 </script>
 
 <GenericCategoryChart
 	aspectRatioMin={2}
 	collection={'tumorBoard'}
 	{dropdownObject}
-	headlineTitle={$t("tumorboardChartTitle")}
-	headlineTooltip={"<p><b>"+$t("tumorboardChartTitle")+"</b><hr></p>"+$t("tooltip_GenericChart")}
+	headlineTitle={$t('tumorboardChartTitle')}
+	headlineTooltip={'<p><b>' +
+		$t('tumorboardChartTitle') +
+		'</b><hr></p>' +
+		$t('tooltip_GenericChart')}
 	initialDropdownValue={TumorboardChartInitialDropdown}
 	legendPosition={'right'}
 	maxStoreValue={maximizeTumorboardChart}

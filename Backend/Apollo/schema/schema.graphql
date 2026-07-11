@@ -45,6 +45,9 @@ module.exports = `#graphql
 
     type tumorBoard {
         type: String
+        presentationMode: String
+        praepost: String
+        tbInternal: String
         tumorBoardOccurrenceDate: Float
         _id: String
         tumorID: String
