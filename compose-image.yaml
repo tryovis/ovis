@@ -105,10 +105,8 @@ services:
       mongodb-restore:
         condition: service_completed_successfully
     volumes:
-      - ./Backend/Apollo:/app
       # OPS4 catalogue for therapy resolver
       - ./Backend/MongoDB/Preprocessing/ops4.mjs:/ops-data/ops4.mjs:ro
-      - node_modules:/app/node_modules
 
   ovis-backend-database-mongodb:
     image: ${OVIS_GENERAL_IMAGE_NAMESPACE:-ovisadmin}/ovis-backend-mongodb:${OVIS_IMAGE_TAG:-latest}
@@ -376,7 +374,6 @@ services:
         condition: service_started
 
 volumes:
-  node_modules:
   mongo_db:
   mongo_conf:
   catalogue_volume:

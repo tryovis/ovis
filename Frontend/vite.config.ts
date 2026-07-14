@@ -1,8 +1,9 @@
 import { sveltekit } from '@sveltejs/kit/vite';
 import { defineConfig } from 'vite';
+import { lensCatalogueSchemaCompatibility } from './lensCatalogueSchemaPlugin.js';
 
 export default defineConfig(({ command }) => ({
-	plugins: [sveltekit()],
+	plugins: [lensCatalogueSchemaCompatibility(), sveltekit()],
     optimizeDeps: {
         exclude: ["@samply/lens"]
     },
