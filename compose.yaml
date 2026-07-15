@@ -17,11 +17,10 @@ services:
         NGINX_PROXY_MODE: ${NGINX_PROXY_MODE:-true}
         APP_DOMAIN: ${APP_DOMAIN:-localhost}
         EXPRESS_PORT: ${EXPRESS_PORT:-8251}
-        APOLLO_PORT: ${APOLLO_PORT:-4001}
         NGINX_SSL_ENABLED: ${NGINX_SSL_ENABLED:-false}
         OVIS_PUBLIC_BASE_PATH: ${OVIS_PUBLIC_BASE_PATH:-}
-        VITE_EXPRESS_USERNAME: ${EXPRESS_AUTH_USERNAME:-admin}
-        VITE_EXPRESS_PASSWORT: ${EXPRESS_AUTH_PASSWORD:-admin}
+        VITE_EXPRESS_USERNAME: admin
+        VITE_EXPRESS_PASSWORT: admin
        
     ports:
       - "127.0.0.1:${FRONTEND_PORT:-5173}:5173"
@@ -79,8 +78,8 @@ services:
       - PUBLIC_SITE_SPECIFIC_IMPRINT_DATA_PROTECTION_OFFICER_EMAIL=${PUBLIC_SITE_SPECIFIC_IMPRINT_DATA_PROTECTION_OFFICER_EMAIL:-}
       - OVIS_CATALOGUE_UPSTREAM_URL=${OVIS_CATALOGUE_UPSTREAM_URL:-}
       - EXPRESS_AUTH_URL=http://express-auth:5000
-      - EXPRESS_AUTH_USERNAME=${EXPRESS_AUTH_USERNAME:-admin}
-      - EXPRESS_AUTH_PASSWORD=${EXPRESS_AUTH_PASSWORD:-admin}
+      - EXPRESS_AUTH_USERNAME=admin
+      - EXPRESS_AUTH_PASSWORD=admin
     volumes:
       - catalogue_volume:/app/dynamic-catalogue:ro
       - ./Backend/MongoDB/ovis-catalogue.json:/app/static/ovis-catalogue.json:ro
@@ -125,7 +124,6 @@ services:
       # Runtime environment variables for development mode
       - APP_DOMAIN=${APP_DOMAIN:-localhost}
       - EXPRESS_PORT=${EXPRESS_PORT:-8251}
-      - APOLLO_PORT=${APOLLO_PORT:-4001}
       - HTTP_PROXY=${OVIS_HTTP_PROXY:-}
       - HTTPS_PROXY=${OVIS_HTTPS_PROXY:-}
       - NO_PROXY=${OVIS_NO_PROXY:-}
@@ -139,13 +137,13 @@ services:
       - PUBLIC_LOGIN_ENABLED=${PUBLIC_LOGIN_ENABLED:-false}
       - PUBLIC_LDAP_ENABLED=${PUBLIC_LDAP_ENABLED:-false}
       - OVIS_CATALOGUE_UPSTREAM_URL=${OVIS_CATALOGUE_UPSTREAM_URL:-}
-      - EXPRESS_AUTH_USERNAME=${EXPRESS_AUTH_USERNAME:-admin}
-      - EXPRESS_AUTH_PASSWORD=${EXPRESS_AUTH_PASSWORD:-admin}
+      - EXPRESS_AUTH_USERNAME=admin
+      - EXPRESS_AUTH_PASSWORD=admin
       # VITE environment variables (same as production build)
       # When NGINX_PROXY_MODE=true, use relative URLs; otherwise use full URLs
       - VITE_EXPRESS_BASEURL=/express
-      - VITE_EXPRESS_USERNAME=${EXPRESS_AUTH_USERNAME:-admin}
-      - VITE_EXPRESS_PASSWORT=${EXPRESS_AUTH_PASSWORD:-admin}
+      - VITE_EXPRESS_USERNAME=admin
+      - VITE_EXPRESS_PASSWORT=admin
       - PUBLIC_NAV_PATIENT_COHORT_ENABLED=${PUBLIC_NAV_PATIENT_COHORT_ENABLED:-true}
       - PUBLIC_NAV_PATIENT_SINGLE_ENABLED=${PUBLIC_NAV_PATIENT_SINGLE_ENABLED:-true}
       - PUBLIC_NAV_DIAGNOSIS_ENABLED=${PUBLIC_NAV_DIAGNOSIS_ENABLED:-true}
@@ -204,17 +202,14 @@ services:
         no_proxy: ${OVIS_NO_PROXY:-}
     # Internal only - no port exposure. Access via frontend internal proxy at /api/graphql
     environment:
-      - APOLLO_PORT=${APOLLO_PORT}
-      - CREDOS_PORT=${CREDOS_PORT}
       - HTTP_PROXY=${OVIS_HTTP_PROXY:-}
       - HTTPS_PROXY=${OVIS_HTTPS_PROXY:-}
       - NO_PROXY=${OVIS_NO_PROXY:-}
       - http_proxy=${OVIS_HTTP_PROXY:-}
       - https_proxy=${OVIS_HTTPS_PROXY:-}
       - no_proxy=${OVIS_NO_PROXY:-}
-      - MONGO_VER=latest
       - CORS_ORIGIN=*
-      - DB=${DB:-onc_test}
+      - DB=onc_test
       # MongoDB address is always the same internally
       - ADDRESS=mongodb://ovis-backend-database-mongodb:27017
     healthcheck:
@@ -252,17 +247,14 @@ services:
         https_proxy: ${OVIS_HTTPS_PROXY:-}
         no_proxy: ${OVIS_NO_PROXY:-}
     environment:
-      - APOLLO_PORT=${APOLLO_PORT}
-      - CREDOS_PORT=${CREDOS_PORT}
       - HTTP_PROXY=${OVIS_HTTP_PROXY:-}
       - HTTPS_PROXY=${OVIS_HTTPS_PROXY:-}
       - NO_PROXY=${OVIS_NO_PROXY:-}
       - http_proxy=${OVIS_HTTP_PROXY:-}
       - https_proxy=${OVIS_HTTPS_PROXY:-}
       - no_proxy=${OVIS_NO_PROXY:-}
-      - MONGO_VER=latest
       - CORS_ORIGIN=*
-      - DB=${DB}
+      - DB=onc_test
       # MongoDB address is always the same internally
       - ADDRESS=mongodb://ovis-backend-database-mongodb:27017
       - CATALOGUE_PATH=/app/generated/ovis-catalogue.json
@@ -349,8 +341,8 @@ services:
     volumes:
       - ./Backend/Authentication/data/database:/var/lib/postgresql/data
     environment:
-      POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_DB: keycloak
+      POSTGRES_USER: keycloak
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
 
   keycloak:
@@ -369,8 +361,8 @@ services:
     environment:
       DB_VENDOR: postgres
       DB_ADDR: postgres
-      DB_DATABASE: ${POSTGRES_DB}
-      DB_USER: ${POSTGRES_USER}
+      DB_DATABASE: keycloak
+      DB_USER: keycloak
       DB_PASSWORD: ${POSTGRES_PASSWORD}
       KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN}
       KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
@@ -402,7 +394,7 @@ services:
       LDAP_EMAIL_ATTRIBUTE: ${LDAP_EMAIL_ATTRIBUTE:-}
       LDAP_FIRST_NAME_ATTRIBUTE: ${LDAP_FIRST_NAME_ATTRIBUTE:-}
       LDAP_LAST_NAME_ATTRIBUTE: ${LDAP_LAST_NAME_ATTRIBUTE:-}
-      KEYCLOAK_CLIENT_ID: ${KEYCLOAK_CLIENT_ID}
+      KEYCLOAK_CLIENT_ID: ovis_client
       KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET}
       OVIS_ROOT_USERNAME: ${OVIS_ROOT_USERNAME:-ovis-root}
       OVIS_ROOT_PASSWORD: ${OVIS_ROOT_PASSWORD:-test}
@@ -438,15 +430,16 @@ services:
       - http_proxy=${OVIS_HTTP_PROXY:-}
       - https_proxy=${OVIS_HTTPS_PROXY:-}
       - no_proxy=${OVIS_NO_PROXY:-}
-      # Use simplified auth variables
-      - BASIC_AUTH_USERNAME=${EXPRESS_AUTH_USERNAME}
-      - BASIC_AUTH_PASSWORD=${EXPRESS_AUTH_PASSWORD}
+      # Fixed internal Basic Auth contract shared with the frontend.
+      # These are transport credentials, not OVIS user login credentials.
+      - BASIC_AUTH_USERNAME=admin
+      - BASIC_AUTH_PASSWORD=admin
       # Keycloak internal URL is always the same
       - KEYCLOAK_URL=http://keycloak:8080/keycloak
-      - KEYCLOAK_REALM=${KEYCLOAK_REALM}
-      - KEYCLOAK_CLIENT_ID=${KEYCLOAK_CLIENT_ID}
+      - KEYCLOAK_REALM=ovis
+      - KEYCLOAK_CLIENT_ID=ovis_client
       - KEYCLOAK_CLIENT_SECRET=${KEYCLOAK_CLIENT_SECRET}
-      - KEYCLOAK_ADMIN_CLIENT_ID=${KEYCLOAK_ADMIN_CLIENT_ID}
+      - KEYCLOAK_ADMIN_CLIENT_ID=admin-cli
       - KEYCLOAK_ADMIN_CLIENT_SECRET=${KEYCLOAK_ADMIN_CLIENT_SECRET}
       # For CORS configuration
       - APP_DOMAIN=${APP_DOMAIN}
@@ -466,8 +459,8 @@ services:
       ovis-backend-database-mongodb:
         condition: service_started
     environment:
-      - MONGO_HOST=${MONGO_HOST:-ovis-backend-database-mongodb}
-      - MONGO_RESTORE_DBS=${MONGO_RESTORE_DBS:-onc_test}
+      - MONGO_HOST=ovis-backend-database-mongodb
+      - MONGO_RESTORE_DBS=onc_test
       - MONGO_RESTORE_COLLECTIONS=${MONGO_RESTORE_COLLECTIONS:-user}
       - MONGO_RESTORE_IGNORE_IDS=${MONGO_RESTORE_IGNORE_IDS:-ovis-root}
     volumes:
@@ -484,8 +477,8 @@ services:
       mongodb-restore:
         condition: service_completed_successfully
     environment:
-      - MONGO_HOST=${MONGO_HOST:-ovis-backend-database-mongodb}
-      - MONGO_BACKUP_DBS=${MONGO_BACKUP_DBS:-onc_test}
+      - MONGO_HOST=ovis-backend-database-mongodb
+      - MONGO_BACKUP_DBS=onc_test
       - MONGO_BACKUP_COLLECTIONS=${MONGO_BACKUP_COLLECTIONS:-user}
       - MONGO_BACKUP_RETENTION=${MONGO_BACKUP_RETENTION:-0}
       - BACKUP_INTERVAL_SECONDS=${MONGO_BACKUP_INTERVAL_SECONDS:-21600}

@@ -10,6 +10,7 @@ RUN npm ci --omit=dev
 COPY monConnector.js ./
 COPY utils.js ./
 COPY createCatalog.mjs ./
+COPY catalogueFieldCollector.mjs ./
 COPY Preprocessing ./Preprocessing
 
 # Create output directory for generated files

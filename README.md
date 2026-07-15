@@ -244,15 +244,13 @@ The `compose.yaml` file defines the following services:
 
 Two helper services keep your MongoDB data resilient:
 
-*   **`mongodb-backup`** runs a lightweight `mongo` container that executes `Setup/Backups/scripts/mongodb-backup.sh` on a schedule. It waits for the primary database to accept connections and then dumps the configured database/collection pairs into timestamped folders under `Setup/Backups/mongodb/<YYYYMMDD-HHMMSS>`. Set these environment variables in `.env` as needed:
-    *   **`MONGO_HOST`** – MongoDB host name inside the compose network (default `ovis-backend-database-mongodb`).
-    *   **`MONGO_BACKUP_DBS`** – Comma-separated database names to export (default `onc_test`).
-    *   **`MONGO_BACKUP_COLLECTIONS`** – Comma-separated collections to export from each database (default `user`).
+*   **`mongodb-backup`** runs a lightweight `mongo` container that executes `Setup/Backups/scripts/mongodb-backup.sh` on a schedule. It always connects to `ovis-backend-database-mongodb` and backs up the fixed `onc_test` database. Configure these deployment choices in `.env` as needed:
+    *   **`MONGO_BACKUP_COLLECTIONS`** – Comma-separated collections to export (default `user`).
     *   **`MONGO_BACKUP_RETENTION`** – Number of snapshots to retain; set to `0` to disable pruning (default `0`).
-    *   **`BACKUP_INTERVAL_SECONDS`** – Delay between backups in seconds (default `21600`, i.e. six hours).
-*   **`mongodb-restore`** is a one-shot init container that runs on every `docker compose up`. It scans `Setup/Backups/mongodb` for the most recent snapshot and restores it automatically whenever the target collections are empty (e.g. after `docker compose down -v`). Configure it with:
-    *   **`MONGO_RESTORE_DBS`** – Databases to rehydrate (default `onc_test`).
+    *   **`MONGO_BACKUP_INTERVAL_SECONDS`** – Delay between backups in seconds (default `21600`, i.e. six hours).
+*   **`mongodb-restore`** is a one-shot init container that runs on every `docker compose up`. It restores the fixed `onc_test` database from the latest snapshot whenever the target collections are empty. Configure it with:
     *   **`MONGO_RESTORE_COLLECTIONS`** – Collections that must exist before skipping restore (default `user`).
+    *   **`MONGO_RESTORE_IGNORE_IDS`** – Seed-record IDs ignored when deciding whether restore is necessary (default `ovis-root`).
 
 With both services enabled, a fresh stack start will bring MongoDB back to its latest snapshot before the GraphQL/API containers connect. Manual restores remain available when you want to seed staging or experiment locally:
 
@@ -276,7 +274,7 @@ Always stop (or at least quiesce) dependent services before restoring production
 
 ## Configuration
 
-OVIS uses environment variables for configuration, simplified from 50+ to just 30 essential variables. Copy `.env.example` to `.env` and configure as needed.
+OVIS uses environment variables for deployment choices and secrets. Fixed internal service contracts are intentionally not configurable. Copy `.env.example` to `.env` and configure the remaining values as needed.
 
 ### Core Settings
 *   **`APP_DOMAIN`**: Hostname where the application is hosted (default: `localhost`)
@@ -284,30 +282,25 @@ OVIS uses environment variables for configuration, simplified from 50+ to just 3
 *   **`PUBLIC_LOGIN_ENABLED`**: Enable/disable authentication - `true` or `false`
 
 ### Service Ports
-Port numbers for direct access (when NGINX_PROXY_MODE=false):
+Port numbers for direct access (when `NGINX_PROXY_MODE=false`):
 *   **`FRONTEND_PORT`**: Frontend service (default: `5173`)
-*   **`APOLLO_PORT`**: GraphQL API (default: `4001`)
-*   **`CREDOS_PORT`**: Credos service (default: `4000`)
 *   **`EXPRESS_PORT`**: Express auth service (default: `8251`)
 *   **`KEYCLOAK_PORT`**: Keycloak service (default: `8252`)
 
+Apollo always listens on internal port `4001`; it is reached through the frontend proxy and is not exposed directly.
+
 ### Authentication
-*   **`EXPRESS_AUTH_USERNAME`**: Username for Express API authentication
-*   **`EXPRESS_AUTH_PASSWORD`**: Password for Express API authentication
 *   **`KEYCLOAK_ADMIN`**: Keycloak admin username
 *   **`KEYCLOAK_ADMIN_PASSWORD`**: Keycloak admin password
-*   **`KEYCLOAK_REALM`**: Keycloak realm name (default: `ovis`)
-*   **`KEYCLOAK_CLIENT_ID`**: OAuth client ID
 *   **`KEYCLOAK_CLIENT_SECRET`**: OAuth client secret
-*   **`KEYCLOAK_ADMIN_CLIENT_ID`**: Admin client ID
 *   **`KEYCLOAK_ADMIN_CLIENT_SECRET`**: Admin client secret
 
+The internal Basic Auth pair is fixed to `admin/admin`. It is embedded in browser JavaScript and is not the user-authentication boundary. The Keycloak realm and client IDs are fixed to `ovis`, `ovis_client`, and `admin-cli`.
+
 ### Database Configuration
-*   **`DB`**: MongoDB database name (default: `onc_test`)
-*   **`MONGO_VER`**: MongoDB version (default: `latest`)
-*   **`POSTGRES_DB`**: PostgreSQL database for Keycloak
-*   **`POSTGRES_USER`**: PostgreSQL username
-*   **`POSTGRES_PASSWORD`**: PostgreSQL password
+*   **`POSTGRES_PASSWORD`**: Password for the fixed `keycloak` PostgreSQL database and user
+
+The MongoDB database is fixed to `onc_test`.
 
 ### Nginx Proxy Configuration
 *   **`NGINX_PROXY_MODE`**: Enable nginx reverse proxy - `true` (recommended) or `false`
@@ -332,8 +325,7 @@ Port numbers for direct access (when NGINX_PROXY_MODE=false):
 *   **`ONKOSTAR_DB_PASSWORD`**: Database password
 
 #### CREDOS Exports (for `credos` mode)
-*   Source-compose reads CREDOS `.txt` exports from `Backend/Data-Import/credos/CREDOSExportFiles`, mounted read-only to `/input/CREDOSExportFiles` in the import container.
-*   Image-compose reads CREDOS `.txt` exports from `CREDOSExportFiles` under `OVIS_SITE_CONFIG_DIR` (or the current directory when unset), mounted read-only to `/input/CREDOSExportFiles` in the import container.
+*   Source- and image-compose read CREDOS `.txt` exports from `Backend/Data-Import/credos/CREDOSExportFiles`, mounted read-only to `/input/CREDOSExportFiles` in the import container.
 *   The importer fails early when no `.txt` export files are present.
 *   **`OVIS_SITE_OMOCK_FILE`**: Optional generic `omock.json` override. When this file is mounted, CREDOS generation and export-file validation are skipped.
 *   Use lowercase `OVIS_IMPORT_MODE=credos`; uppercase `CREDOS` is not a valid Docker import mode.

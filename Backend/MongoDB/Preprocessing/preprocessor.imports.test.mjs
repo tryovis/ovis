@@ -64,21 +64,26 @@ test('preprocessor local imports stay inside Docker preprocessor image copy surf
 		return;
 	}
 
-	const [preprocessorSource, dockerfileSource] = await Promise.all([
-		readFile(path.join(currentDirectory, 'preprocessor.mjs'), 'utf8'),
-		readFile(dockerfilePath, 'utf8')
+	const runtimeSourcePaths = [
+		path.join(currentDirectory, 'preprocessor.mjs'),
+		path.join(mongoRoot, 'createCatalog.mjs')
+	];
+	const [dockerfileSource, ...runtimeSources] = await Promise.all([
+		readFile(dockerfilePath, 'utf8'),
+		...runtimeSourcePaths.map((sourcePath) => readFile(sourcePath, 'utf8'))
 	]);
 
 	const copiedSources = [...dockerfileSource.matchAll(copyPattern)].flatMap((match) =>
 		normalizeDockerSource(match[1])
 	);
 
-	const outOfImageImports = [...preprocessorSource.matchAll(localImportPattern)]
-		.map((match) => match[1])
-		.map((specifier) => ({
-			specifier,
-			absolutePath: path.resolve(currentDirectory, specifier)
-		}))
+	const outOfImageImports = runtimeSources
+		.flatMap((source, index) =>
+			[...source.matchAll(localImportPattern)].map((match) => ({
+				specifier: match[1],
+				absolutePath: path.resolve(path.dirname(runtimeSourcePaths[index]), match[1])
+			}))
+		)
 		.filter(({ absolutePath }) => absolutePath.startsWith(repositoryRoot))
 		.map(({ specifier, absolutePath }) => ({
 			specifier,
