@@ -1,6 +1,16 @@
 // See https://kit.svelte.dev/docs/types#app
 // for information about these interfaces
 declare global {
+	interface Window {
+		showSaveFilePicker?: (options: {
+			readonly suggestedName: string;
+			readonly types: readonly {
+				readonly description: string;
+				readonly accept: Readonly<Record<string, readonly string[]>>;
+			}[];
+		}) => Promise<FileSystemFileHandle>;
+	}
+
 	namespace App {
 		// interface Error {}
 		// interface Locals {}

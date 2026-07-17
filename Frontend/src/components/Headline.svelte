@@ -3,8 +3,9 @@
 	import { showToast } from '../store/toastStore';
 	import { get } from 'svelte/store';
 	import { t } from '../store/languageStore';
-	import type { LensDataPasser } from '@samply/lens';
 	import { iconPath } from '$lib/path-utils';
+	import { createDownloadName, downloadCanvasChart, downloadSvgChart } from '$lib/chart-download';
+	import HeadlineTableExport from './HeadlineTableExport.svelte';
 
 	const downloadIcon = iconPath('download-icon.svg');
 	const infoIcon = iconPath('info-outlined.svg');
@@ -30,7 +31,13 @@
 	export let headlineInitialTop10: boolean | null = null;
 	export let headlineInitialLogarithm: boolean | null = null;
 	export let headlineInputTableData: Record<string, unknown>[] | null = null;
+	export let headlineGetTableDataForExport:
+		| ((
+				onProgress: (loadedRows: number, expectedRows: number) => void
+		  ) => Promise<Record<string, unknown>[]>)
+		| null = null;
 	export let headlineInputTableHeader: string[] | null = null;
+	export let headlineInputTableFields: string[] | null = null;
 	export let headlineChartJSElement: HTMLCanvasElement | null = null;
 	export let headlineD3Element: HTMLObjectElement | SVGSVGElement | null = null;
 	export let headlineLoading: boolean | null = null;
@@ -43,11 +50,10 @@
 	const dispatch = createEventDispatcher();
 
 	function copyInfo() {
-		if (headlineTooltip) {
-			const plainText = headlineTooltip.replace(/<[^>]*>/g, '');
-			navigator.clipboard.writeText(plainText);
-			showToast('Text des Informationsbuttons in Zwischenablage kopiert.');
-		}
+		if (!headlineTooltip) return;
+		const plainText = headlineTooltip.replace(/<[^>]*>/g, '');
+		navigator.clipboard.writeText(plainText);
+		showToast('Text des Informationsbuttons in Zwischenablage kopiert.');
 	}
 
 	function toggleChart() {
@@ -82,186 +88,18 @@
 
 	function exportChart() {
 		if (headlineChartJSElement != null) {
-			exportChartJSChart();
-		} else {
-			exportD3Chart();
+			downloadCanvasChart(headlineChartJSElement, downloadName);
+		} else if (headlineD3Element != null) {
+			downloadSvgChart(headlineD3Element, downloadName);
 		}
 	}
-
-	function exportChartJSChart() {
-		const canvasElement = headlineChartJSElement;
-
-		const tempCanvas = document.createElement('canvas');
-		if (canvasElement) {
-			tempCanvas.width = canvasElement.width;
-			tempCanvas.height = canvasElement.height;
-			const tempCtx = tempCanvas.getContext('2d');
-
-			if (tempCtx) {
-				tempCtx.drawImage(canvasElement, 0, 0);
-
-				const imgData = tempCanvas.toDataURL('image/png');
-
-				const link = document.createElement('a');
-				link.href = imgData;
-				link.download = downloadName;
-				link.click();
-			}
-		}
-	}
-
-	function exportD3Chart() {
-		if (headlineD3Element != null) {
-			let svgElement: SVGSVGElement | null = null;
-			if (headlineD3Element instanceof HTMLObjectElement) {
-				// Wenn es sich um ein <object>-Element handelt, das SVG extrahieren
-				const objectDoc = headlineD3Element.contentDocument;
-				if (objectDoc) {
-					svgElement = objectDoc.querySelector('svg');
-				}
-			} else {
-				svgElement = headlineD3Element.querySelector('svg');
-			}
-
-			if (!svgElement) {
-				return;
-			}
-
-			const svgString = new XMLSerializer().serializeToString(svgElement);
-			const img = new Image();
-			img.src = 'data:image/svg+xml,' + encodeURIComponent(svgString);
-
-			img.onload = () => {
-				const canvas = document.createElement('canvas');
-				const context = canvas.getContext('2d');
-				canvas.width = headlineD3Element?.clientWidth ?? 0;
-				canvas.height = headlineD3Element?.clientHeight ?? 0;
-				if (context) context.drawImage(img, 0, 0);
-				const imgData = canvas.toDataURL('image/png');
-
-				const link = document.createElement('a');
-				link.href = imgData;
-				link.download = downloadName;
-				link.click();
-			};
-		}
-	}
-
-	function exportTable() {
-		if (!headlineInputTableData || !headlineInputTableHeader) {
-			showToast('Keine Tabellendaten zum Exportieren verfügbar.');
-			return;
-		}
-
-		// Verwenden Sie das bereits initialisierte `data`-Array
-		let exportData = [...headlineInputTableData];
-
-		//console.log("exportdata", headlineInputTableData);
-		//console.log("headerdata", headlineInputTableHeader);
-		// Iteriere durch jede Zeile und jedes Feld und ersetze Null durch leere Zeichenfolge
-		exportData = exportData.map((row) => {
-			return Object.keys(row).reduce<Record<string, unknown>>((acc, key) => {
-				acc[key] = row[key] === null ? '' : row[key];
-				return acc;
-			}, {});
-		});
-
-		if (exportData) {
-			// Funktion, die rekursiv durch die Objekte geht und die Werte extrahiert
-			const flattenObject = (obj: Record<string, unknown>, parentKey = ''): Record<string, unknown> => {
-				// Check, ob obj nicht null oder undefined ist
-				if (obj && typeof obj === 'object') {
-					return Object.keys(obj).reduce((acc, key) => {
-						const newKey = parentKey ? `${parentKey}.${key}` : key;
-						if (typeof obj[key] === 'object' && obj[key] !== null) {
-							return { ...acc, ...flattenObject(obj[key] as Record<string, unknown>, newKey) };
-						} else {
-							// Ersetzen Sie leere Werte durch leere Zeichenfolgen
-							const value = obj[key] === null || obj[key] === undefined ? '' : obj[key];
-							return { ...acc, [newKey]: value };
-						}
-					}, {});
-				} else {
-					return {};
-				}
-			};
-
-			// Flachen Sie die Daten, um mit untergeordneten Objekten umzugehen
-			const flattenedData = exportData.map((row) => flattenObject(row));
-
-			const csvHeader = headlineInputTableHeader.join(';');
-
-			// Function to safely escape CSV values
-			const escapeCSVValue = (value: unknown) => {
-				if (typeof value === 'string' && (value.includes('\n') || value.includes(';'))) {
-					// If the value contains newlines or semicolons, wrap it in double quotes and escape any double quotes within the string
-					return `"${value.replace(/"/g, '""')}"`;
-				}
-				return value;
-			};
-
-			//const csvContent = 'data:text/csv;charset=utf-8,' + flattenedData.map((row) => Object.values(row).map(value => value === null || value === undefined ? '' : value).join(';')).join('\n');
-			//const csvContent = 'data:text/csv;charset=utf-8,' + flattenedData.map((row) => Object.values(row).map(value => value === null || value === undefined ? ';' : value).join(';')).join('\n');
-
-			const csvContent =
-				'data:text/csv;charset=utf-8,' +
-				[csvHeader]
-					.concat(
-						flattenedData.map((row) =>
-							Object.values(row)
-								.map((value) => escapeCSVValue(value))
-								.join(';')
-						)
-					)
-					.join('\n');
-
-			// Erstellen Sie ein verstecktes Link-Element, um den Download auszulösen
-			const link = document.createElement('a');
-			link.href = encodeURI(csvContent);
-			link.target = '_blank';
-			link.download = downloadName;
-			link.style.display = 'none';
-
-			// Fügen Sie das Link-Element zum Dokument hinzu und klicken Sie es an, um den Download auszulösen
-			document.body.appendChild(link);
-			link.click();
-
-			// Entfernen Sie das Link-Element
-			document.body.removeChild(link);
-		}
-	}
-
-	function convertToCamelCase(inputString: string) {
-		// Entfernen Sie Leerzeichen und teilen Sie den String in Wörter, indem Sie auch Punkte ignorieren
-		let words = inputString.trim().split(/[\s.]+/); // Split by spaces or periods
-
-		// Falls es nur ein Wort gibt, konvertieren Sie es in CamelCase und geben es zurück
-		if (words.length === 1) {
-			return words[0].toLowerCase();
-		}
-
-		// Andernfalls, konvertieren Sie die Wörter in CamelCase
-		let camelCaseWords = words.map((word, index) => {
-			// Das erste Wort bleibt unverändert, die anderen werden großgeschrieben
-			if (index === 0) {
-				return word.toLowerCase();
-			} else {
-				return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
-			}
-		});
-
-		// Verbinden Sie die Wörter und geben Sie das Ergebnis zurück
-		return camelCaseWords.join('');
-	}
-
-	let dataPasser: LensDataPasser;
 
 	onMount(async () => {
 		await import('@samply/lens');
 		if (headlineShowChart != null) {
 			headlineIsChart = headlineShowChart;
 		}
-		downloadName = convertToCamelCase(headlineTitle);
+		downloadName = createDownloadName(headlineTitle);
 	});
 
 	let mouseX = 0;
@@ -289,7 +127,6 @@
 </script>
 
 <!-- prettier-ignore -->
-<lens-data-passer bind:this={dataPasser}></lens-data-passer>
 <div>
 	<div class="straight-line-container">
 		<div class="headline-title-container">
@@ -381,16 +218,25 @@
 					<img src={headlineNull ? nulloffIcon : nullonIcon} alt="Toggle" class="iconRound" />
 				</button>
 			{/if}
-			<button
-				on:mouseenter={handleMouseEnter}
-				class="iconRoundButton tooltip"
-				on:click={() => (headlineIsChart ? exportChart() : exportTable())}
-			>
-				<span class="tooltiptext" style={tooltipPosition}
-					>Download {headlineIsChart ? translate('chart') : translate('CSVFile')}</span
+			{#if headlineIsChart}
+				<button
+					on:mouseenter={handleMouseEnter}
+					class="iconRoundButton tooltip"
+					on:click={exportChart}
 				>
-				<img src={downloadIcon} alt="download" class="iconRound" />
-			</button>
+					<span class="tooltiptext" style={tooltipPosition}>Download {translate('chart')}</span>
+					<img src={downloadIcon} alt="download" class="iconRound" />
+				</button>
+			{:else}
+				<HeadlineTableExport
+					{downloadName}
+					tableData={headlineInputTableData}
+					getTableDataForExport={headlineGetTableDataForExport}
+					headers={headlineInputTableHeader}
+					fields={headlineInputTableFields}
+					exportDisabled={Boolean(headlineLoading)}
+				/>
+			{/if}
 
 			{#if headlineTooltip}
 				<button

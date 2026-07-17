@@ -10,6 +10,7 @@
 	import { buildTableHeaders, filterColumnsForImportMode } from '../tableColumnVariants';
 	import { calculateTableShownRowsForContainer, getTablePanel } from '../tableRows';
 	import {
+		fetchAllTableRows,
 		fetchTableRows,
 		getTableCount,
 		type TablePage,
@@ -74,10 +75,12 @@
 	}
 
 	$: headers = buildTableHeaders(columns);
+	$: exportFields = ['_id', ...columns.map((column: { data?: string }) => column.data ?? '')];
 
 	//console.log("headers", headers);
 
 	let tableData: any[] = [];
+	let activePageRequest: TablePageRequest | null = null;
 	const totalCountCache = new Map<string, number>();
 	const filteredCountCache = new Map<string, number>();
 
@@ -119,6 +122,7 @@
 	}
 
 	async function fetchServerPage(request: TablePageRequest): Promise<TablePage<any>> {
+		activePageRequest = request;
 		loading = loadingActive;
 		loadingComplete = false;
 		const activeFilter = await getActiveFilter();
@@ -152,6 +156,29 @@
 			total,
 			filtered
 		};
+	}
+
+	async function getExportTableData(
+		onProgress: (loadedRows: number, expectedRows: number) => void
+	): Promise<Record<string, unknown>[]> {
+		if (!activePageRequest) return tableData;
+
+		const activeFilter = await getActiveFilter();
+		const countTarget = countCollection ?? collection;
+		const totalRows = await getTableCount(
+			countTarget,
+			activeFilter,
+			activePageRequest.columnFilters
+		);
+		const rows = await fetchAllTableRows({
+			baseRequest: activePageRequest,
+			totalRows,
+			pageSize: 1000,
+			onProgress,
+			fetchPage: (request) => fetchTableRows(getTableData, request, activeFilter)
+		});
+
+		return prepareTableRows(rows);
 	}
 
 	onMount(async () => {
@@ -203,36 +230,16 @@
 		tooltip += '<hr><p><i>' + $t('infoButton') + '</i></p>';
 	}
 
-	function stringifyArray(remainingData: any) {
-		remainingData.forEach((element: { complication: any; substance: any[]; ops: any[] }) => {
-			if (element.complication || element.substance || element.ops) {
-				if (element.complication) {
-					let complicationString = element.complication
-						.reduce((acc: string, currentValue: any) => {
-							acc += currentValue.complication;
-							acc += currentValue.grade ? ':' + currentValue.grade : '';
-							acc += ', ';
-							return acc;
-						}, '')
-						.slice(0, -2); //Schneidet das hintere Komma und Leerzeichen weg
-					element.complication = complicationString;
-				} else if (element.substance) {
-					let substanceString = element.substance
-						.reduce((acc: string, currentValue: any) => {
-							acc += currentValue.substance + ', ';
-							return acc;
-						}, '')
-						.slice(0, -2); //Schneidet das hintere Komma und Leerzeichen weg
-					element.substance = substanceString;
-				} else if (element.ops) {
-					let opsString = element.ops
-						.reduce((acc: string, currentValue: any) => {
-							acc += currentValue.ops + ', ';
-							return acc;
-						}, '')
-						.slice(0, -2); //Schneidet das hintere Komma und Leerzeichen weg
-					element.ops = opsString;
-				}
+	function stringifyArray(remainingData: any[]) {
+		remainingData.forEach((element) => {
+			if (element.complication) {
+				element.complication = element.complication
+					.map((value: any) => `${value.complication}${value.grade ? `:${value.grade}` : ''}`)
+					.join(', ');
+			} else if (element.substance) {
+				element.substance = element.substance.map((value: any) => value.substance).join(', ');
+			} else if (element.ops) {
+				element.ops = element.ops.map((value: any) => value.ops).join(', ');
 			}
 		});
 		return remainingData;
@@ -248,7 +255,9 @@
 	headlineInitialTop5={null}
 	headlineInitialLogarithm={null}
 	headlineInputTableData={tableData}
+	headlineGetTableDataForExport={getExportTableData}
 	headlineInputTableHeader={headers}
+	headlineInputTableFields={exportFields}
 	headlineChartJSElement={null}
 	headlineD3Element={null}
 	headlineLoading={loadingActive && loading}
