@@ -14,6 +14,26 @@
 
 
   let entries: Entry[] = [
+              {
+            id: "v1.1.0",
+            version: "1.1.0",
+            date: "17.07.2026",
+            title: "Performance Patch",
+            changes: [
+              "Kaplan-Meier performance drastically improved (~10x faster)",
+              "Table loading performance drastically improved, resulting in a much smoother user experience",
+              "Large tables are now supported without page slowdowns or practical size limitations",
+              "Stacked bar chart performance drastically improved",
+              "Server-side preprocessing time drastically reduced (~2 hours at LMU → ~5 minutes)",
+              "Time chart performance improved",
+              "Ovis can now handle very large cohorts; tested with 500k tumors",
+              "Bugfix: surgeons are now displayed correctly and clickable",
+              "Fixed multiple issues in the diagnosis bar chart; vital status and age groups are now clickable, with faster loading",
+              "Added report ID for CREDOS and ONKOSTAR (oBDS TAN number)",
+              "Added image license information for body map images to the footer, including references to inspirational source images"
+            ],
+            expanded: true
+          },
             {
            id: "v1.0.0",
           version: "1.0.0",
@@ -24,7 +44,7 @@
             "Wrong augmentation of mixed tumor histologies fixed",
             "Some internal changes preparing for publicaiton"
           ],
-          expanded: true
+          expanded: false
         },
         {
            id: "v0.9.8",

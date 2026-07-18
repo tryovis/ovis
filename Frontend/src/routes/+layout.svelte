@@ -436,7 +436,7 @@ function startUpdateTimer() {
     </nav>
 
     <!-- Rechts -->
-    <div class="footer-right"><a href={appPath('/footer-version')}><span>Version 1.0.0</span></a></div>
+    <div class="footer-right"><a href={appPath('/footer-version')}><span>Version 1.1.0</span></a></div>
   </div>
 </footer>
 
