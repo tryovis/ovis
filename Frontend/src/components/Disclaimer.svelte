@@ -1,14 +1,18 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { t, locale, locales } from "../store/languageStore";
+  import { env } from '$env/dynamic/public';
+  import { t } from '../store/languageStore';
+
+  const SHOW_USERAGREEMENT =
+    String(env.PUBLIC_SITE_SPECIFIC_SHOW_USERAGREEMENT).toLowerCase() === 'true';
 
   let showDisclaimer = false;
 
-  function hasDisclaimerBeenShown() {
+  function hasDisclaimerBeenShown(): boolean {
     return sessionStorage.getItem('disclaimerShown') === 'true';
   }
 
-  function markDisclaimerAsShown() {
+  function markDisclaimerAsShown(): void {
     sessionStorage.setItem('disclaimerShown', 'true');
   }
 
@@ -16,40 +20,62 @@
     showDisclaimer = !hasDisclaimerBeenShown();
   });
 
-  function closeDisclaimer() {
+  function closeDisclaimer(): void {
     showDisclaimer = false;
     markDisclaimerAsShown();
   }
 </script>
 
 {#if showDisclaimer}
-  <div class="disclaimer">
+  <div
+    class="disclaimer"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="disclaimer-title"
+  >
     <div class="disclaimer-content">
-      <h2>{$t("disclaimer")} </h2>
+      <h2 id="disclaimer-title">{$t('disclaimer')}</h2>
+
       <p>{@html $t('disclaimer0')}</p>
       <p>{@html $t('disclaimer1')}</p>
       <p>{@html $t('disclaimer2')}</p>
-      <p>{@html $t('disclaimer3')}</p>
-      <button on:click={closeDisclaimer}>{$t("accept")}</button>
+
+      {#if SHOW_USERAGREEMENT}
+        <p>{@html $t('disclaimer4')}</p>
+      {/if}
+
+      <button type="button" on:click={closeDisclaimer}>
+        {$t('accept')}
+      </button>
+
+      <p class="citation-notice">
+        {@html $t('disclaimer3')}
+      </p>
     </div>
   </div>
 {/if}
 
-<!-- Half-transparent overlay -->
-<div class="{showDisclaimer ? 'overlay overlay-visible' : 'overlay'}"></div>
+<div
+  class:overlay-visible={showDisclaimer}
+  class="overlay"
+  aria-hidden="true"
+></div>
 
 <style>
   .disclaimer {
     position: fixed;
     top: 50%;
     left: 50%;
-    transform: translate(-50%, -50%);
-    background-color: #fff;
+    z-index: 9999;
+    width: min(700px, calc(100vw - 40px));
+    max-height: calc(100vh - 40px);
+    overflow-y: auto;
     padding: 20px;
     border: 1px solid #ccc;
     border-radius: 5px;
+    background-color: #fff;
     box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-    z-index: 9999;
+    transform: translate(-50%, -50%);
   }
 
   .disclaimer-content {
@@ -60,20 +86,22 @@
     margin-top: 10px;
   }
 
-  /* Half-transparent overlay */
+  .citation-notice {
+    margin-top: 18px;
+    margin-bottom: 0;
+    font-size: 0.9rem;
+  }
+
   .overlay {
     position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(0, 0, 0, 0.5); /* Half-transparent background */
-    z-index: -1; /* Initially behind everything */
-    display: none; /* Initially hidden */
+    inset: 0;
+    z-index: -1;
+    display: none;
+    background-color: rgba(0, 0, 0, 0.5);
   }
 
   .overlay-visible {
-    display: block; /* Display when the disclaimer is shown */
-    z-index: 9998; /* Ensure it's above the rest of the page */
+    z-index: 9998;
+    display: block;
   }
 </style>
