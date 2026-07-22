@@ -305,7 +305,11 @@ body {
 
 .data-table {
 	max-width: 100%;
+}
 
+.table-scroll-container {
+	max-width: 100%;
+	overflow-x: auto;
 }
 
 .data-table table {

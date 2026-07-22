@@ -1,6 +1,7 @@
 const { aggregationArry, countAggregationArry } = require('../utils');
 const { filter2match } = require('../astTranslator');
 const { getStudyPatientCount, getStudyPatientTable } = require('./studyPatientTable');
+const { diagnosisHistologyRowStages } = require('../histologyTable');
 
 const genericGetAll = async (db, colname, args) => {
 	return db
@@ -21,10 +22,10 @@ const collectionNameForCount = (context, collection) => {
 	return collectionMap[collection] ?? context.collections[collection] ?? collection;
 };
 
-const tableCount = async (db, colname, args) => {
+const tableCount = async (db, colname, args, options) => {
 	const result = await db
 		.collection(colname)
-		.aggregate(await countAggregationArry(args, colname, db))
+		.aggregate(await countAggregationArry(args, colname, db, options))
 		.next();
 	return result?.count ?? 0;
 };
@@ -103,7 +104,9 @@ module.exports = {
 		getTableCount: (_parent, input, context) =>
 			input.collection === 'studyPatient'
 				? getStudyPatientCount(input, context)
-				: tableCount(context.db, collectionNameForCount(context, input.collection), input),
+				: tableCount(context.db, collectionNameForCount(context, input.collection), input, {
+						rowStages: input.collection === 'histology' ? diagnosisHistologyRowStages : []
+				  }),
 
 		getFirstAssessment: (_parent, input, context) =>
 			genericGetAll(context.db, context.collections.diagnosis, input),

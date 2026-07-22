@@ -36,23 +36,25 @@ const columnFilterStages = (columnFilters) =>
 		}
 	}));
 
-const sortStage = ({ sortField, sortDirection }) => {
+const sortStage = ({ sortField, sortDirection }, stableSortFields = {}) => {
 	const direction = tableSortOrder[sortDirection] ?? sortOrder.newest;
-	if (!sortField) return SORT;
-	return { $sort: { [sortField]: direction, _id: sortOrder.newest } };
+	if (!sortField) return { $sort: { ...SORT.$sort, ...stableSortFields } };
+	return { $sort: { [sortField]: direction, _id: sortOrder.newest, ...stableSortFields } };
 };
 
 const aggregationArry = async (
 	{ limit, continueFromID: skip, filter, project, offset, sortField, sortDirection, columnFilters },
 	colname,
-	db
+	db,
+	{ rowStages = [], stableSortFields = {} } = {}
 ) => {
 	//console.log("things:",limit, skip, filter, colname)
 	let aggArry = [];
 	if (filter) aggArry.push(...(await filter2match({ value: filter, column: colname, db })));
 	if (project) aggArry.push(...project);
+	aggArry.push(...rowStages);
 	aggArry.push(...columnFilterStages(columnFilters));
-	aggArry.push(sortStage({ sortField, sortDirection }));
+	aggArry.push(sortStage({ sortField, sortDirection }, stableSortFields));
 	if (skip) aggArry.push(Skip(skip));
 	if (offset) aggArry.push(Offset(offset));
 	if (limit) aggArry.push(Limit(limit));
@@ -60,10 +62,16 @@ const aggregationArry = async (
 	return aggArry;
 };
 
-const countAggregationArry = async ({ filter, project, columnFilters }, colname, db) => {
+const countAggregationArry = async (
+	{ filter, project, columnFilters },
+	colname,
+	db,
+	{ rowStages = [] } = {}
+) => {
 	const aggArry = [];
 	if (filter) aggArry.push(...(await filter2match({ value: filter, column: colname, db })));
 	if (project) aggArry.push(...project);
+	aggArry.push(...rowStages);
 	aggArry.push(...columnFilterStages(columnFilters));
 	aggArry.push({ $count: 'count' });
 	return aggArry;

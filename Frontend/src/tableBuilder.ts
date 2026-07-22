@@ -394,6 +394,10 @@ export function createTable(
 	}
 
 	const dataTable: Api<unknown> = new DataTable(`#${tableID}`, dataTableConfig);
+	if (['generic_diagnosisHistologyTable', 'generic_diagnosisDiagnosticTable'].includes(tableID)) {
+		const table = jQuery(dataTable.table().node());
+		table.wrap('<div class="table-scroll-container"></div>');
+	}
 
 	if (tableID === 'userManagementTable') {
 		const columnWidths = [100, 200, 50, 50, 50, 50, 100, 400, 50, 50, 50, 50, 50];

@@ -1,5 +1,6 @@
 const { aggregationArry } = require('../utils');
 const { filter2match } = require('../astTranslator');
+const { diagnosisHistologyRowStages } = require('../histologyTable');
 
 module.exports = {
 	Query: {
@@ -112,33 +113,19 @@ module.exports = {
 			).hist,
 
 		getDiagnosisHistologyTable: async (_parent, args, context) => {
+			const usesOffsetPaging = args.offset != null;
 			const aggregation = await aggregationArry(
 				{ ...args },
 				context.collections.diagnosis,
-				context.db
+				context.db,
+				usesOffsetPaging
+					? {
+							rowStages: diagnosisHistologyRowStages,
+							stableSortFields: { __histologyIndex: 1 }
+					  }
+					: undefined
 			);
-			aggregation.push(
-				{
-					$unwind: '$ICDO'
-				},
-				{
-					$project: {
-						_id: 1,
-						tumorID: 1,
-						patID: 1,
-						ICDO_histologyCode: '$ICDO.histologyCode',
-						ICDO_histologyCodeText: '$ICDO.histologyCodeText',
-						ICDO_histologyDate: '$ICDO.histologyDate',
-						ICDO_source: '$ICDO.source',
-						ICDO_mixedTumor: '$ICDO.mixedTumor',
-						ICDO_grading: '$ICDO.grading',
-						ICDO_Nb: '$ICDO.Nb',
-						ICDO_Nu: '$ICDO.Nu',
-						ICDO_sNb: '$ICDO.sNb',
-						ICDO_sNu: '$ICDO.sNu'
-					}
-				}
-			);
+			if (!usesOffsetPaging) aggregation.push(...diagnosisHistologyRowStages);
 			return await context.db
 				.collection(context.collections.diagnosis)
 				.aggregate(aggregation)

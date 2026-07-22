@@ -69,7 +69,7 @@ export async function fetchTableRows<Row>(
 ): Promise<Row[]> {
 	setActiveTableRequest(request);
 	try {
-		return await getRows(null, request.limit, filter);
+		return getRows(null, request.limit, filter);
 	} finally {
 		setActiveTableRequest(null);
 	}

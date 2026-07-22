@@ -9,6 +9,7 @@
     import { reloadOnly } from '../../store/reloadStore.js';
     import { showToast } from '../../store/toastStore';
     import { iconPath } from '$lib/path-utils';
+    import { parseIdsFromPasteEvent, parseIdsFromText } from './patientImport';
 
     // AST helper (Pfad ggf. anpassen – du hattest ihn ja schon mal relativ geändert)
     import { addPatIDs } from './../extendedAstFunctions';
@@ -118,25 +119,6 @@
         return await patientIdIndexPromise;
     };
 
-    const parseIdsFromText = (text: string) => {
-        // 1 Zeile pro ID, 1. Spalte wins (Komma/Semikolon/Tab)
-        const lines = String(text ?? "").split(/\r?\n/);
-        const idsRaw: string[] = [];
-        let attemptedRows = 0;
-
-        for (const line of lines) {
-            const l = line.trim();
-            if (!l) continue;
-            attemptedRows += 1;
-            const firstCell = l.split(/[\t,;]+/)[0];
-            const id = normalizeIdToken(firstCell);
-            if (!id || looksLikeHeader(id)) continue;
-            idsRaw.push(id);
-        }
-
-        return { idsRaw, attemptedRows };
-    };
-
     const parseIdsFromXlsx = (binary: string) => {
         const workbook = XLSX.read(binary, { type: "binary" });
         const firstSheetName = workbook.SheetNames[0];
@@ -216,9 +198,8 @@
     };
 
     const handlePaste = (event: ClipboardEvent) => {
-        const pastedText = event.clipboardData?.getData("text") || "";
-        if (!pastedText) return;
-        const parsed = parseIdsFromText(pastedText);
+        const parsed = parseIdsFromPasteEvent(event);
+        if (!parsed) return;
         void applyPatIdsToAst(parsed.idsRaw, parsed.attemptedRows);
     };
 

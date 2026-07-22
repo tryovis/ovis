@@ -392,7 +392,7 @@
                       </div>
 
 
-                    <div class="value">
+                    <div class="value" class:patient-values={orNode.children[0].key === "patID"}>
                         {#each orNode.children as child}
                         <button class="value-item" on:click={() => handleRemoveInnerOr(child.key, child.value)}>
                             {@html parseNode(child)}
@@ -534,6 +534,12 @@
         border: none;
         background: transparent;
         cursor: pointer;
+    }
+
+    .patient-values {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
     }
 
     .label-item:hover, .value-item:hover {
