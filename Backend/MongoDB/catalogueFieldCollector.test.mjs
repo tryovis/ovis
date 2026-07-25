@@ -19,6 +19,41 @@ test('createCollectionCatalogue includes primitive array values as selectable cr
 	);
 });
 
+test('createCollectionCatalogue preserves observed diagnosis values and collection isolation', () => {
+	const diagnosisCatalogue = createCollectionCatalogue('diagnosis', [
+		{ ICD: { ICD10: 'C50.9', ICD10_3: 'C50' } }
+	]);
+	const therapyCatalogue = createCollectionCatalogue('therapy', [{ generalType: 'operation' }]);
+	const icd10Field = diagnosisCatalogue.childCategories.find((field) => field.key === 'ICD_ICD10');
+
+	assert.deepEqual(
+		icd10Field.criteria.map((criterion) => criterion.key),
+		['C50.9', '-']
+	);
+	assert.equal(
+		therapyCatalogue.childCategories.some((field) => field.key.startsWith('ICD_ICD10')),
+		false
+	);
+});
+
+test('createCollectionCatalogue adds future ICD-10 C/D values absent from diagnosis documents', () => {
+	const catalogue = createCollectionCatalogue(
+		'diagnosis',
+		[{ ICD: { ICD10: 'C50.9', ICD10_3: 'C50' } }],
+		{
+			additionalFieldValuesPerCollection: {
+				diagnosis: { ICD_ICD10_3: ['C00', 'D48'] }
+			}
+		}
+	);
+	const icd10Field = catalogue.childCategories.find((field) => field.key === 'ICD_ICD10_3');
+
+	assert.deepEqual(
+		icd10Field.criteria.map((criterion) => criterion.key),
+		['C50', 'C00', 'D48', '-']
+	);
+});
+
 test('checked-in catalogue criteria satisfy the Lens text schema', async () => {
 	const catalogue = JSON.parse(
 		await readFile(new URL('./ovis-catalogue.json', import.meta.url), 'utf8')

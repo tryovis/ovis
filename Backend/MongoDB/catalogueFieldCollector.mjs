@@ -4,11 +4,17 @@ function sanitiseCatalogueText(value) {
 
 export function createCollectionBuilder(
 	collectionName,
-	{ excludedFieldsPerCollection = {}, exclusiveFields = {} } = {}
+	{
+		excludedFieldsPerCollection = {},
+		exclusiveFields = {},
+		additionalFieldValuesPerCollection = {}
+	} = {}
 ) {
 	let uniqueFields = new Set();
 	let fieldValues = {};
 	const excludedFields = excludedFieldsPerCollection[collectionName] || [];
+	const additionalFieldValues = additionalFieldValuesPerCollection[collectionName] || {};
+	Object.keys(additionalFieldValues).forEach((field) => uniqueFields.add(field));
 
 	function isExclusiveField(newKey) {
 		return Object.entries(exclusiveFields).some(
@@ -98,10 +104,14 @@ export function createCollectionBuilder(
 						return fieldValues[field];
 					}
 
-					const criteriaValues =
-						fieldValues[field] instanceof Set
-							? [...new Set([...fieldValues[field]].map(sanitiseCatalogueText).filter(Boolean))]
-							: [];
+					const observedValues = fieldValues[field] instanceof Set ? [...fieldValues[field]] : [];
+					const criteriaValues = [
+						...new Set(
+							[...observedValues, ...(additionalFieldValues[field] || [])]
+								.map(sanitiseCatalogueText)
+								.filter(Boolean)
+						)
+					];
 
 					if (!criteriaValues.includes('-')) {
 						criteriaValues.push('-');

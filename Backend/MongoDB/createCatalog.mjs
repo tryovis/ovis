@@ -1,6 +1,7 @@
 import { closeConnection, oncdb } from './monConnector.js';
 import { promises as fs } from 'fs';
 import path from 'path';
+import { ICD10 } from './Preprocessing/ICD10.mjs';
 import { ops4 } from './Preprocessing/ops4.mjs';
 import { buildCollectionObject } from './catalogueFieldCollector.mjs';
 
@@ -30,7 +31,14 @@ try {
 
 	let outputData = [];
 
-	const catalogueOptions = { excludedFieldsPerCollection, exclusiveFields };
+	const additionalFieldValuesPerCollection = {
+		diagnosis: { ICD_ICD10_3: Object.keys(ICD10) }
+	};
+	const catalogueOptions = {
+		excludedFieldsPerCollection,
+		exclusiveFields,
+		additionalFieldValuesPerCollection
+	};
 
 	for (const collectionInfo of collections) {
 		const collectionName = collectionInfo.name;

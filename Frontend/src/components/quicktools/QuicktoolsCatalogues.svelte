@@ -542,7 +542,7 @@
 						</li>
 						<li>
 							Altersgruppen
-							<ul>
+							<ul class="age-list">
 								<li class="link">
 									<button on:click={() => selectCatalog('agegroups_0_17', '0-17')}>0-17</button>
 								</li>
@@ -595,8 +595,15 @@
 		font-style: italic;
 		color: gray;
 	}
-	.dkh-list {
+	.dkh-list{
 		max-height: 250px; /* maximale Höhe */
+		overflow-y: auto; /* Scrollbar bei Bedarf */
+		padding: 0;
+		margin: 0;
+		list-style: none; /* optional, je nach gewünschtem Look */
+	}
+	.age-list{
+		max-height: 150px; /* maximale Höhe */
 		overflow-y: auto; /* Scrollbar bei Bedarf */
 		padding: 0;
 		margin: 0;
