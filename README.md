@@ -353,12 +353,12 @@ docker compose up --build ovis-backend-data-import
 The preprocessing service streams large input files and writes MongoDB inserts in batches, so this test is intended to catch regressions that reintroduce full-file buffering or collection-wide catalogue reads.
 Use `--min-rows-per-collection 100000` when you want each top-level array to contain at least 100k rows. Use `--mode patient-payload` only when you intentionally want the older patient-only payload stress test.
 
-#### 3CT Database
-*   **`DCT_DB_HOST`**: Database host
-*   **`DCT_DB_PORT`**: Database port (default: `3306`)
-*   **`DCT_DB_USER`**: Database username
-*   **`DCT_DB_PASSWORD`**: Database password
-*   **`DCT_DB_NAME`**: Database name
+#### UTMS Database
+*   **`UTMS_DB_HOST`**: Database host
+*   **`UTMS_DB_PORT`**: Database port (default: `3306`)
+*   **`UTMS_DB_USER`**: Database username
+*   **`UTMS_DB_PASSWORD`**: Database password
+*   **`UTMS_DB_NAME`**: Database name
 
 ### Optional: Proxy Configuration for Restricted Networks
 Only set proxy variables if your server needs an outbound corporate proxy. Otherwise leave them empty.

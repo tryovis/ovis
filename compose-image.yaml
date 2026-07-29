@@ -184,11 +184,15 @@ services:
       - no_proxy=${OVIS_NO_PROXY:-}
       - CREDOS_EXPORT_DIR=/input/CREDOSExportFiles
       - CREDOS_IMPORTER_NODE_HEAP_MB=${CREDOS_IMPORTER_NODE_HEAP_MB:-8192}
+      - STUDY_SYSTEM=${STUDY_SYSTEM:-}
+      - STUDY_ULM_DIR=/input/UTMSExportFiles
     volumes:
       # Optional: bind-mount for site-provided omock.json (only used if present)
       - ${OVIS_SITE_OMOCK_FILE:-./omock.json}:/input/omock.json:ro
       # CREDOS .txt exports (used by OVIS_IMPORT_MODE=credos)
       - ./Backend/Data-Import/credos/CREDOSExportFiles:/input/CREDOSExportFiles:ro
+      # UTMS .txt exports for CREDOS/Ulm study import
+      - ./Backend/Data-Import/credos/UTMSExportFiles:/input/UTMSExportFiles:ro
 
   mongodb-restore:
     image: ${OVIS_GENERAL_IMAGE_NAMESPACE:-ovisadmin}/ovis-backend-mongodb:${OVIS_IMAGE_TAG:-latest}

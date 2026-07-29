@@ -4,7 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 // UTMS_TUM.mjs
-//  - Reads UTMS/3CT exports from a folder (6 txt files) and merges "study" into omock.json
+//  - Reads UTMS exports from a folder (6 txt files) and merges "study" into omock.json
 //  - File format: first line header with "$" delimiter, following lines data rows (also "$" delimited)
 //
 // Expected filenames (in baseDir; default: /shared):
@@ -16,7 +16,7 @@ import { fileURLToPath } from 'node:url';
 //   - 3ctstuzusan.txt
 //
 // Output:
-//   - writes /shared/3ctStudy.txt (or alongside outTxtPath) as `"study": [...],\n`
+//   - writes /shared/utmsStudy.txt (or alongside outTxtPath) as `"study": [...],\n`
 //   - writes merged omock.json
 
 const SITE = 'TUM';
@@ -26,7 +26,7 @@ const __dirname = path.dirname(__filename);
 const DEFAULT_BASEDIR = process.env.STUDY_TUM_DIR || path.join(__dirname, 'UTMSData');
 const DEFAULT_OUT_TXT = '/shared/out.txt';
 const DEFAULT_OMOCK = '/shared/omock.json';
-const DEFAULT_STUDY_TXT = '/shared/3ctStudy.txt';
+const DEFAULT_STUDY_TXT = '/shared/utmsStudy.txt';
 
 // ONKOSTAR pool (for patient ID filtering)
 const onk = createPool({
@@ -256,7 +256,7 @@ async function appendStudyToOmock({ studyTxtPath, omockPath, hasExistingEntries 
 /**
  * Exported API (so mdbConnect.mjs can call it optionally).
  */
-export async function run3ctAndMerge({
+export async function runUtmsAndMerge({
 	baseDir = DEFAULT_BASEDIR,
 	outTxtPath = DEFAULT_OUT_TXT,
 	omockPath = DEFAULT_OMOCK,
@@ -284,7 +284,7 @@ const isMain = import.meta.url === `file://${process.argv[1]}`;
 if (isMain) {
 	try {
 		await fs.rm(DEFAULT_STUDY_TXT, { force: true });
-		await run3ctAndMerge();
+		await runUtmsAndMerge();
 		console.log(`[${SITE}] Programm erfolgreich beendet.`);
 	} catch (err) {
 		console.error(`[${SITE}] Fehler aufgetreten:`, err);

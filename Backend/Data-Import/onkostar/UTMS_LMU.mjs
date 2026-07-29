@@ -3,12 +3,12 @@ import fs from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
 
 // UTMS_LMU.mjs
-//  - exports: run3ctAndMerge({ outTxtPath, omockPath })
+//  - exports: runUtmsAndMerge({ outTxtPath, omockPath })
 //  - can also be executed directly: node UTMS_LMU.mjs
 
 const SITE = 'LMU';
 const DEFAULT_OUT_TXT = '/shared/out.txt';
-const DEFAULT_3CT_TXT = '/shared/3ctStudy.txt';
+const DEFAULT_UTMS_TXT = '/shared/utmsStudy.txt';
 const DEFAULT_OMOCK_JSON = '/shared/omock.json';
 
 // Initialize Pools
@@ -21,12 +21,12 @@ const onk = createPool({
 	connectionLimit: 5
 });
 
-const dct = createPool({
-	host: process.env.DCT_DB_HOST,
-	port: parseInt(process.env.DCT_DB_PORT || '3306'),
-	user: process.env.DCT_DB_USER,
-	password: process.env.DCT_DB_PASSWORD,
-	database: process.env.DCT_DB_NAME,
+const utmsPool = createPool({
+	host: process.env.UTMS_DB_HOST,
+	port: parseInt(process.env.UTMS_DB_PORT || '3306'),
+	user: process.env.UTMS_DB_USER,
+	password: process.env.UTMS_DB_PASSWORD,
+	database: process.env.UTMS_DB_NAME,
 	connectionLimit: 2
 });
 
@@ -38,11 +38,11 @@ async function fetchOnkoConn() {
 	return conn;
 }
 
-async function fetchDctConn() {
-	const conn = await dct.getConnection();
-	console.log(`[${SITE}] DCT Total connections: `, dct.totalConnections());
-	console.log(`[${SITE}] DCT Active connections: `, dct.activeConnections());
-	console.log(`[${SITE}] DCT Idle connections: `, dct.idleConnections());
+async function fetchUtmsConn() {
+	const conn = await utmsPool.getConnection();
+	console.log(`[${SITE}] UTMS Total connections: `, utmsPool.totalConnections());
+	console.log(`[${SITE}] UTMS Active connections: `, utmsPool.activeConnections());
+	console.log(`[${SITE}] UTMS Idle connections: `, utmsPool.idleConnections());
 	return conn;
 }
 
@@ -50,7 +50,7 @@ function stripTrailingComma(s) {
 	return s.replace(/,\s*$/s, '');
 }
 
-async function run3ctQuery(threeCtTxtPath = DEFAULT_3CT_TXT) {
+async function runUtmsQuery(utmsTxtPath = DEFAULT_UTMS_TXT) {
 	const oncon = await fetchOnkoConn();
 
 	let diagpatIDs = await oncon.query(
@@ -102,8 +102,8 @@ async function run3ctQuery(threeCtTxtPath = DEFAULT_3CT_TXT) {
   AND og.OE_ART = "F";
   `;
 
-	const con3ct = await fetchDctConn();
-	const rows = await con3ct.query(sqlquery);
+	const utmsConn = await fetchUtmsConn();
+	const rows = await utmsConn.query(sqlquery);
 
 	const out =
 		`"study": ` +
@@ -114,14 +114,14 @@ async function run3ctQuery(threeCtTxtPath = DEFAULT_3CT_TXT) {
 		) +
 		',\n';
 
-	await fs.writeFile(threeCtTxtPath, out, { flag: 'w+' });
-	console.log(`[${SITE}] 3ctStudy.txt wurde geschrieben: ${threeCtTxtPath}`);
+	await fs.writeFile(utmsTxtPath, out, { flag: 'w+' });
+	console.log(`[${SITE}] utmsStudy.txt wurde geschrieben: ${utmsTxtPath}`);
 }
 
-async function mergeJsonFiles({ outTxtPath, threeCtTxtPath, omockPath }) {
+async function mergeJsonFiles({ outTxtPath, utmsTxtPath, omockPath }) {
 	const [patient, study] = await Promise.all([
 		fs.readFile(outTxtPath, 'utf8'),
-		fs.readFile(threeCtTxtPath, 'utf8')
+		fs.readFile(utmsTxtPath, 'utf8')
 	]);
 
 	const patientEntries = stripTrailingComma(patient.trim());
@@ -132,8 +132,8 @@ async function mergeJsonFiles({ outTxtPath, threeCtTxtPath, omockPath }) {
 	console.log(`[${SITE}] omock.json wurde erfolgreich erstellt: ${omockPath}`);
 }
 
-async function appendStudyToOmock({ threeCtTxtPath, omockPath, hasExistingEntries = false }) {
-	const studyRaw = await fs.readFile(threeCtTxtPath, 'utf8').catch(() => '');
+async function appendStudyToOmock({ utmsTxtPath, omockPath, hasExistingEntries = false }) {
+	const studyRaw = await fs.readFile(utmsTxtPath, 'utf8').catch(() => '');
 	const study = stripTrailingComma(studyRaw.trim());
 	if (!study) {
 		console.log(`[${SITE}] Keine Study-Daten zum Anhängen gefunden.`);
@@ -145,39 +145,39 @@ async function appendStudyToOmock({ threeCtTxtPath, omockPath, hasExistingEntrie
 	return true;
 }
 
-export async function run3ctAndMerge({
+export async function runUtmsAndMerge({
 	outTxtPath = DEFAULT_OUT_TXT,
 	omockPath = DEFAULT_OMOCK_JSON,
-	threeCtTxtPath = DEFAULT_3CT_TXT,
+	utmsTxtPath = DEFAULT_UTMS_TXT,
 	appendToExistingOmock = false,
 	hasExistingEntries = false
 } = {}) {
 	try {
-		await fs.rm(threeCtTxtPath, { force: true });
-		await run3ctQuery(threeCtTxtPath);
+		await fs.rm(utmsTxtPath, { force: true });
+		await runUtmsQuery(utmsTxtPath);
 		if (appendToExistingOmock) {
 			const appended = await appendStudyToOmock({
-				threeCtTxtPath,
+				utmsTxtPath,
 				omockPath,
 				hasExistingEntries
 			});
 			return { appended };
 		}
-		await mergeJsonFiles({ outTxtPath, threeCtTxtPath, omockPath });
+		await mergeJsonFiles({ outTxtPath, utmsTxtPath, omockPath });
 		return { appended: false };
 	} finally {
 		await onk.end();
-		await dct.end();
+		await utmsPool.end();
 	}
 }
 
 // Allow execution as a standalone script
 const isMain = import.meta.url === pathToFileURL(process.argv[1]).href;
 if (isMain) {
-	run3ctAndMerge({
+	runUtmsAndMerge({
 		outTxtPath: DEFAULT_OUT_TXT,
 		omockPath: DEFAULT_OMOCK_JSON,
-		threeCtTxtPath: DEFAULT_3CT_TXT
+		utmsTxtPath: DEFAULT_UTMS_TXT
 	}).catch((err) => {
 		console.error(`[${SITE}] Fehler aufgetreten:`, err);
 		process.exitCode = 1;

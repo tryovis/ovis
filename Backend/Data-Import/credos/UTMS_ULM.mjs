@@ -1,5 +1,5 @@
 // UTMS_ULM.mjs
-// Baut die omock-Collection "study" aus einem UTMS/3CT-Dateiexport für CREDOS/Ulm.
+// Baut die omock-Collection "study" aus einem UTMS-Dateiexport für CREDOS/Ulm.
 //
 // Erwarteter Ordner, Default im Docker:
 //   /input/UTMSExportFiles

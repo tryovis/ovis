@@ -1,19 +1,51 @@
 import fs from 'node:fs/promises';
 
-const patient = await fs.readFile('./sql/patient.sql', { encoding: 'utf8' });
-const consultation = await fs.readFile('./sql/consultation.sql', { encoding: 'utf8' });
-const diagnosis = await fs.readFile('./sql/diagnosis.sql', { encoding: 'utf8' });
-const diagnostic = await fs.readFile('./sql/diagnostic.sql', { encoding: 'utf8' });
-const progress = await fs.readFile('./sql/progress.sql', { encoding: 'utf8' });
-const therapy = await fs.readFile('./sql/therapy.sql', { encoding: 'utf8' });
-const tnm = await fs.readFile('./sql/tnm.sql', { encoding: 'utf8' });
-const supplementary = await fs.readFile('./sql/supplementary.sql', { encoding: 'utf8' });
-const singleRadiation = await fs.readFile('./sql/singleRadiation.sql', { encoding: 'utf8' });
-const molecularMarker = await fs.readFile('./sql/molecularMarker.sql', { encoding: 'utf8' });
-const metastasis = await fs.readFile('./sql/metastasis.sql', { encoding: 'utf8' });
-const status = await fs.readFile('./sql/status.sql', { encoding: 'utf8' });
-const histology = await fs.readFile('./sql/histology.sql', { encoding: 'utf8' });
-const tumorBoard = await fs.readFile('./sql/tumorBoard.sql', { encoding: 'utf8' });
+const PATIENT_MASTER_FILTER =
+	/\/\* patient master filter \*\/\s*((?:[A-Za-z_]\w*\.)?personenstamm)\s*=\s*4/g;
+
+function parsePatientMasters(value) {
+	if (value === undefined) return ['4'];
+	if (value.trim() === '') return [];
+
+	const values = value.split(',').map((entry) => entry.trim());
+	if (values.some((entry) => !/^[1-9]\d*$/.test(entry))) {
+		throw new Error(
+			'ONKOSTAR_PATIENTENSTAEMME must be empty or contain comma-separated positive integers'
+		);
+	}
+
+	return [...new Set(values)];
+}
+
+const patientMasters = parsePatientMasters(process.env.ONKOSTAR_PATIENTENSTAEMME);
+
+async function readSql(fileName) {
+	const sql = await fs.readFile(`./sql/${fileName}`, { encoding: 'utf8' });
+
+	return sql.replace(PATIENT_MASTER_FILTER, (_filter, column) => {
+		if (patientMasters.length === 0) return '/* patient master filter */ 1 = 1';
+		if (patientMasters.length === 1) {
+			return `/* patient master filter */ ${column} = ${patientMasters[0]}`;
+		}
+
+		return `/* patient master filter */ ${column} IN (${patientMasters.join(', ')})`;
+	});
+}
+
+const patient = await readSql('patient.sql');
+const consultation = await readSql('consultation.sql');
+const diagnosis = await readSql('diagnosis.sql');
+const diagnostic = await readSql('diagnostic.sql');
+const progress = await readSql('progress.sql');
+const therapy = await readSql('therapy.sql');
+const tnm = await readSql('tnm.sql');
+const supplementary = await readSql('supplementary.sql');
+const singleRadiation = await readSql('singleRadiation.sql');
+const molecularMarker = await readSql('molecularMarker.sql');
+const metastasis = await readSql('metastasis.sql');
+const status = await readSql('status.sql');
+const histology = await readSql('histology.sql');
+const tumorBoard = await readSql('tumorBoard.sql');
 
 export const states = {
 	patient,

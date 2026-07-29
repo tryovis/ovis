@@ -105,13 +105,13 @@ async function maybeMergeUtmsIntoTmp() {
 	const modPath = utms === 'UTMS_TUM' ? './UTMS_TUM.mjs' : './UTMS_LMU.mjs';
 	const mod = await import(modPath);
 
-	if (typeof mod.run3ctAndMerge !== 'function') {
+	if (typeof mod.runUtmsAndMerge !== 'function') {
 		throw new Error(
-			`${modPath} exportiert keine Funktion run3ctAndMerge({outTxtPath, omockPath}).`
+			`${modPath} exportiert keine Funktion runUtmsAndMerge({outTxtPath, omockPath}).`
 		);
 	}
 
-	const result = await mod.run3ctAndMerge({
+	const result = await mod.runUtmsAndMerge({
 		outTxtPath: OUT_TXT,
 		omockPath: OMOCK_JSON_TMP,
 		appendToExistingOmock: true,
