@@ -9,6 +9,8 @@ MONGO_RESTORE_DBS=${MONGO_RESTORE_DBS:-onc_test}
 MONGO_RESTORE_COLLECTIONS=${MONGO_RESTORE_COLLECTIONS:-user}
 MONGO_RESTORE_IGNORE_IDS=${MONGO_RESTORE_IGNORE_IDS:-ovis-root}
 BACKUP_ROOT=${BACKUP_ROOT:-/backups}
+IMPORT_MODE=${OVIS_IMPORT_MODE:-}
+MONGO_READY=false
 
 log() {
   printf '[%s] %s\n' "$(date +"${LOG_TS_FORMAT}")" "$*"
@@ -73,7 +75,44 @@ wait_for_mongo() {
     log "MongoDB not ready yet; retrying in 2s"
     sleep 2
   done
+  MONGO_READY=true
   log "MongoDB is reachable"
+}
+
+ensure_demo_user() {
+  if [[ ${IMPORT_MODE^^} != DEMO ]]; then
+    return
+  fi
+
+  if [[ $MONGO_READY != true ]]; then
+    wait_for_mongo
+  fi
+
+  read -r -d '' script <<'EOF_JS' || true
+const demoUser = {
+  _id: "test",
+  createdAt: new Date(),
+  createdBy: "system",
+  role: "user",
+  status: "active",
+  pseudonymization: false,
+  darkMode: false,
+  colorTheme: "CCCMunich",
+  language: "en"
+};
+db.getSiblingDB("onc_test").getCollection("user").updateOne(
+  {_id: "test"},
+  {$setOnInsert: demoUser},
+  {upsert: true}
+);
+db.getSiblingDB("onc_test").getCollection("user").updateOne(
+  {_id: "test", createdBy: "system", role: "super-admin"},
+  {$set: {role: "user"}}
+);
+EOF_JS
+
+  "${MONGO_SHELL[@]}" --eval "$script" >/dev/null
+  log "Ensured the DEMO user exists in onc_test.user"
 }
 
 latest_snapshot() {
@@ -160,8 +199,23 @@ main() {
   split_csv "$MONGO_RESTORE_COLLECTIONS" COLLECTIONS
   split_csv "$MONGO_RESTORE_IGNORE_IDS" IGNORE_IDS
 
+  if [[ ${IMPORT_MODE^^} == DEMO ]]; then
+    local filtered_ignore_ids=()
+    local ignore_id
+    for ignore_id in "${IGNORE_IDS[@]}"; do
+      if [[ $ignore_id != test ]]; then
+        filtered_ignore_ids+=("$ignore_id")
+      fi
+    done
+    IGNORE_IDS=("${filtered_ignore_ids[@]}")
+  fi
+
   if (( ${#DBS[@]} == 0 || ${#COLLECTIONS[@]} == 0 )); then
     log "No databases or collections configured for restore; exiting"
+    if [[ ${IMPORT_MODE^^} == DEMO ]]; then
+      select_mongo_shell
+      ensure_demo_user
+    fi
     exit 0
   fi
 
@@ -170,6 +224,7 @@ main() {
   local snapshot
   if ! snapshot=$(latest_snapshot); then
     log "No MongoDB snapshots present in $BACKUP_ROOT; nothing to restore"
+    ensure_demo_user
     exit 0
   fi
 
@@ -178,10 +233,12 @@ main() {
 
   if datastore_has_content; then
     log "Target MongoDB already contains data; skipping automatic restore"
+    ensure_demo_user
     exit 0
   fi
 
   restore_snapshot "$snapshot"
+  ensure_demo_user
 }
 
 trap 'log "Termination signal received"; exit 0' SIGTERM SIGINT

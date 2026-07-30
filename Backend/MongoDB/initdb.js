@@ -2,7 +2,7 @@ const rootUsername = process.env.OVIS_ROOT_USERNAME || 'ovis-root';
 
 db = db.getSiblingDB('onc_test');
 db.createCollection('user');
-db.user.insertMany([
+const users = [
 	{
 		_id: rootUsername,
 		createdAt: new Date(),
@@ -14,4 +14,6 @@ db.user.insertMany([
 		colorTheme: 'CCCMunich',
 		language: 'en'
 	}
-]);
+];
+
+db.user.insertMany(users);

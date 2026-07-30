@@ -39,6 +39,26 @@ jq --arg username "$OVIS_ROOT_USERNAME" --arg password "$OVIS_ROOT_PASSWORD" --a
 
 echo "Configured default OVIS root user from environment"
 
+case "$(printf '%s' "${OVIS_IMPORT_MODE:-}" | tr '[:lower:]' '[:upper:]')" in
+    DEMO)
+        jq --arg rootUsername "$OVIS_ROOT_USERNAME" \
+            'if any(.users[]; .username == "test") then
+                (.users[] | select(.username == "test") | .credentials) = [{"type":"password","value":"test","temporary":false}]
+            else
+                (.users[] | select(.username == $rootUsername)) as $root
+                | .users += [($root
+                    | del(.id)
+                    | .username = "test"
+                    | .firstName = "Demo"
+                    | .lastName = "User"
+                    | .email = "test@example.com"
+                    | .credentials = [{"type":"password","value":"test","temporary":false}])]
+            end' \
+            "$OUTPUT_REALM" > "$OUTPUT_REALM.tmp" && mv "$OUTPUT_REALM.tmp" "$OUTPUT_REALM"
+        echo "Configured hardcoded OVIS demo user"
+        ;;
+esac
+
 # Check if LDAP is enabled
 if [ "$PUBLIC_LDAP_ENABLED" = "true" ]; then
     echo "LDAP is enabled - adding LDAP user federation provider..."

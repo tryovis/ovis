@@ -105,6 +105,7 @@ services:
     image: ${OVIS_GENERAL_IMAGE_NAMESPACE:-ovisadmin}/ovis-backend-mongodb:${OVIS_IMAGE_TAG:-latest}
     environment:
       - OVIS_ROOT_USERNAME=${OVIS_ROOT_USERNAME:-ovis-root}
+      - OVIS_IMPORT_MODE=${OVIS_IMPORT_MODE:-demo}
     volumes:
       - ./Backend/MongoDB/initdb.js:/docker-entrypoint-initdb.d/init.js
       - mongo_db:/data/db
@@ -206,6 +207,7 @@ services:
       - MONGO_RESTORE_DBS=onc_test
       - MONGO_RESTORE_COLLECTIONS=${MONGO_RESTORE_COLLECTIONS:-user}
       - MONGO_RESTORE_IGNORE_IDS=${MONGO_RESTORE_IGNORE_IDS:-ovis-root}
+      - OVIS_IMPORT_MODE=${OVIS_IMPORT_MODE:-demo}
     volumes:
       - ./Setup/Backups/scripts/mongodb-restore.sh:/restore/mongodb-restore.sh:ro
       - ./Setup/Backups/mongodb:/backups:ro
@@ -292,6 +294,7 @@ services:
       KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET}
       OVIS_ROOT_USERNAME: ${OVIS_ROOT_USERNAME:-ovis-root}
       OVIS_ROOT_PASSWORD: ${OVIS_ROOT_PASSWORD:-test}
+      OVIS_IMPORT_MODE: ${OVIS_IMPORT_MODE:-demo}
     ports:
       - "127.0.0.1:${KEYCLOAK_PORT}:8080"
     user: root
