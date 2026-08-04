@@ -45,7 +45,11 @@ const molecularMarker = await readSql('molecularMarker.sql');
 const metastasis = await readSql('metastasis.sql');
 const status = await readSql('status.sql');
 const histology = await readSql('histology.sql');
-const tumorBoard = await readSql('tumorBoard.sql');
+const useWuerzburgTumorBoard =
+	process.env.wuerzburgTBExtension?.trim().toLowerCase() === 'true';
+const tumorBoard = await readSql(
+	useWuerzburgTumorBoard ? 'tumorBoardWuerzburg.sql' : 'tumorBoard.sql'
+);
 
 export const states = {
 	patient,
