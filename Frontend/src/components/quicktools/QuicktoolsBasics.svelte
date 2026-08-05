@@ -314,6 +314,42 @@
         cursor: pointer;
     }
 
+	@container ovis-layout (max-width: 1800px) {
+		.dropdown-container,
+		.input-container,
+		.input-field,
+		.gender-buttons {
+			min-width: 0;
+		}
+
+		.dropdown-label {
+			min-width: 92px;
+			margin-right: 8px;
+		}
+	}
+
+	@container ovis-layout (max-width: 1650px) {
+		.dropdown-label {
+			min-width: 82px;
+			margin-right: 6px;
+			font-size: 12px;
+		}
+
+		.input-field {
+			width: 100%;
+		}
+
+		.gender-buttons {
+			flex: 1;
+			justify-content: space-between;
+		}
+
+		.gender-buttons > img {
+			margin-left: 0;
+			margin-right: 0;
+		}
+	}
+
     .male-button:hover {
         background: lightblue;
     }

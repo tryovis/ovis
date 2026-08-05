@@ -135,4 +135,19 @@
         word-break: keep-all;
         overflow-wrap: normal;
     }
+
+	@container ovis-layout (max-width: 1650px) {
+		.grid-container-case {
+			font-size: 11px;
+		}
+
+		label {
+			white-space: nowrap;
+		}
+
+		.buttons {
+			column-gap: 2px;
+			margin-right: 4px;
+		}
+	}
 </style>

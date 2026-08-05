@@ -55,6 +55,44 @@
 	let genericTable: any;
 	let tableContainer: HTMLDivElement;
 	let resizeObserver: ResizeObserver | undefined;
+	let tableFitFrame: number | undefined;
+	const tableFontSizes = [13, 12, 11, 10];
+
+	function fitTableToContainer() {
+		if (!tableContainer) return;
+
+		const table = tableContainer.querySelector('table');
+		if (!table) return;
+
+		const availableWidth = tableContainer.clientWidth;
+		if (availableWidth <= 0) return;
+
+		let selectedFontSize = tableFontSizes[tableFontSizes.length - 1];
+		for (const fontSize of tableFontSizes) {
+			tableContainer.style.setProperty('--generic-table-font-size', `${fontSize}px`);
+			// Reading scrollWidth forces layout after changing the font size.
+			const requiredWidth = Math.max(table.scrollWidth, tableContainer.scrollWidth);
+			selectedFontSize = fontSize;
+			if (requiredWidth <= availableWidth + 1) break;
+		}
+
+		tableContainer.style.setProperty('--generic-table-font-size', `${selectedFontSize}px`);
+		const stillOverflows = Math.max(table.scrollWidth, tableContainer.scrollWidth) > availableWidth + 1;
+		tableContainer.classList.toggle('table-overflowing', stillOverflows);
+
+		const renderedRow = table.querySelector('tbody tr td:not([colspan])')?.closest('tr');
+		const renderedRowHeight = renderedRow?.getBoundingClientRect().height;
+		if (renderedRowHeight && !maxStoreValue) {
+			applyCurrentTableShownRows(renderedRowHeight);
+		}
+	}
+
+	function scheduleTableFit() {
+		if (tableFitFrame != null) cancelAnimationFrame(tableFitFrame);
+		tableFitFrame = requestAnimationFrame(() => {
+			tableFitFrame = requestAnimationFrame(fitTableToContainer);
+		});
+	}
 
 	function handleMaximized(event: any) {
 		maxStoreValue = event.detail.headlineMaximize;
@@ -84,8 +122,11 @@
 	const totalCountCache = new Map<string, number>();
 	const filteredCountCache = new Map<string, number>();
 
-	function applyCurrentTableShownRows() {
-		const nextTableShownRows = calculateTableShownRowsForContainer(tableContainer, 10);
+	function applyCurrentTableShownRows(rowHeight = 32) {
+		const nextTableShownRows = Math.min(
+			tableShownRowsMax,
+			calculateTableShownRowsForContainer(tableContainer, 10, rowHeight)
+		);
 		if (nextTableShownRows === tableShownRows) return;
 
 		tableShownRows = nextTableShownRows;
@@ -207,16 +248,20 @@
 			true,
 			{ fetchPage: fetchServerPage }
 		);
+		genericTable.on('draw.dt.genericTableFit', scheduleTableFit);
+		scheduleTableFit();
 
 		const tablePanel = getTablePanel(tableContainer);
 		if (tablePanel && typeof ResizeObserver !== 'undefined') {
-			resizeObserver = new ResizeObserver(applyCurrentTableShownRows);
+			resizeObserver = new ResizeObserver(scheduleTableFit);
 			resizeObserver.observe(tablePanel);
 		}
 	});
 
 	onDestroy(() => {
 		resizeObserver?.disconnect();
+		if (tableFitFrame != null) cancelAnimationFrame(tableFitFrame);
+		genericTable?.off('draw.dt.genericTableFit', scheduleTableFit);
 	});
 
 	function calculateTooltip() {
@@ -288,4 +333,27 @@
 
 <style>
 	@import 'datatables.net-dt/css/jquery.dataTables.css';
+
+	.data,
+	.data-table {
+		min-width: 0;
+		max-width: 100%;
+	}
+
+	.data-table {
+		--generic-table-font-size: 13px;
+		overflow-x: auto;
+		font-size: var(--generic-table-font-size);
+	}
+
+	.data-table :global(.dataTables_wrapper),
+	.data-table :global(table.dataTable) {
+		font-size: inherit;
+	}
+
+	.data-table :global(input) {
+		min-width: 0;
+		font-size: inherit;
+		box-sizing: border-box;
+	}
 </style>

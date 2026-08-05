@@ -69,6 +69,31 @@
 		position: relative;
 	}
 
+	@container ovis-layout (max-width: 1800px) {
+		.dropdown-container,
+		.input-container,
+		.input-field {
+			min-width: 0;
+		}
+
+		.dropdown-label {
+			min-width: 92px;
+			margin-right: 8px;
+		}
+	}
+
+	@container ovis-layout (max-width: 1650px) {
+		.dropdown-label {
+			min-width: 82px;
+			margin-right: 6px;
+			font-size: 12px;
+		}
+
+		.input-field {
+			width: 100%;
+		}
+	}
+
 	.placeholder {
 		font-style: italic;
 		color: gray;

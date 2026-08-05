@@ -472,4 +472,22 @@
 	.dropdown:hover .dropdown-content {
 		display: block;
 	}
+
+	@container ovis-layout (max-width: 1800px) {
+		.navbar > a,
+		.navbar > .dropdown > .dropbtn {
+			font-size: 14px;
+			padding-left: 10px;
+			padding-right: 10px;
+		}
+	}
+
+	@container ovis-layout (max-width: 1650px) {
+		.navbar > a,
+		.navbar > .dropdown > .dropbtn {
+			font-size: 13px;
+			padding-left: 8px;
+			padding-right: 8px;
+		}
+	}
 </style>

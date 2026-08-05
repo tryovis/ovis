@@ -596,14 +596,14 @@
 		color: gray;
 	}
 	.dkh-list{
-		max-height: 250px; /* maximale Höhe */
+		max-height: 180px; /* maximale Höhe */
 		overflow-y: auto; /* Scrollbar bei Bedarf */
 		padding: 0;
 		margin: 0;
 		list-style: none; /* optional, je nach gewünschtem Look */
 	}
 	.age-list{
-		max-height: 150px; /* maximale Höhe */
+		max-height: 120px; /* maximale Höhe */
 		overflow-y: auto; /* Scrollbar bei Bedarf */
 		padding: 0;
 		margin: 0;

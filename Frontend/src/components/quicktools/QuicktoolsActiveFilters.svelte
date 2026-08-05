@@ -417,7 +417,7 @@
 
 </div>
 
-<div class="box_style box_level3">
+<div class="filter-history-controls box_style box_level3">
     <!-- Rückwärts-Button (Deaktiviert, wenn currentIndex = 0) -->
     <button on:click={handlePrev} class="bottomButtons" disabled={isPrevDisabled}>
         <img src={angleLeftIcon} alt="previous" class="iconRound {isPrevDisabled ? 'disabled-icon' : ''}" />
@@ -448,6 +448,23 @@
         background: none;
         border:none;
     }
+
+	@container ovis-layout (max-width: 1650px) {
+		.filter-history-controls {
+			display: flex;
+			align-items: center;
+			flex-wrap: nowrap;
+			gap: 8px;
+		}
+
+		.bottomButtons {
+			display: inline-flex;
+			align-items: center;
+			justify-content: center;
+			flex: 0 0 auto;
+			padding: 2px 4px;
+		}
+	}
 
     .filter-toggle-button {
         display: flex;

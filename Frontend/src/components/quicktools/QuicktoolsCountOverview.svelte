@@ -38,21 +38,21 @@
 	<div class="grid-container-count">
 		<div class="patient-count">
 			<img src={patientenIcon} alt="info" class="menuebar-icon" />
-			{$t("patient")}
+			<span class="count-label">{$t("patient")}</span>
 			<span class="counts">{countObject.patient}</span>
 		</div>
 		<div class="tumor-count">
 			<img src={tumoreIcon} alt="info" class="menuebar-icon" />
-			{$t("tumors")}
+			<span class="count-label">{$t("tumors")}</span>
 			<span class="counts">{countObject.diagnosis}</span>
 		</div>
 		<div class="therapy-count">
 			<img src={therapienIcon} alt="info" class="menuebar-icon" />
-			Therap.<span class="counts">{countObject.therapy}</span>
+			<span class="count-label">Therap.</span><span class="counts">{countObject.therapy}</span>
 		</div>
 		<div class="progress-count">
 			<img src={progressIcon} alt="info" class="menuebar-icon" />
-			{$t("QuicktoolsCountOverview.progress")}
+			<span class="count-label">{$t("QuicktoolsCountOverview.progress")}</span>
 			<span class="counts">{countObject.progress}</span>
 		</div>
 	</div>
@@ -61,7 +61,7 @@
 <style>
 	.counts {
 		margin-right: 3px;
-		float: right;
+		font-variant-numeric: tabular-nums;
 	}
 	.grid-container-count {
 		display: grid;
@@ -85,5 +85,27 @@
 	}
 	.progress-count {
 		grid-area: progress-count;
+	}
+
+	.patient-count,
+	.tumor-count,
+	.therapy-count,
+	.progress-count {
+		display: grid;
+		grid-template-columns: auto minmax(0, 1fr) auto;
+		align-items: center;
+		column-gap: 3px;
+		min-width: 0;
+		white-space: nowrap;
+	}
+
+	.count-label {
+		min-width: 0;
+	}
+
+	@container ovis-layout (max-width: 1650px) {
+		.grid-container-count {
+			font-size: 12px;
+		}
 	}
 </style>

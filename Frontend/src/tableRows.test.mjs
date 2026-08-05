@@ -52,3 +52,15 @@ test('calculateTableShownRows uses fallback only when panel height is missing', 
 		1
 	);
 });
+
+test('calculateTableShownRows uses the rendered row height when provided', () => {
+	assert.equal(
+		calculateTableShownRows({
+			panelHeight: 430,
+			hasNavbar: false,
+			fallbackRows: 10,
+			rowHeight: 26
+		}),
+		10
+	);
+});

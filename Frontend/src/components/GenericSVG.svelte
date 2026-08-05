@@ -266,6 +266,10 @@
 		const doc = obj?.contentDocument;
 		if (!obj || !doc) return;
 
+		if (SVGType === 'patient') {
+			doc.documentElement.style.overflow = 'hidden';
+		}
+
 		svgDoc = doc;
 		setCatalog();
 

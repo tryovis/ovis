@@ -1,5 +1,7 @@
 :root {
 	--bg-color: rgb(245, 245, 245);
+	--ovis-layout-min-width: 1600px;
+	--ovis-layout-max-width: 1903px;
 	--level1-bg: rgb(235, 235, 235);
 	--level2-bg: rgb(245, 245, 245);
 	--level3-bg: rgb(250, 250, 250);
@@ -71,11 +73,13 @@ a:focus {
 
 .menubar {
 	grid-area: menubar;
+	min-width: 0;
 }
 
 .content-view {
 	grid-area: content-view;
 	height: 820px;
+	min-width: 0;
 }
 
 .grid-container-quicktools {
@@ -83,6 +87,7 @@ a:focus {
 	/*overflow: hidden;*/
 	position: relative;
 	height: 98%;
+	min-width: 0;
 	grid-area: grid-container-quicktools;
 	grid-template-columns: 100%;
 	grid-template-rows: 12% 4% 4% 20% 7.5% 52.5%;
@@ -160,9 +165,13 @@ body {
 }
 
 .outer-div {
-	width: 1903px; /* Breite des äußeren Divs entspricht der Bildschirmbreite */
+	width: clamp(var(--ovis-layout-min-width), 100%, var(--ovis-layout-max-width));
 	min-height: 100vh; /* Mindesthöhe des äußeren Divs entspricht der Bildschirmhöhe */
+	margin-inline: auto;
+	box-sizing: border-box;
 	overflow-x: hidden;
+	container-type: inline-size;
+	container-name: ovis-layout;
 }
 .bodymap {
 	margin-left: auto;
@@ -403,6 +412,7 @@ body {
   }
 
 .tooltip .tooltiptext {
+	display: none;
 	visibility: hidden;
 	background-color: rgba(0, 0, 0, 0.8);
 	color: var(--tooltip-color);
@@ -424,6 +434,7 @@ body {
 }
 
 .tooltip:hover .tooltiptext {
+	display: block;
 	visibility: visible;
 	opacity: 1; /* Tooltip wird sichtbar mit Fade-In-Effekt */
 }
@@ -603,6 +614,7 @@ i,
 .menu > ul li ul {
 	z-index: 5000;
 	border-radius: 5px;
+	display: none;
 	visibility: hidden;
 	opacity: 0;
 	padding: 0;
@@ -620,6 +632,16 @@ i,
 .menu.catalogue > ul li ul {
     margin-top: -22px; /* Position above the trigger */
     transform: translateY(-100%); /* Position the submenu above */
+}
+
+/* Keep the upward-opening catalogue menu reachable across the visual gap. */
+.menu.catalogue > ul > li > ul::after {
+	content: '';
+	position: absolute;
+	left: 0;
+	right: 0;
+	bottom: -24px;
+	height: 24px;
 }
 
 .menu > ul li ul li {
@@ -643,11 +665,33 @@ i,
 	transform: translate(0);
 }
 
+/* Anchor the age options to their trigger and bridge the horizontal hand-off. */
+.menu.catalogue > ul > li > ul > li {
+	position: relative;
+}
+
+.menu.catalogue > ul > li > ul > li > ul.age-list {
+	top: auto;
+	bottom: 0;
+	margin-top: 0;
+	transform: none;
+}
+
+.menu.catalogue > ul > li > ul > li > ul.age-list::before {
+	content: '';
+	position: absolute;
+	top: 0;
+	bottom: 0;
+	left: -16px;
+	width: 16px;
+}
+
 .menu > ul li ul li:hover {
 	background-color: rgb(235, 235, 235);
 }
 
 .menu > ul li:hover > ul {
+	display: block;
 	opacity: 1;
 	visibility: visible;
 	transition-delay: 0ms;
@@ -704,7 +748,6 @@ input[type="checkbox"] {
 /* --- Footer Wrapper --- */
 .footer-outer{
   width: 100% !important;
-  max-width: 100vw;
   overflow-x: hidden; /* verhindert Überlauf */
 }
 
