@@ -22,6 +22,10 @@
 	import { configStore } from '../../store/configStore';
 	import { addUserFilter } from '../../components/UserFilter';
 	import { iconPath } from '$lib/path-utils';
+	import {
+		usesCompactChartLayout,
+		usesMobileLandscapeLayout
+	} from '$lib/responsiveChartSizing';
 
 	let SurvivalKaplanMeierChartShowChart: boolean;
 	let SurvivalKaplanMeierChartSelectedTimeType: string;
@@ -198,6 +202,8 @@
 	let renderedTableDataKey = '';
 	let paintRequestId = 0;
 	let svgContainer: any;
+	let chartContainer: HTMLDivElement;
+	let chartRoot: HTMLDivElement;
 	let mounted = false;
 
 	onMount(async () => {
@@ -387,7 +393,17 @@
 			leftSlider,
 			rightSlider,
 			kmI18n,
-			cachedTimeExtent
+			cachedTimeExtent,
+			usesCompactChartLayout()
+				? {
+					width: Math.max(
+						320,
+						chartContainer?.clientWidth || chartRoot?.clientWidth || currentWidth
+					),
+					height: Math.max(180, (chartRoot?.clientHeight || 810) - 120),
+					compact: usesMobileLandscapeLayout()
+				}
+				: undefined
 		);
 
 		for (let i = 0; i < gvec.length; ++i) {
@@ -496,6 +512,7 @@
 	}
 </script>
 
+<div class="survival-km-root" bind:this={chartRoot}>
 <Headline
 	headlineTitle={$t('kaplanMeierTitle')}
 	headlineTooltip={$t('tooltip_kaplanmeier')}
@@ -559,10 +576,10 @@
 		</div>
 	</div>
 </div>
-<div style={showChart ? '' : 'display: none;'}>
+<div class="km-chart-view" style={showChart ? '' : 'display: none;'}>
 	<div class="km-tooltip" id="tooltip" />
-	<div style={mounted && !updating ? '' : 'display: none;'}>
-		<div class="chart-container">
+	<div class="km-chart-content" style={mounted && !updating ? '' : 'display: none;'}>
+		<div class="chart-container" bind:this={chartContainer}>
 			<div id="Plot" />
 		</div>
 		<div class="straight-line-container">
@@ -600,6 +617,7 @@
 			</thead>
 		</table>
 	</div>
+</div>
 </div>
 
 <style>
@@ -641,5 +659,54 @@
 	}
 	.max-slider {
 		padding-right: 5%;
+	}
+
+	.survival-km-root {
+		display: flex;
+		flex-direction: column;
+		height: 100%;
+		min-width: 0;
+		min-height: 0;
+		overflow: hidden;
+	}
+
+	.survival-km-root > :global(.straight-line-container),
+	.survival-km-root > .straight-line-container {
+		flex: 0 0 auto;
+	}
+
+	.survival-km-root > div[style] {
+		min-height: 0;
+	}
+
+	.km-chart-view,
+	.km-chart-content {
+		display: flex;
+		flex: 1 1 auto;
+		flex-direction: column;
+		min-width: 0;
+		min-height: 0;
+		overflow: hidden;
+	}
+
+	.survival-km-root .chart-container {
+		display: flex;
+		flex: 1 1 auto;
+		min-width: 0;
+		min-height: 0;
+		overflow: hidden;
+	}
+
+	.survival-km-root #Plot {
+		width: 100%;
+		height: 100%;
+		min-width: 0;
+		min-height: 0;
+	}
+
+	.survival-km-root #Plot :global(svg) {
+		display: block;
+		max-width: 100%;
+		max-height: 100%;
 	}
 </style>

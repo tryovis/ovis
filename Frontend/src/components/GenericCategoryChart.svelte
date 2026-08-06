@@ -13,6 +13,10 @@
 	import { filterActiveStore } from '../store/filterActiveStore.js';
 	import { addUserFilter } from '../components/UserFilter';
 	import { iconPath } from '$lib/path-utils';
+	import {
+		responsiveLegendLabels,
+		usesShortDesktopViewport
+	} from '$lib/responsiveChartSizing';
 	import type { AggregatedValue } from '../types/query';
 
 	const emptyIcon = iconPath('null-off.svg');
@@ -57,6 +61,14 @@
 
 	let aspectRatio = aspectRatioMin;
 	let tableShownRows = tableShownRowsMin;
+
+	function shouldFitMobileContainer(): boolean {
+		return (
+			(typeof document !== 'undefined' &&
+				document.documentElement.dataset.ovisMobileLayout === 'landscape') ||
+			usesShortDesktopViewport()
+		);
+	}
 
 	let sortingIndex = 1;
 
@@ -227,11 +239,14 @@
 						]
 					},
 					options: {
+						responsive: true,
+						maintainAspectRatio: !shouldFitMobileContainer(),
 						aspectRatio: aspectRatio,
 						plugins: {
 							legend: {
 								display: true,
-								position: legendPosition
+								position: legendPosition,
+								labels: responsiveLegendLabels()
 							},
 							tooltip: {
 								callbacks: {
@@ -385,66 +400,113 @@
 	}
 </script>
 
-<Headline
-	{headlineTitle}
-	{headlineTooltip}
-	headlineMaximize={maxStoreValue}
-	headlineShowChart={showChartStoreValue}
-	headlineIsChart={true}
-	headlineInitialTop5={showTop5StoreValue}
-	headlineInitialLogarithm={showLogarithmStoreValue}
-	headlineInputTableData={reversedTableData}
-	headlineInputTableHeader={headers}
-	headlineChartJSElement={pieChart}
-	headlineD3Element={null}
-	headlineNull={showNullStoreValue}
-	headlineLoading={null}
-	on:chartToggled={handleChartToggled}
-	on:logarithmToggled={handleLogarithmToggled}
-	on:top5Toggled={handleTop5Toggled}
-	on:maximized={handleMaximized}
-	on:nullToggled={handleNull}
-/>
-<!-- prettier-ignore -->
-<lens-data-passer bind:this={dataPasser}></lens-data-passer>
-<div style={showChartStoreValue ? '' : 'display: none;'}>
-	<div class="dropdown-container">
-		<div class="dropdown straight-line-container">
-			<label for="dropdownObject" style="margin-right:5px">{$t('featureCategory')}:</label><br />
-			<select class="dropbtn" bind:value={initialDropdownValue}>
-				{#each dropdownObject as option (option.value)}
-					<option class="dropdown-option" value={option.value}>{option.label}</option>
-				{/each}
-			</select>
+<div class="generic-category-root" class:maximized={maxStoreValue}>
+	<Headline
+		{headlineTitle}
+		{headlineTooltip}
+		headlineMaximize={maxStoreValue}
+		headlineShowChart={showChartStoreValue}
+		headlineIsChart={true}
+		headlineInitialTop5={showTop5StoreValue}
+		headlineInitialLogarithm={showLogarithmStoreValue}
+		headlineInputTableData={reversedTableData}
+		headlineInputTableHeader={headers}
+		headlineChartJSElement={pieChart}
+		headlineD3Element={null}
+		headlineNull={showNullStoreValue}
+		headlineLoading={null}
+		on:chartToggled={handleChartToggled}
+		on:logarithmToggled={handleLogarithmToggled}
+		on:top5Toggled={handleTop5Toggled}
+		on:maximized={handleMaximized}
+		on:nullToggled={handleNull}
+	/>
+	<!-- prettier-ignore -->
+	<lens-data-passer bind:this={dataPasser}></lens-data-passer>
+	<div class="category-chart-view" style={showChartStoreValue ? '' : 'display: none;'}>
+		<div class="dropdown-container">
+			<div class="dropdown straight-line-container">
+				<label for="dropdownObject" style="margin-right:5px">{$t('featureCategory')}:</label><br />
+				<select class="dropbtn" bind:value={initialDropdownValue}>
+					{#each dropdownObject as option (option.value)}
+						<option class="dropdown-option" value={option.value}>{option.label}</option>
+					{/each}
+				</select>
+			</div>
+		</div>
+		<div style={!showEmptyIcon ? '' : 'display: none;'} class="chart-container">
+			<!-- prettier-ignore -->
+			<canvas bind:this={pieChart}></canvas>
 		</div>
 	</div>
-	<div style={!showEmptyIcon ? '' : 'display: none;'} class="chart-container">
-		<!-- prettier-ignore -->
-		<canvas bind:this={pieChart}></canvas>
-	</div>
-</div>
-<div class="data">
-	<div class="data-table" style={!showEmptyIcon && !showChartStoreValue ? '' : 'display: none;'}>
-		<div class="data-table">
-			<table id={chartTableName} class="display" style="width:100%">
-				<thead>
-					<tr>
-						<th>{initialDropdownLabel}</th>
-						<th>{$t('count')}</th>
-					</tr>
-				</thead>
-			</table>
+	<div class="data">
+		<div class="data-table" style={!showEmptyIcon && !showChartStoreValue ? '' : 'display: none;'}>
+			<div class="data-table">
+				<table id={chartTableName} class="display" style="width:100%">
+					<thead>
+						<tr>
+							<th>{initialDropdownLabel}</th>
+							<th>{$t('count')}</th>
+						</tr>
+					</thead>
+				</table>
+			</div>
 		</div>
 	</div>
-</div>
-<div style={showEmptyIcon ? '' : 'display: none;'} class="bigSpinnerContainer">
-	<img class="emptyIcon" src={emptyIcon} alt="Keine Daten verfügbar" />
+	<div style={showEmptyIcon ? '' : 'display: none;'} class="bigSpinnerContainer">
+		<img class="emptyIcon" src={emptyIcon} alt="Keine Daten verfügbar" />
+	</div>
 </div>
 
 <style>
+	.generic-category-root {
+		display: contents;
+	}
+
 	.dropdown {
 		width: 50%;
 		float: right;
 		margin-right: 10px;
+	}
+
+	:global(html[data-ovis-mobile-layout='landscape']) .generic-category-root {
+		display: flex;
+		flex-direction: column;
+		width: 100%;
+		height: 100%;
+		min-width: 0;
+		min-height: 0;
+		overflow: hidden;
+	}
+
+	:global(html[data-ovis-mobile-layout='landscape'])
+		.generic-category-root
+		.category-chart-view {
+		display: flex;
+		flex: 1 1 auto;
+		flex-direction: column;
+		min-width: 0;
+		min-height: 0;
+	}
+
+	:global(html[data-ovis-mobile-layout='landscape'])
+		.generic-category-root
+		.chart-container {
+		position: relative;
+		flex: 1 1 auto;
+		width: 100%;
+		min-width: 0;
+		min-height: 0;
+		padding: 2px 8px 4px;
+		box-sizing: border-box;
+	}
+
+	:global(html[data-ovis-mobile-layout='landscape'])
+		.generic-category-root
+		.chart-container
+		canvas {
+		width: 100% !important;
+		height: 100% !important;
+		max-height: 100% !important;
 	}
 </style>

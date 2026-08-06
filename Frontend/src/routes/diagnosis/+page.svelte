@@ -61,7 +61,7 @@
 		position: relative;
 		height: 100%;
 		grid-template-columns: 35% 25% 39%;
-		grid-template-rows: 60% 40%;
+		grid-template-rows: minmax(0, 55fr) minmax(0, 45fr);
 		grid-template-areas:
 			'diagnosis-bar-control-panel diagnosis-bar-control-panel bodymap'
 			'histology-table diagnostic-table bodymap';
@@ -75,7 +75,7 @@
 			position: relative;
 			height: 100%;
 			grid-template-columns: 60% 39%;
-			grid-template-rows: 60% 40%;
+			grid-template-rows: minmax(0, 55fr) minmax(0, 45fr);
 			grid-template-areas:
 				'diagnosis-bar-control-panel  bodymap'
 				'histology-table bodymap';

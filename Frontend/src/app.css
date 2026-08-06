@@ -2,6 +2,8 @@
 	--bg-color: rgb(245, 245, 245);
 	--ovis-layout-min-width: 1600px;
 	--ovis-layout-max-width: 1903px;
+	--ovis-content-height: clamp(540px, calc(100dvh - 130px), 820px);
+	--ovis-active-filter-height: clamp(110px, calc(100dvh - 760px), 180px);
 	--level1-bg: rgb(235, 235, 235);
 	--level2-bg: rgb(245, 245, 245);
 	--level3-bg: rgb(250, 250, 250);
@@ -78,7 +80,7 @@ a:focus {
 
 .content-view {
 	grid-area: content-view;
-	height: 820px;
+	height: var(--ovis-content-height);
 	min-width: 0;
 }
 
@@ -172,6 +174,333 @@ body {
 	overflow-x: hidden;
 	container-type: inline-size;
 	container-name: ovis-layout;
+}
+
+/* Keep the complete application visible in desktop browsers with reduced
+   content height (toolbars, bookmarks bar, split-screen, etc.). */
+@media (min-width: 900px) and (min-height: 680px) and (max-height: 820px) {
+	:root {
+		--ovis-active-filter-height: clamp(40px, calc(100dvh - 680px), 110px);
+	}
+
+	.outer-div {
+		height: 100dvh;
+		min-height: 0;
+		display: grid;
+		grid-template-rows: minmax(0, 1fr) auto;
+	}
+
+	.grid-container {
+		height: 100%;
+		min-height: 0;
+		grid-template-rows: 90px minmax(0, 1fr);
+		align-content: stretch;
+	}
+
+	.content-view {
+		height: auto;
+		min-height: 0;
+	}
+
+	.grid-container-quicktools {
+		height: 100%;
+		min-height: 0;
+		overflow: hidden;
+		grid-template-rows: minmax(0, 1fr);
+		grid-template-areas: none;
+	}
+
+	.grid-container-quicktools > div {
+		display: flex;
+		flex-direction: column;
+		height: 100%;
+		min-height: 0;
+	}
+
+	.grid-container-quicktools > div > .box_style {
+		flex: 0 0 auto;
+		margin-top: 1px;
+		margin-bottom: 1px;
+		padding-top: 2px;
+		padding-bottom: 2px;
+	}
+
+	.grid-container-quicktools > div > .user_panel:first-child {
+		flex-basis: 78px;
+		min-height: 0;
+		overflow: hidden;
+	}
+
+	.grid-container-quicktools > div > .filter-view {
+		display: flex;
+		flex-direction: column;
+		flex: 1 1 auto;
+		min-height: 0;
+		overflow: hidden;
+	}
+
+	.grid-container-quicktools > div > .filter-view > .quicktool-label-container,
+	.grid-container-quicktools > div > .filter-view > .filter-history-controls {
+		flex: 0 0 auto;
+	}
+
+	.grid-container-quicktools > div > .filter-view > .query-output {
+		flex: 1 1 auto;
+		height: auto;
+		min-height: 0;
+		max-height: none;
+	}
+
+	.patient-cohort-pie-root:not(.maximized) {
+		display: flex;
+		flex-direction: column;
+		width: 100%;
+		height: 100%;
+		min-width: 0;
+		min-height: 0;
+		overflow: hidden;
+	}
+
+	.patient-cohort-pie-root:not(.maximized) .patient-cohort-pie-view {
+		display: flex;
+		flex: 1 1 auto;
+		min-width: 0;
+		min-height: 0;
+	}
+
+	.patient-cohort-pie-root:not(.maximized) .chart-container {
+		position: relative;
+		flex: 1 1 auto;
+		width: 100%;
+		min-width: 0;
+		min-height: 0;
+		padding: 2px 6px 4px;
+		box-sizing: border-box;
+	}
+
+	.patient-cohort-pie-root:not(.maximized) .chart-container canvas {
+		width: 100% !important;
+		height: 100% !important;
+		max-height: 100% !important;
+	}
+
+}
+
+.mobile-orientation-hint {
+	position: fixed;
+	inset: 0;
+	z-index: 10000;
+	display: grid;
+	place-items: center;
+	padding: 24px;
+	background: var(--bg-color);
+	color: var(--font-color);
+	text-align: center;
+}
+
+.mobile-orientation-card {
+	display: grid;
+	gap: 12px;
+	max-width: 320px;
+	padding: 24px;
+	border: 1px solid var(--border-color);
+	border-radius: 12px;
+	background: var(--level3-bg);
+}
+
+.mobile-orientation-symbol {
+	font-size: 40px;
+	line-height: 1;
+}
+
+html[data-ovis-mobile-layout='portrait'],
+html[data-ovis-mobile-layout='portrait'] body,
+html[data-ovis-mobile-layout='landscape'],
+html[data-ovis-mobile-layout='landscape'] body {
+	margin: 0;
+	overflow-x: hidden;
+}
+
+html[data-ovis-mobile-layout='landscape'] {
+	--ovis-active-filter-height: clamp(80px, calc(100dvh - 760px), 110px);
+}
+
+html[data-ovis-mobile-layout='landscape'] .grid-container {
+	height: 100%;
+	min-height: 0;
+	grid-template-rows: 62px minmax(0, 1fr);
+	align-content: stretch;
+}
+
+html[data-ovis-mobile-layout='landscape'] .content-view {
+	height: auto;
+	min-height: 0;
+}
+
+html[data-ovis-mobile-layout='landscape'] .grid-container-quicktools .box_style {
+	margin-top: 1px;
+	margin-bottom: 1px;
+	padding-top: 2px;
+	padding-bottom: 2px;
+}
+
+html[data-ovis-mobile-layout='landscape'] .grid-container-quicktools {
+	height: 100%;
+	min-height: 0;
+	overflow: hidden;
+	grid-template-rows: minmax(0, 1fr);
+	grid-template-areas: none;
+}
+
+html[data-ovis-mobile-layout='landscape'] .grid-container-quicktools > div {
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+	min-height: 0;
+}
+
+html[data-ovis-mobile-layout='landscape']
+	.grid-container-quicktools
+	> div
+	> .user_panel:first-child {
+	flex-basis: clamp(44px, calc(100dvh - 750px), 68px);
+	min-height: 0;
+	overflow: hidden;
+}
+
+html[data-ovis-mobile-layout='landscape'] .grid-container-quicktools .logo-container {
+	align-items: flex-start;
+}
+
+html[data-ovis-mobile-layout='landscape']
+	.grid-container-quicktools
+	> div
+	> .filter-view {
+	display: flex;
+	flex-direction: column;
+	flex: 1 1 auto;
+	min-height: 0;
+	overflow: hidden;
+}
+
+html[data-ovis-mobile-layout='landscape']
+	.grid-container-quicktools
+	> div
+	> .filter-view
+	> .quicktool-label-container,
+html[data-ovis-mobile-layout='landscape']
+	.grid-container-quicktools
+	> div
+	> .filter-view
+	> .filter-history-controls {
+	flex: 0 0 auto;
+}
+
+html[data-ovis-mobile-layout='landscape']
+	.grid-container-quicktools
+	> div
+	> .filter-view
+	> .query-output {
+	flex: 1 1 auto;
+	height: auto;
+	min-height: 0;
+	max-height: none;
+}
+
+.patient-cohort-pie-root {
+	display: contents;
+}
+
+html[data-ovis-mobile-layout='landscape'] .patient-cohort-pie-root:not(.maximized) {
+	display: flex;
+	flex-direction: column;
+	width: 100%;
+	height: 100%;
+	min-width: 0;
+	min-height: 0;
+	overflow: hidden;
+}
+
+html[data-ovis-mobile-layout='landscape']
+	.patient-cohort-pie-root:not(.maximized)
+	.patient-cohort-pie-view {
+	display: flex;
+	flex: 1 1 auto;
+	min-width: 0;
+	min-height: 0;
+}
+
+html[data-ovis-mobile-layout='landscape']
+	.patient-cohort-pie-root:not(.maximized)
+	.chart-container {
+	position: relative;
+	flex: 1 1 auto;
+	width: 100%;
+	min-width: 0;
+	min-height: 0;
+	padding: 2px 6px 4px;
+	box-sizing: border-box;
+}
+
+html[data-ovis-mobile-layout='landscape']
+	.patient-cohort-pie-root:not(.maximized)
+	.chart-container canvas {
+	width: 100% !important;
+	height: 100% !important;
+	max-height: 100% !important;
+}
+
+html[data-ovis-mobile-layout='landscape'] .grid-container-tnm .tnm-3d-chart {
+	display: flex !important;
+	flex-direction: column;
+	min-width: 0;
+	min-height: 0;
+	overflow: hidden;
+}
+
+html[data-ovis-mobile-layout='landscape']
+	.grid-container-tnm
+	.tnm-3d-chart
+	.chart-container {
+	flex: 1 1 auto;
+	width: auto;
+	height: auto;
+	min-width: 0;
+	min-height: 0;
+	margin: 2px;
+}
+
+html[data-ovis-mobile-layout='landscape'] .grid-container-tnm .tnm-3d-chart #Plot,
+html[data-ovis-mobile-layout='landscape'] .grid-container-tnm .tnm-3d-chart svg {
+	display: block;
+	width: 100%;
+	height: 100%;
+	min-width: 0;
+	min-height: 0;
+}
+
+html[data-ovis-mobile-layout='landscape']
+	.grid-container-tnm
+	.tnm-3d-chart
+	.bigSpinnerButton {
+	height: 100% !important;
+}
+
+html[data-ovis-mobile-layout='landscape']
+	.content-view
+	.data-table
+	table.dataTable
+	:is(th, td) {
+	padding: 2px 4px !important;
+}
+
+html[data-ovis-mobile-layout='landscape'] .outer-div {
+	width: var(--ovis-layout-min-width);
+	height: 100dvh;
+	min-height: 0;
+	margin: 0;
+	display: grid;
+	grid-template-rows: minmax(0, 1fr) auto;
 }
 .bodymap {
 	margin-left: auto;
@@ -405,15 +734,11 @@ body {
 }
 
 .tooltip .tooltiptext {
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
-	width: 10rem;
-  }
-
-.tooltip .tooltiptext {
 	display: none;
 	visibility: hidden;
+	overflow: visible;
+	overflow-wrap: anywhere;
+	text-overflow: clip;
 	background-color: rgba(0, 0, 0, 0.8);
 	color: var(--tooltip-color);
 	text-align: center;
@@ -425,12 +750,23 @@ body {
 	z-index: 999;
 	top: 100%; /* Abstand vom übergeordneten Element */
 
-	max-width: 400px;
-	width: auto; /* Damit der Tooltip sich an den Inhalt anpasst */
+	width: max-content;
+	min-width: 10rem;
+	max-width: min(400px, calc(100vw - 24px));
 
 	transition: opacity 0.5s; /* Hinzugefügte Übergangseigenschaft */
 	opacity: 0; /* Anfangszustand: Tooltip ist unsichtbar */
-	white-space: nowrap; /* Kein Zeilenumbruch */
+	white-space: normal;
+}
+
+.grid-container-quicktools:has(.tooltip:hover),
+.grid-container-quicktools:has(.menu.catalogue:hover) {
+	overflow: visible;
+	z-index: 1000;
+}
+
+.grid-container-quicktools .filter-view:has(.tooltip:hover) {
+	overflow: visible;
 }
 
 .tooltip:hover .tooltiptext {

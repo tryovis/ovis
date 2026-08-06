@@ -16,6 +16,7 @@
 	import { filterActiveStore } from '../../store/filterActiveStore.js';
 	import {addUserFilter} from '../../components/UserFilter'
 	import { iconPath } from '$lib/path-utils';
+	import { responsiveChartFontSize, usesCompactChartLayout } from '$lib/responsiveChartSizing';
 
     let filterActive = true;
     let filter = JSON.stringify({ "operand": "OR", "children": [] });
@@ -196,21 +197,27 @@
 				},
 				options: {
 					aspectRatio: aspectRatio,
+					responsive: true,
+					maintainAspectRatio: !usesCompactChartLayout(),
 					scales: {
 						x: {
 							type: 'category',
 							title: {
 								display: true,
-								text: 'Diagnosejahr'
-							}
+								text: 'Diagnosejahr',
+								font: { size: responsiveChartFontSize() }
+							},
+							ticks: { font: { size: responsiveChartFontSize() } }
 						},
 						y: {
 							type: showLogarithm ? 'logarithmic' : 'linear',
 
 							title: {
 								display: true,
-								text: 'Anteil an Tumoren mit Follow-Up (%)'
-							}
+								text: 'Anteil an Tumoren mit Follow-Up (%)',
+								font: { size: responsiveChartFontSize() }
+							},
+							ticks: { font: { size: responsiveChartFontSize() } }
 						}
 					},
 					plugins: {
@@ -324,6 +331,7 @@
     }
 </script>
 
+<div class="follow-up-root">
 <lens-data-passer bind:this={dataPasser} />
 <Headline
 	headlineTitle={$t("followUpAnalysisTitle")}
@@ -376,8 +384,8 @@
 	<button class="bigSpinnerButton" style="height:720px"><img class="bigSpinner"  id="spinner" src={loadingIcon} alt="Spinner"></button>
 </div>
 
-<div style={(mounted && !updating) ? '' : 'display: none;'}>
-	<div style={showChart ? '' : 'display: none;'}>
+<div class="follow-up-chart-view" style={(mounted && !updating) ? '' : 'display: none;'}>
+	<div class="follow-up-chart-content" style={showChart ? '' : 'display: none;'}>
 		<div class="chart-container">
 			<canvas id="chart2" bind:this={barChart} />
 		</div>
@@ -398,8 +406,43 @@
 		</table>
 	</div>
 </div>
+</div>
 
 <style>
+	.follow-up-root {
+		display: flex;
+		flex-direction: column;
+		height: 100%;
+		min-width: 0;
+		min-height: 0;
+		overflow: hidden;
+	}
+
+	.follow-up-chart-view,
+	.follow-up-chart-content {
+		display: flex;
+		flex: 1 1 auto;
+		flex-direction: column;
+		min-width: 0;
+		min-height: 0;
+		overflow: hidden;
+	}
+
+	.chart-container {
+		position: relative;
+		flex: 1 1 auto;
+		width: 100%;
+		min-width: 0;
+		min-height: 0;
+		overflow: hidden;
+	}
+
+	.chart-container canvas {
+		display: block;
+		width: 100% !important;
+		height: 100% !important;
+	}
+
     .dropdown-container {
         display: flex; /* Flexbox verwenden */
         align-items: center; /* Elemente vertikal zentrieren */

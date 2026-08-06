@@ -41,7 +41,10 @@
     .grid-container-survival {
         display: grid;
         height: 100%;
+        min-width: 0;
+        min-height: 0;
         position: relative;
+        overflow: hidden;
         grid-template-columns: 60% 40%;
         grid-template-rows: 50% 50%;
         grid-template-areas: 'kaplan-meier-chart kaplan-meier-table'
@@ -58,6 +61,14 @@
 
     .follow-up {
         grid-area: follow-up;
+    }
+
+    .kaplan-meier-chart,
+    .kaplan-meier-table,
+    .follow-up {
+        min-width: 0;
+        min-height: 0;
+        overflow: hidden;
     }
     
 </style>

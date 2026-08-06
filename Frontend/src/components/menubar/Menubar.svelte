@@ -280,8 +280,32 @@
 	let patientMenuVisible = false;
 	let therapyMenuVisible = false;
 	let timelineMenuVisible = false;
+	type OpenDropdown = 'patient' | 'therapy' | 'timeline' | null;
+	let openDropdown: OpenDropdown = null;
 	let mainLinksFiltered: LinkItem[] = [];
 	let topLinksFiltered: LinkItem[] = [];
+
+	const usesTouchDropdowns = () =>
+		document.documentElement.dataset.ovisMobileLayout === 'landscape' ||
+		window.matchMedia('(pointer: coarse)').matches;
+
+	function toggleDropdown(menu: Exclude<OpenDropdown, null>, event: MouseEvent) {
+		if (!usesTouchDropdowns()) return;
+
+		event.preventDefault();
+		openDropdown = openDropdown === menu ? null : menu;
+	}
+
+	function closeDropdownOnOutsidePointer(event: PointerEvent) {
+		const target = event.target;
+		if (target instanceof Element && target.closest('.navbar .dropdown')) return;
+		openDropdown = null;
+	}
+
+	onMount(() => {
+		document.addEventListener('pointerdown', closeDropdownOnOutsidePointer);
+		return () => document.removeEventListener('pointerdown', closeDropdownOnOutsidePointer);
+	});
 
 	const isDropdownItemVisible = (item: DropdownItem) => item.enabled && !(item.hideForCcp && isCCP);
 
@@ -312,8 +336,14 @@
 			class="dropdown {visiblePatientItems.some(item => currentRouteText === '/' + item.route)
 				? 'current_selection'
 				: ''}"
+			class:touch-open={openDropdown === 'patient'}
 		>
-			<button class="dropbtn">
+			<button
+				type="button"
+				class="dropbtn"
+				aria-expanded={openDropdown === 'patient'}
+				on:click={(event) => toggleDropdown('patient', event)}
+			>
 			<img src={patientCohortIcon} alt="patient-cohort" class="menuebar-icon" />{$t("patient")}
 			<img src={caretDownIcon} alt="carretDown" class="caret-down-icon" />
 		</button>
@@ -357,8 +387,14 @@
 			class="dropdown {visibleTherapyItems.some(item => currentRouteText === '/' + item.route)
 				? 'current_selection'
 				: ''}"
+			class:touch-open={openDropdown === 'therapy'}
 		>
-			<button class="dropbtn">
+			<button
+				type="button"
+				class="dropbtn"
+				aria-expanded={openDropdown === 'therapy'}
+				on:click={(event) => toggleDropdown('therapy', event)}
+			>
 				<img src={therapyGeneralIcon} alt="therapy-general" class="menuebar-icon" />{$t("therapies")}
 				<img src={caretDownIcon} alt="carretDown" class="caret-down-icon" />
 			</button>
@@ -376,8 +412,14 @@
 			class="dropdown {visibleTimelineItems.some(item => currentRouteText === '/' + item.route)
 				? 'current_selection'
 				: ''}"
+			class:touch-open={openDropdown === 'timeline'}
 		>
-			<button class="dropbtn">
+			<button
+				type="button"
+				class="dropbtn"
+				aria-expanded={openDropdown === 'timeline'}
+				on:click={(event) => toggleDropdown('timeline', event)}
+			>
 				<img src={progresIcon} alt="timeLine" class="menuebar-icon" />Time-Lines
 				<img src={caretDownIcon} alt="carretDown" class="caret-down-icon" />
 			</button>
@@ -469,7 +511,8 @@
 	}
 
 	/* Show the dropdown menu on hover */
-	.dropdown:hover .dropdown-content {
+	.dropdown:hover .dropdown-content,
+	.dropdown.touch-open .dropdown-content {
 		display: block;
 	}
 

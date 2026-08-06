@@ -17,6 +17,10 @@
 	import { filterActiveStore } from '../../store/filterActiveStore.js';
 	import { addUserFilter } from '../../components/UserFilter';
 	import type { AggregatedValue } from '../../types/query';
+	import {
+		responsiveLegendLabels,
+		usesShortDesktopViewport
+	} from '$lib/responsiveChartSizing';
 
 	// Reactive translation function
 	const translate = (key: string): string => get(t)(key);
@@ -50,6 +54,16 @@
 	});
 
 	let aspectRatio = 1.8;
+
+	function shouldFitMobileContainer(): boolean {
+		return (
+			((typeof document !== 'undefined' &&
+				document.documentElement.dataset.ovisMobileLayout === 'landscape') ||
+				usesShortDesktopViewport()) &&
+			!maximizePatientCohortDeathChart
+		);
+	}
+
 	// Access the store variables
 	let maximizePatientCohortDeathChart: boolean;
 	maxStore.subscribe((value: { maximizePatientCohortDeathChart: boolean }) => {
@@ -173,6 +187,17 @@
 		console.log('AFTER ADD ITEM');
 	};
 
+	function wrapVitalStatusLegendLabel(label: unknown): string | string[] {
+		const text = String(label ?? '');
+		const detailStart = text.indexOf(' (');
+
+		if (detailStart > 0) {
+			return [text.slice(0, detailStart), text.slice(detailStart + 1)];
+		}
+
+		return text;
+	}
+
 	function createPieChart() {
 		getPatientCohortDeathChart(filter).then((result) => {
 			inputArray = result;
@@ -202,11 +227,21 @@
 					]
 				},
 				options: {
+					responsive: true,
+					maintainAspectRatio: !shouldFitMobileContainer(),
 					aspectRatio: aspectRatio,
 					plugins: {
 						legend: {
 							display: true,
-							position: isCCP ? 'top' : 'right'
+							position: isCCP ? 'top' : 'right',
+							labels: {
+								...responsiveLegendLabels(),
+								generateLabels: (chart) =>
+									Chart.defaults.plugins.legend.labels.generateLabels(chart).map((item) => ({
+										...item,
+										text: wrapVitalStatusLegendLabel(item.text)
+									}))
+							}
 						},
 						tooltip: {
 							callbacks: {
@@ -283,38 +318,43 @@
 	}
 </script>
 
-<Headline
-	headlineTitle={$t('vitalStatus')}
-	headlineTooltip={$t('tooltip_PatientCohortDeathChart')}
-	headlineMaximize={maximizePatientCohortDeathChart}
-	headlineShowChart={showChart}
-	headlineIsChart={true}
-	headlineInitialTop5={null}
-	headlineInitialLogarithm={showLogarithm}
-	headlineInputTableData={tableData}
-	headlineInputTableHeader={headers}
-	headlineChartJSElement={pieChart}
-	headlineD3Element={null}
-	on:chartToggled={handleChartToggled}
-	on:logarithmToggled={handleLogarithmToggled}
-	on:maximized={handleMaximized}
-/>
-<lens-data-passer bind:this={dataPasser}></lens-data-passer>
-<div style={showChart ? '' : 'display: none;'}>
-	<div class="chart-container">
-		<canvas bind:this={pieChart}></canvas>
+<div
+	class="patient-cohort-pie-root"
+	class:maximized={maximizePatientCohortDeathChart}
+>
+	<Headline
+		headlineTitle={$t('vitalStatus')}
+		headlineTooltip={$t('tooltip_PatientCohortDeathChart')}
+		headlineMaximize={maximizePatientCohortDeathChart}
+		headlineShowChart={showChart}
+		headlineIsChart={true}
+		headlineInitialTop5={null}
+		headlineInitialLogarithm={showLogarithm}
+		headlineInputTableData={tableData}
+		headlineInputTableHeader={headers}
+		headlineChartJSElement={pieChart}
+		headlineD3Element={null}
+		on:chartToggled={handleChartToggled}
+		on:logarithmToggled={handleLogarithmToggled}
+		on:maximized={handleMaximized}
+	/>
+	<lens-data-passer bind:this={dataPasser}></lens-data-passer>
+	<div class="patient-cohort-pie-view" style={showChart ? '' : 'display: none;'}>
+		<div class="chart-container">
+			<canvas bind:this={pieChart}></canvas>
+		</div>
 	</div>
-</div>
 
-<div style={!showChart ? '' : 'display: none;'}>
-	<div class="data-table">
-		<table id="deathChartTable" class="display" style="width:100%">
-			<thead>
-				<tr>
-					<th>{$t('deathStatus')}</th>
-					<th>{$t('count')}</th>
-				</tr>
-			</thead>
-		</table>
+	<div style={!showChart ? '' : 'display: none;'}>
+		<div class="data-table">
+			<table id="deathChartTable" class="display" style="width:100%">
+				<thead>
+					<tr>
+						<th>{$t('deathStatus')}</th>
+						<th>{$t('count')}</th>
+					</tr>
+				</thead>
+			</table>
+		</div>
 	</div>
 </div>

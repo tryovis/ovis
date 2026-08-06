@@ -329,13 +329,17 @@ export function InitSvg(
 	leftSlider: number,
 	rightSlider: number,
 	i18n?: Partial<KmI18n>,
-	rawTimeExtent?: [number, number]
+	rawTimeExtent?: [number, number],
+	layout?: { width: number; height: number; compact: boolean }
 ) {
 	const I18N: KmI18n = { ...DEFAULT_I18N_DE, ...(i18n || {}) };
+	const compact = layout?.compact ?? false;
 	//Hier erstmal nur zwei Gruppen (UICC z.B. - mehrere werden benötigt)
-	var margin = { top: 10, right: 40, bottom: 30, left: 50 },
-		width = currentWidth - margin.left - margin.right,
-		height = 690 - margin.top - margin.bottom;
+	var margin = compact
+			? { top: 6, right: 16, bottom: 24, left: 38 }
+			: { top: 10, right: 40, bottom: 30, left: 50 },
+		width = Math.max(160, (layout?.width ?? currentWidth) - margin.left - margin.right),
+		height = Math.max(120, (layout?.height ?? 690) - margin.top - margin.bottom);
 
 	// append the svg object to the body of the page
 	var svg = d3
@@ -343,6 +347,7 @@ export function InitSvg(
 		.append('svg')
 		.attr('width', width + margin.left + margin.right)
 		.attr('height', height + margin.top + margin.bottom)
+		.style('font-size', compact ? '9px' : null)
 		.append('g')
 		.attr('transform', 'translate(' + margin.left + ',' + margin.top + ')');
 
@@ -401,14 +406,15 @@ export function InitSvg(
 		.style('text-anchor', 'middle')
 		.text(I18N.yAxisSurvivalProbability);
 
-	var legendWidth = 160;
-	var legendHeight = 30;
+	var legendWidth = compact ? 116 : 160;
+	var legendHeight = compact ? 18 : 30;
+	const legendRowHeight = compact ? 13 : 20;
 
 	if (stratificationType !== 'none' && stratificationType !== 'Keine Stratifikation') {
 		// Erstelle das legendData Array basierend auf gvec
 		var legendData = gvec.map((groupname: string | number, index: number) => {
 			const label = localizeGroupLabel(groupname, I18N);
-			legendHeight = legendHeight + 20;
+			legendHeight = legendHeight + legendRowHeight;
 			return { label, color: col[index] };
 		});
 
@@ -429,10 +435,10 @@ export function InitSvg(
 		// Hinzufügen eines kleinen weißen Rechtecks oben rechts in der Legende
 		legend
 			.append('rect')
-			.attr('x', legendWidth - 30)
-			.attr('y', 5)
-			.attr('width', 20)
-			.attr('height', 10)
+			.attr('x', legendWidth - (compact ? 18 : 30))
+			.attr('y', compact ? 3 : 5)
+			.attr('width', compact ? 12 : 20)
+			.attr('height', compact ? 6 : 10)
 			.attr('fill', 'white');
 
 		// Hinzufügen von Farbkreisen und Beschriftungen für die Legende
@@ -441,9 +447,9 @@ export function InitSvg(
 			.data(legendData)
 			.enter()
 			.append('circle')
-			.attr('cx', 15)
-			.attr('cy', (d, i) => 25 + i * 20)
-			.attr('r', 5)
+			.attr('cx', compact ? 8 : 15)
+			.attr('cy', (d, i) => (compact ? 14 : 25) + i * legendRowHeight)
+			.attr('r', compact ? 3 : 5)
 			.attr('fill', (d: any) => d.color);
 
 		legend
@@ -451,13 +457,13 @@ export function InitSvg(
 			.data(legendData)
 			.enter()
 			.append('text')
-			.attr('x', 25)
+			.attr('x', compact ? 14 : 25)
 			.attr('y', function (d, i) {
-				return 25 + i * 20;
+				return (compact ? 14 : 25) + i * legendRowHeight;
 			})
 			.attr('dy', '0.32em')
 			.text((d: any) => d.label)
-			.attr('font-size', '12px');
+			.attr('font-size', compact ? '9px' : '12px');
 	}
 	return { x, y, svg };
 }

@@ -12,6 +12,7 @@
 	import { filterActiveStore } from '../store/filterActiveStore.js';
 	import { addUserFilter } from '../components/UserFilter';
 	import { iconPath } from '$lib/path-utils';
+	import { responsiveChartFontSize, responsiveLegendLabels } from '$lib/responsiveChartSizing';
 
 	export let aspectRatioMin: number;
 	export let dropdownObject: { label: string; value: string }[];
@@ -422,6 +423,7 @@
 	function buildChartOptions() {
 		return {
 			aspectRatio,
+			maintainAspectRatio: false,
 			scales: {
 				x: {
 					min: leftSlider,
@@ -431,7 +433,8 @@
 					beginAtZero: true,
 					title: {
 						display: true,
-						text: selectedTimeType
+						text: selectedTimeType,
+						font: { size: responsiveChartFontSize() }
 					},
 					time: {
 						unit: getXUnit(),
@@ -444,7 +447,8 @@
 					ticks: {
 						maxRotation: 0,
 						autoSkip: true,
-						maxTicksLimit: 10
+						maxTicksLimit: 10,
+						font: { size: responsiveChartFontSize() }
 					}
 				},
 				y: {
@@ -452,11 +456,16 @@
 					position: 'left',
 					title: {
 						display: true,
-						text: $t('numOfSpecProgressEvents')
-					}
+						text: $t('numOfSpecProgressEvents'),
+						font: { size: responsiveChartFontSize() }
+					},
+					ticks: { font: { size: responsiveChartFontSize() } }
 				}
 			},
 			plugins: {
+				legend: {
+					labels: responsiveLegendLabels()
+				},
 				tooltip: {
 					callbacks: {
 						label(context: any) {
@@ -562,6 +571,7 @@
 	}
 </script>
 
+<div class="time-chart-root">
 <Headline
 	{headlineTitle}
 	headlineTooltip={$t('tooltip_timeChart')}
@@ -579,7 +589,7 @@
 
 <lens-data-passer bind:this={dataPasser} />
 
-<div class="straight-line-container">
+<div class="straight-line-container time-chart-controls">
 	<div class="dropdown-container">
 		{#if dropdownObject.length > 1}
 			<div class="dropdown">
@@ -629,12 +639,15 @@
 	</div>
 </div>
 
-<div style={isMounted && !updating && !showEmptyIcon ? '' : 'display: none;'}>
+<div
+	class="time-chart-view"
+	style={isMounted && !updating && !showEmptyIcon ? '' : 'display: none;'}
+>
 	<div class="chart-container">
 		<canvas bind:this={lineCanvas} />
 	</div>
 
-	<div class="straight-line-container">
+	<div class="straight-line-container time-chart-slider">
 		<span class="min-slider">{leftSliderOutput}</span>
 		<div class="slider-container">
 			<div id="slider-round" />
@@ -652,8 +665,32 @@
 		</button>
 	{/if}
 </div>
+</div>
 
 <style>
+	.time-chart-root {
+		display: flex;
+		flex-direction: column;
+		height: 100%;
+		min-width: 0;
+		min-height: 0;
+		overflow: hidden;
+	}
+
+	.time-chart-controls,
+	.time-chart-slider {
+		flex: 0 0 auto;
+	}
+
+	.time-chart-view {
+		display: flex;
+		flex: 1 1 auto;
+		flex-direction: column;
+		min-width: 0;
+		min-height: 0;
+		overflow: hidden;
+	}
+
 	.dropdown-container {
 		display: flex;
 		flex: 1;
@@ -668,7 +705,7 @@
 		flex: 60%;
 		padding-left: 5%;
 		padding-right: 5%;
-		padding-bottom: 10px;
+		padding-bottom: 4px;
 	}
 
 	.min-slider {
@@ -680,6 +717,19 @@
 	}
 
 	.chart-container {
-		padding: 10px;
+		position: relative;
+		flex: 1 1 auto;
+		width: 100%;
+		min-width: 0;
+		min-height: 0;
+		box-sizing: border-box;
+		padding: 4px 10px 0;
+		overflow: hidden;
+	}
+
+	.chart-container canvas {
+		display: block;
+		width: 100% !important;
+		height: 100% !important;
 	}
 </style>

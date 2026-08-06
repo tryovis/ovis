@@ -74,6 +74,13 @@
 
 	let mounted = false;
 
+	function usesMobileLandscapeLayout(): boolean {
+		return (
+			typeof document !== 'undefined' &&
+			document.documentElement.dataset.ovisMobileLayout === 'landscape'
+		);
+	}
+
 	function isMounted() {
 		return mounted;
 	}
@@ -143,6 +150,7 @@
 				},
 				options: {
 					aspectRatio: aspectRatio,
+					maintainAspectRatio: !usesMobileLandscapeLayout(),
 					scales: {
 						x: {
 							type: 'category'
@@ -278,8 +286,8 @@
 	}
 </script>
 
+<div class="study-patient-chart-root">
 <lens-data-passer bind:this={dataPasser} />
-
 <Headline
 	headlineTitle={translate('studyPatientChartTitle')}
 	headlineTooltip={translate('tooltip_StudyPatientChart')}
@@ -298,15 +306,53 @@
 <div class="chart-container">
 	<canvas bind:this={barChart} />
 </div>
-<div class="straight-line-container">
+<div class="straight-line-container study-chart-slider">
 	<span class="min-slider">Top {minSliderLabel}</span>
 	<div class="slider-container">
 		<div id="slider-round" />
 	</div>
 	<span class="max-slider">Top {maxSliderLabel}</span>
 </div>
+</div>
 
 <style>
+	.study-patient-chart-root {
+		display: contents;
+	}
+
+	:global(html[data-ovis-mobile-layout='landscape']) .study-patient-chart-root {
+		display: flex;
+		flex-direction: column;
+		height: 100%;
+		min-width: 0;
+		min-height: 0;
+		overflow: hidden;
+	}
+
+	:global(html[data-ovis-mobile-layout='landscape'])
+		.study-patient-chart-root
+		.chart-container {
+		position: relative;
+		flex: 1 1 auto;
+		width: 100%;
+		min-width: 0;
+		min-height: 0;
+		overflow: hidden;
+	}
+
+	:global(html[data-ovis-mobile-layout='landscape'])
+		.study-patient-chart-root
+		.chart-container
+		canvas {
+		display: block;
+		width: 100% !important;
+		height: 100% !important;
+	}
+
+	:global(html[data-ovis-mobile-layout='landscape']) .study-chart-slider {
+		flex: 0 0 auto;
+		padding-bottom: 4px;
+	}
 
 
 	.slider-container{

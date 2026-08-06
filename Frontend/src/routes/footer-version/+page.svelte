@@ -14,6 +14,21 @@
 
 
   let entries: Entry[] = [
+          {
+            id: "v1.2.0",
+            version: "1.2.0",
+            date: "05.08.2026",
+            title: "Responsive Layout Patch",
+            changes: [
+              "Fixed several layout and overflow issues, including duplicate page scrollbars, unnecessary horizontal and vertical scrollbars, and content extending beyond the footer",
+              "Fixed clipped tooltips and predefined catalogue submenus in the compact quicktools layout",
+              "Added adaptive height handling so OVIS and its footer fit common browser configurations with toolbars, bookmarks bars, and other reduced-height viewports",
+              "Expanded layout support beyond the original 1903 px maximum width and fixed 820 px content-height target to additional widescreen and laptop-sized viewports",
+              "Added a mobile landscape layout and improved mobile usability for navigation, quicktools, charts, tables, SVG maps, and maximized views",
+              "Improved responsive sizing of Chart.js charts, legends, tables, and SVG maps while preserving the established primary desktop layout"
+            ],
+            expanded: true
+          },
               {
             id: "v1.1.0",
             version: "1.1.0",
@@ -32,7 +47,7 @@
               "Added report ID for CREDOS and ONKOSTAR (oBDS TAN number)",
               "Added image license information for body map images to the footer, including references to inspirational source images"
             ],
-            expanded: true
+            expanded: false
           },
             {
            id: "v1.0.0",

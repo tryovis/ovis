@@ -613,7 +613,14 @@
 <div class="chart-container" style={showChart ? '' : 'display: none;'}>
 	<div id="Plot" style={!updating ? '' : 'display: none;'}>
 		<!-- prettier-ignore -->
-		<svg id="tnm chart" width={svgWidth} height={svgHeight} bind:this={svgContainer}></svg>
+		<svg
+			id="tnm chart"
+			width={svgWidth}
+			height={svgHeight}
+			viewBox={`0 0 ${svgWidth} ${svgHeight}`}
+			preserveAspectRatio="xMidYMid meet"
+			bind:this={svgContainer}
+		></svg>
 	</div>
 	<!-- prettier-ignore -->
 	<div class="infobox" style="display: none;"></div>

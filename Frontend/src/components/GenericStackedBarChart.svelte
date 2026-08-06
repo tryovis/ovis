@@ -10,6 +10,7 @@
 	import { reloadOnly } from '../store/reloadStore';
 	import { filterActiveStore } from '../store/filterActiveStore.js';
 	import { addUserFilter } from '../components/UserFilter';
+	import { responsiveChartFontSize, responsiveLegendLabels } from '$lib/responsiveChartSizing';
 	import type { AggregatedValue } from '../types/query';
 
 	type Complication = {
@@ -51,10 +52,25 @@
 	let mounted: boolean = false;
 	let inputArray: Complication;
 	let stackedBarChart: HTMLCanvasElement;
+	let chartRoot: HTMLDivElement;
 	let chartInstance: Chart;
 	let plotHeight: number = 0;
 	let plotHeightMin: number = 0;
 	let plotHeightMax: number = 760;
+	let chartNeedsScroll: boolean = false;
+
+	function usesMobileLandscapeLayout(): boolean {
+		return (
+			typeof document !== 'undefined' &&
+			document.documentElement.dataset.ovisMobileLayout === 'landscape'
+		);
+	}
+
+	function getPlotHeight(): string {
+		if (!usesMobileLandscapeLayout()) return `${plotHeight}px`;
+		if (!maxStoreValue && !chartNeedsScroll) return '100%';
+		return `${maxStoreValue ? plotHeight : plotHeightMax}px`;
+	}
 
 	let colorPalette: string[];
 
@@ -190,14 +206,8 @@
 			...rest
 		}));
 
-		// Query for the div element with the determined class and also containing 'box_style' and 'box_level2'
-		const heightChartDiv =
-			document.querySelector(
-				`div.${
-					collection === 'therapyGeneralComplication' ? 'complications' : 'bar-chart'
-				}.box_style.box_level2`
-			)?.clientHeight || 0;
-		plotHeightMin = heightChartDiv - 50;
+		const heightChartDiv = chartRoot?.closest('.box_level2')?.clientHeight || 0;
+		plotHeightMin = Math.max(120, heightChartDiv - 50);
 		plotHeight = plotHeightMin;
 		tableShownRows = Math.floor((heightChartDiv - 170) / 32);
 
@@ -210,6 +220,7 @@
 		const normalizedInput = normalizeInputArray(inputArray);
 		const categoryLimit = showTop5StoreValue === true ? (showTop10 ? 10 : 5) : 50;
 		const categoryCount = Math.min(normalizedInput.category.length, categoryLimit);
+		chartNeedsScroll = categoryCount > 10;
 		const sourceGroups = normalizedInput.groups;
 		const sourceGroupCount = sourceGroups.length;
 		const topGroupsPerCategory = 9;
@@ -310,12 +321,14 @@
 			options: {
 				indexAxis: 'y',
 				aspectRatio: aspectRatio,
+				maintainAspectRatio: false,
 				animation: false,
 				responsive: true,
 				plugins: {
 					legend: {
 						display: showLegend,
-						position: 'top'
+						position: 'top',
+						labels: responsiveLegendLabels()
 					},
 					tooltip: {
 						callbacks: {
@@ -331,13 +344,15 @@
 					}
 				},
 				scales: {
-					x: {
-						stacked: true
-					},
-					y: {
-						stacked: true,
-						display: true
-					}
+				x: {
+					stacked: true,
+					ticks: { font: { size: responsiveChartFontSize() } }
+				},
+				y: {
+					stacked: true,
+					display: true,
+					ticks: { font: { size: responsiveChartFontSize() } }
+				}
 				},
 				onClick: (event, elements) => {
 					if (elements.length > 0) {
@@ -504,6 +519,12 @@
 
 </script>
 
+<div
+	class="stacked-bar-root"
+	class:maximized={maxStoreValue}
+	class:scrollable={maxStoreValue || chartNeedsScroll}
+	bind:this={chartRoot}
+>
 <Headline
 	{headlineTitle}
 	headlineTooltip={tooltip}
@@ -521,10 +542,13 @@
 />
 <!-- prettier-ignore -->
 <lens-data-passer bind:this={dataPasser}></lens-data-passer>
-<div style={showChartStoreValue ? '' : 'display: none;'}>
+<div class="stacked-chart-view" style={showChartStoreValue ? '' : 'display: none;'}>
 	<div class="chart-container">
-		<div class="chartAreaWrapper" style="height: {plotHeight}px;">
-			<div class="chartAreaWrapper2">
+		<div class="chartAreaWrapper">
+			<div
+				class="chartAreaWrapper2"
+				style="height: {getPlotHeight()};"
+			>
 				<!-- prettier-ignore -->
 				<canvas bind:this={stackedBarChart} id={chartIdName} height={plotHeight}></canvas>
 			</div>
@@ -546,19 +570,56 @@
 		</table>
 	</div>
 </div>
+</div>
 
 <style>
-	.chartWrapper {
+	.stacked-bar-root {
+		display: flex;
+		flex-direction: column;
+		height: 100%;
+		min-width: 0;
+		min-height: 0;
+		overflow: hidden;
+	}
+
+	.stacked-chart-view,
+	.chart-container,
+	.chartAreaWrapper {
+		flex: 1 1 auto;
+		width: 100%;
+		min-width: 0;
+		min-height: 0;
+	}
+
+	.stacked-chart-view,
+	.chart-container {
+		display: flex;
+		flex-direction: column;
+		overflow: hidden;
+	}
+
+	.chartAreaWrapper {
+		position: relative;
+		height: 100%;
+		overflow-y: auto;
+		overflow-x: hidden;
+	}
+
+	:global(html[data-ovis-mobile-layout='landscape'])
+		.stacked-bar-root:not(.scrollable)
+		.chartAreaWrapper {
+		overflow-y: hidden;
+	}
+
+	.chartAreaWrapper2 {
 		position: relative;
 		width: 100%;
+		min-height: 100%;
 	}
-	.chartWrapper > canvas {
-		position: absolute;
-		left: 0;
-		top: 0;
-		pointer-events: none;
-	}
-	.chartAreaWrapper {
-		overflow-y: scroll;
+
+	.chartAreaWrapper2 canvas {
+		display: block;
+		width: 100% !important;
+		height: 100% !important;
 	}
 </style>

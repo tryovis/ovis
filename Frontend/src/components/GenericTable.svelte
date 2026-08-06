@@ -45,10 +45,11 @@
 	let loadingComplete: boolean = true;
 
 	let tableShownRows: number = 0;
-	let tableShownRowsMax: number;
+	let tableShownRowsNormalMax: number;
+	const tableShownRowsMax = 50;
 
-	if (tableIdName.includes('patientCohort')) tableShownRowsMax = 19;
-	else tableShownRowsMax = 20;
+	if (tableIdName.includes('patientCohort')) tableShownRowsNormalMax = 19;
+	else tableShownRowsNormalMax = 20;
 
 	let tooltip = '<p><b>' + headlineTitle + '</b><hr></p>';
 
@@ -57,6 +58,14 @@
 	let resizeObserver: ResizeObserver | undefined;
 	let tableFitFrame: number | undefined;
 	const tableFontSizes = [13, 12, 11, 10];
+	const mobileTableFontSizes = [13, 12, 11, 10, 9, 8];
+
+	function usesMobileLandscapeLayout(): boolean {
+		return (
+			typeof document !== 'undefined' &&
+			document.documentElement.dataset.ovisMobileLayout === 'landscape'
+		);
+	}
 
 	function fitTableToContainer() {
 		if (!tableContainer) return;
@@ -67,8 +76,11 @@
 		const availableWidth = tableContainer.clientWidth;
 		if (availableWidth <= 0) return;
 
-		let selectedFontSize = tableFontSizes[tableFontSizes.length - 1];
-		for (const fontSize of tableFontSizes) {
+		const availableFontSizes = usesMobileLandscapeLayout()
+			? mobileTableFontSizes
+			: tableFontSizes;
+		let selectedFontSize = availableFontSizes[availableFontSizes.length - 1];
+		for (const fontSize of availableFontSizes) {
 			tableContainer.style.setProperty('--generic-table-font-size', `${fontSize}px`);
 			// Reading scrollWidth forces layout after changing the font size.
 			const requiredWidth = Math.max(table.scrollWidth, tableContainer.scrollWidth);
@@ -82,7 +94,7 @@
 
 		const renderedRow = table.querySelector('tbody tr td:not([colspan])')?.closest('tr');
 		const renderedRowHeight = renderedRow?.getBoundingClientRect().height;
-		if (renderedRowHeight && !maxStoreValue) {
+		if (renderedRowHeight) {
 			applyCurrentTableShownRows(renderedRowHeight);
 		}
 	}
@@ -97,13 +109,7 @@
 	function handleMaximized(event: any) {
 		maxStoreValue = event.detail.headlineMaximize;
 		maximize();
-		setTimeout(() => {
-			if (maxStoreValue) {
-				changeRowCount(genericTable, tableShownRowsMax);
-			} else {
-				changeRowCount(genericTable, tableShownRows);
-			}
-		}, 0);
+		setTimeout(scheduleTableFit, 0);
 	}
 
 	const dispatch = createEventDispatcher();
@@ -122,15 +128,59 @@
 	const totalCountCache = new Map<string, number>();
 	const filteredCountCache = new Map<string, number>();
 
-	function applyCurrentTableShownRows(rowHeight = 32) {
-		const nextTableShownRows = Math.min(
-			tableShownRowsMax,
-			calculateTableShownRowsForContainer(tableContainer, 10, rowHeight)
+	function calculateMobileShownRows(rowHeight: number): number | undefined {
+		if (!usesMobileLandscapeLayout() || rowHeight <= 0) return undefined;
+
+		const tablePanel = getTablePanel(tableContainer);
+		const tableBody = tableContainer.querySelector('tbody');
+		if (!tablePanel || !tableBody) return undefined;
+
+		const panelRect = tablePanel.getBoundingClientRect();
+		const bodyRect = tableBody.getBoundingClientRect();
+		const controls = Array.from(
+			tableContainer.querySelectorAll<HTMLElement>('.dataTables_info, .dataTables_paginate')
+		)
+			.map((element) => element.getBoundingClientRect())
+			.filter((rect) => rect.height > 0);
+
+		const controlsHeight = controls.length
+			? Math.max(...controls.map((rect) => rect.bottom)) -
+				Math.min(...controls.map((rect) => rect.top))
+			: 0;
+		const panelPaddingBottom = Number.parseFloat(getComputedStyle(tablePanel).paddingBottom) || 0;
+		const horizontalScrollbarHeight = Math.max(
+			0,
+			tableContainer.offsetHeight - tableContainer.clientHeight
 		);
+		const availableRowsHeight =
+			panelRect.bottom -
+			panelPaddingBottom -
+			bodyRect.top -
+			controlsHeight -
+			horizontalScrollbarHeight -
+			6;
+
+		return Math.max(1, Math.floor(availableRowsHeight / rowHeight));
+	}
+
+	function calculateCurrentTableShownRows(rowHeight = 32): number {
+		const measuredMobileRows = calculateMobileShownRows(rowHeight);
+		const rowLimit =
+			maxStoreValue || usesMobileLandscapeLayout()
+				? tableShownRowsMax
+				: tableShownRowsNormalMax;
+		return Math.min(
+			rowLimit,
+			measuredMobileRows ?? calculateTableShownRowsForContainer(tableContainer, 10, rowHeight)
+		);
+	}
+
+	function applyCurrentTableShownRows(rowHeight = 32) {
+		const nextTableShownRows = calculateCurrentTableShownRows(rowHeight);
 		if (nextTableShownRows === tableShownRows) return;
 
 		tableShownRows = nextTableShownRows;
-		if (genericTable && !maxStoreValue) changeRowCount(genericTable, tableShownRows);
+		if (genericTable) changeRowCount(genericTable, tableShownRows);
 	}
 
 	async function getActiveFilter() {
@@ -233,7 +283,7 @@
 
 		calculateTooltip();
 
-		tableShownRows = calculateTableShownRowsForContainer(tableContainer, 10);
+		tableShownRows = calculateCurrentTableShownRows();
 
 		genericTable = createTable(
 			collection,

@@ -17,6 +17,7 @@
 	import { filterActiveStore } from '../../store/filterActiveStore.js';
 	import { addUserFilter } from '../../components/UserFilter';
 	import type { AggregatedValue } from '../../types/query';
+	import { responsiveChartFontSize, usesShortDesktopViewport } from '$lib/responsiveChartSizing';
 
 	const translate = (key: string): string => get(t)(key);
 
@@ -51,6 +52,15 @@
 	});
 
 	let aspectRatio = 1.8;
+
+	function shouldFitMobileContainer(): boolean {
+		return (
+			((typeof document !== 'undefined' &&
+				document.documentElement.dataset.ovisMobileLayout === 'landscape') ||
+				usesShortDesktopViewport()) &&
+			!maximizePatientCohortGenderChart
+		);
+	}
 
 	// Access the store variables
 	let maximizePatientCohortGenderChart: boolean;
@@ -208,11 +218,14 @@
 					]
 				},
 				options: {
+					responsive: true,
+					maintainAspectRatio: !shouldFitMobileContainer(),
 					aspectRatio: aspectRatio,
 					plugins: {
 						legend: {
 							display: true,
-							position: isCCP ? 'top' : 'right'
+							position: isCCP ? 'top' : 'right',
+							labels: { font: { size: responsiveChartFontSize() } }
 						},
 						tooltip: {
 							callbacks: {
@@ -279,38 +292,43 @@
 	}
 </script>
 
-<Headline
-	headlineTitle={$t('distributionByGender')}
-	headlineTooltip={$t('tooltip_PatientCohortGenderChart')}
-	headlineMaximize={maximizePatientCohortGenderChart}
-	headlineShowChart={showChart}
-	headlineIsChart={true}
-	headlineInitialTop5={null}
-	headlineInitialLogarithm={showLogarithm}
-	headlineInputTableData={data}
-	headlineInputTableHeader={headers}
-	headlineChartJSElement={pieChart}
-	headlineD3Element={null}
-	on:chartToggled={handleChartToggled}
-	on:logarithmToggled={handleLogarithmToggled}
-	on:maximized={handleMaximized}
-/>
-<lens-data-passer bind:this={dataPasser}></lens-data-passer>
-<div style={showChart ? '' : 'display: none;'}>
-	<div class="chart-container">
-		<canvas bind:this={pieChart}></canvas>
+<div
+	class="patient-cohort-pie-root"
+	class:maximized={maximizePatientCohortGenderChart}
+>
+	<Headline
+		headlineTitle={$t('distributionByGender')}
+		headlineTooltip={$t('tooltip_PatientCohortGenderChart')}
+		headlineMaximize={maximizePatientCohortGenderChart}
+		headlineShowChart={showChart}
+		headlineIsChart={true}
+		headlineInitialTop5={null}
+		headlineInitialLogarithm={showLogarithm}
+		headlineInputTableData={data}
+		headlineInputTableHeader={headers}
+		headlineChartJSElement={pieChart}
+		headlineD3Element={null}
+		on:chartToggled={handleChartToggled}
+		on:logarithmToggled={handleLogarithmToggled}
+		on:maximized={handleMaximized}
+	/>
+	<lens-data-passer bind:this={dataPasser}></lens-data-passer>
+	<div class="patient-cohort-pie-view" style={showChart ? '' : 'display: none;'}>
+		<div class="chart-container">
+			<canvas bind:this={pieChart}></canvas>
+		</div>
 	</div>
-</div>
 
-<div style={!showChart ? '' : 'display: none;'}>
-	<div class="data-table">
-		<table id="genderChartTable" class="display" style="width:100%">
-			<thead>
-				<tr>
-					<th>{$t('gender')}</th>
-					<th>{$t('count')}</th>
-				</tr>
-			</thead>
-		</table>
+	<div style={!showChart ? '' : 'display: none;'}>
+		<div class="data-table">
+			<table id="genderChartTable" class="display" style="width:100%">
+				<thead>
+					<tr>
+						<th>{$t('gender')}</th>
+						<th>{$t('count')}</th>
+					</tr>
+				</thead>
+			</table>
+		</div>
 	</div>
 </div>

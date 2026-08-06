@@ -258,6 +258,25 @@
 		setMaxLevel();
 	}
 
+	function normalizeSvgViewport(doc: Document): void {
+		const svg = doc.documentElement;
+		if (svg.tagName.toLowerCase() !== 'svg') return;
+
+		if (!svg.getAttribute('viewBox')) {
+			const sourceWidth = Number.parseFloat(svg.getAttribute('width') ?? '') || SVGWidth;
+			const sourceHeight = Number.parseFloat(svg.getAttribute('height') ?? '') || SVGHeight;
+			svg.setAttribute('viewBox', `0 0 ${sourceWidth} ${sourceHeight}`);
+		}
+
+		svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+		svg.setAttribute('width', '100%');
+		svg.setAttribute('height', '100%');
+		svg.style.width = '100%';
+		svg.style.height = '100%';
+		svg.style.display = 'block';
+		svg.style.overflow = 'hidden';
+	}
+
 	async function handleSvgLoad(): Promise<void> {
 		const token = ++loadToken;
 		await tick();
@@ -266,9 +285,7 @@
 		const doc = obj?.contentDocument;
 		if (!obj || !doc) return;
 
-		if (SVGType === 'patient') {
-			doc.documentElement.style.overflow = 'hidden';
-		}
+		normalizeSvgViewport(doc);
 
 		svgDoc = doc;
 		setCatalog();
@@ -931,101 +948,139 @@
 	}
 </script>
 
-<Headline
-	{headlineTitle}
-	{headlineTooltip}
-	headlineMaximize={maxStoreValue}
-	headlineShowChart={showChartStoreValue}
-	headlineIsChart={true}
-	headlineInitialTop5={null}
-	headlineInputTableData={inputArray}
-	headlineInputTableHeader={headers}
-	headlineInitialLogarithm={showLogarithmStoreValue}
-	headlineChartJSElement={null}
-	headlineD3Element={svgObject}
-	headlineLoading={null}
-	on:maximized={handleMaximized}
-	on:chartToggled={handleChartToggled}
-	on:logarithmToggled={handleLogarithmToggled}
-/>
+<div
+	class="generic-svg-root"
+	class:maximized={maxStoreValue}
+	style={`--svg-target-width:${currentSVGWidth}px; --svg-target-height:${currentSVGHeight}px;`}
+>
+	<Headline
+		{headlineTitle}
+		{headlineTooltip}
+		headlineMaximize={maxStoreValue}
+		headlineShowChart={showChartStoreValue}
+		headlineIsChart={true}
+		headlineInitialTop5={null}
+		headlineInputTableData={inputArray}
+		headlineInputTableHeader={headers}
+		headlineInitialLogarithm={showLogarithmStoreValue}
+		headlineChartJSElement={null}
+		headlineD3Element={svgObject}
+		headlineLoading={null}
+		on:maximized={handleMaximized}
+		on:chartToggled={handleChartToggled}
+		on:logarithmToggled={handleLogarithmToggled}
+	/>
 
-<lens-data-passer bind:this={dataPasser}></lens-data-passer>
-<div class="km-tooltip" id="tooltip"></div>
+	<lens-data-passer bind:this={dataPasser}></lens-data-passer>
+	<div class="km-tooltip" id="tooltip"></div>
 
-{#if !mounted}
-	<div class="bigSpinnerContainer">
-		<button class="bigSpinnerButton" style="height:720px">
-			<img class="bigSpinner" id="spinner" src={loadingIcon} alt="Spinner" />
-		</button>
-	</div>
-{/if}
+	{#if !mounted}
+		<div class="loading-view bigSpinnerContainer">
+			<button class="bigSpinnerButton">
+				<img class="bigSpinner" id="spinner" src={loadingIcon} alt="Spinner" />
+			</button>
+		</div>
+	{/if}
 
-<div style={mounted ? '' : 'display: none;'}>
-	<div class="stage" style={showChartStoreValue ? '' : 'display: none;'}>
-		<div class="svgWrapper" style={`width:${currentSVGWidth}px; height:${currentSVGHeight}px;`}>
-			{#if !filterActive && currentLevel > 1}
-				<button on:click={() => navigateBack()} class="iconRoundButton" aria-label="Zurück">
-					<img src={backIcon} alt="back" class="iconRound" />
-				</button>
-			{/if}
+	<div class="svg-content" style={mounted && showChartStoreValue ? '' : 'display: none;'}>
+		<div class="stage">
+			<div class="svgWrapper">
+				{#if !filterActive && currentLevel > 1}
+					<button on:click={() => navigateBack()} class="iconRoundButton" aria-label="Zurück">
+						<img src={backIcon} alt="back" class="iconRound" />
+					</button>
+				{/if}
 
-			{#key currentSVG}
-				<object
-					bind:this={svgObject}
-					title="SVG"
-					type="image/svg+xml"
-					data={currentSVG}
-					width={currentSVGWidth}
-					height={currentSVGHeight}
-					id={SVGType}
-					class="bodymap"
-					on:load={handleSvgLoad}
-				></object>
-			{/key}
+				{#key currentSVG}
+					<object
+						bind:this={svgObject}
+						title="SVG"
+						type="image/svg+xml"
+						data={currentSVG}
+						id={SVGType}
+						class="bodymap"
+						on:load={handleSvgLoad}
+					></object>
+				{/key}
+			</div>
 		</div>
 	</div>
+
+	{#if currentCatalog.startsWith('ICD') || currentCatalog === 'countryCode' || currentCatalog === 'postalCode' || currentCatalog.startsWith('radiation')}
+		<div class="data-table bodymap-table" style={!showChartStoreValue ? '' : 'display: none;'}>
+			<div class="data-table bodymap-table">
+				<table id={tableName} class="display" style="width:100%">
+					<thead>
+						<tr>
+							<th>Label</th>
+							<th>{$t('longText')}</th>
+							<th>{$t('count')}</th>
+						</tr>
+					</thead>
+				</table>
+			</div>
+		</div>
+	{:else}
+		<div class="data-table bodymap-table" style={!showChartStoreValue ? '' : 'display: none;'}>
+			<div class="data-table bodymap-table">
+				<table id={tableName} class="display" style="width:100%">
+					<thead>
+						<tr>
+							<th>Label</th>
+							<th>{$t('count')}</th>
+						</tr>
+					</thead>
+				</table>
+			</div>
+		</div>
+	{/if}
 </div>
 
-{#if currentCatalog.startsWith('ICD') || currentCatalog === 'countryCode' || currentCatalog === 'postalCode' || currentCatalog.startsWith('radiation')}
-	<div class="data-table bodymap-table" style={!showChartStoreValue ? '' : 'display: none;'}>
-		<div class="data-table bodymap-table">
-			<table id={tableName} class="display" style="width:100%">
-				<thead>
-					<tr>
-						<th>Label</th>
-						<th>{$t('longText')}</th>
-						<th>{$t('count')}</th>
-					</tr>
-				</thead>
-			</table>
-		</div>
-	</div>
-{:else}
-	<div class="data-table bodymap-table" style={!showChartStoreValue ? '' : 'display: none;'}>
-		<div class="data-table bodymap-table">
-			<table id={tableName} class="display" style="width:100%">
-				<thead>
-					<tr>
-						<th>Label</th>
-						<th>{$t('count')}</th>
-					</tr>
-				</thead>
-			</table>
-		</div>
-	</div>
-{/if}
-
 <style>
+	.generic-svg-root {
+		display: flex;
+		flex-direction: column;
+		width: 100%;
+		height: 100%;
+		min-width: 0;
+		min-height: 0;
+		overflow: hidden;
+	}
+
+	.generic-svg-root.maximized {
+		height: calc(var(--svg-target-height) + 36px);
+		overflow: visible;
+	}
+
+	.loading-view,
+	.svg-content {
+		flex: 1 1 auto;
+		width: 100%;
+		min-width: 0;
+		min-height: 0;
+	}
+
+	.loading-view .bigSpinnerButton {
+		width: 100%;
+		height: 100%;
+	}
+
 	.stage {
 		display: flex;
 		justify-content: center;
 		align-items: center;
-		height: auto;
+		width: 100%;
+		height: 100%;
+		min-width: 0;
+		min-height: 0;
 	}
 
 	.svgWrapper {
 		position: relative;
-		display: inline-block;
+		width: 100%;
+		height: 100%;
+		min-width: 0;
+		min-height: 0;
 		line-height: 0;
 	}
 
@@ -1063,6 +1118,8 @@
 
 	.bodymap {
 		display: block;
+		width: 100%;
+		height: 100%;
 	}
 
 	:global(.bodymap-table) {

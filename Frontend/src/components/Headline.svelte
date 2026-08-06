@@ -128,9 +128,9 @@
 
 <!-- prettier-ignore -->
 <div>
-	<div class="straight-line-container">
+	<div class="straight-line-container headline-row">
 		<div class="headline-title-container">
-			<b>{headlineTitle}</b>
+			<b class="headline-title" title={headlineTitle}>{headlineTitle}</b>
 			{#if headlineLoading}
 				<i
 					>→ {translate(headlineLoadingComplete ? 'loadingCapReached' : 'loadingContent')}</i
@@ -264,3 +264,39 @@
 		</div>
 	</div>
 </div>
+
+<style>
+	.headline-row {
+		flex-wrap: nowrap;
+		gap: 4px;
+		min-width: 0;
+	}
+
+	.headline-title-container {
+		flex: 1 1 auto;
+		justify-content: flex-start;
+		min-width: 0;
+		white-space: nowrap;
+		overflow: hidden;
+	}
+
+	.headline-title {
+		display: block;
+		min-width: 0;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+
+	.icons-container {
+		display: flex;
+		flex: 0 0 auto;
+		flex-wrap: nowrap;
+		align-items: center;
+		white-space: nowrap;
+	}
+
+	.icons-container :global(button) {
+		flex: 0 0 auto;
+	}
+</style>

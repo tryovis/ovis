@@ -24,6 +24,7 @@
   import { tokenService } from '../services/tokenService.js';
   import { env } from '$env/dynamic/public';
   import { apiPath, appPath, publicAssetPath, iconPath } from '$lib/path-utils';
+  import { version as appVersion } from '../../package.json';
 
   const loadingIcon = iconPath('spinner.svg');
 
@@ -87,6 +88,55 @@
   let currentUserDB: any;
   let isInitializing = true;
   let lastUpdate: string | null = null; // State für Ausgabe
+  let showMobilePortraitHint = false;
+  let mobileLayoutFrame: number | undefined;
+  let mobileLandscapeScale: number | undefined;
+  const mobileLayoutWidth = 1600;
+  const defaultViewportContent = 'width=device-width, initial-scale=1, viewport-fit=cover';
+
+  function updateMobileLayout() {
+    if (typeof window === 'undefined') return;
+
+    const viewportWidth = window.visualViewport?.width ?? window.innerWidth;
+    const viewportHeight = window.visualViewport?.height ?? window.innerHeight;
+    const isCoarsePointer = window.matchMedia('(pointer: coarse)').matches;
+    const shortestScreenSide = Math.min(window.screen.width, window.screen.height);
+    const isPhoneSized = shortestScreenSide <= 900;
+    const isMobileDevice = isCoarsePointer && isPhoneSized;
+    const screenOrientation = window.screen.orientation?.type;
+    const isLandscape = screenOrientation
+      ? screenOrientation.startsWith('landscape')
+      : viewportWidth > viewportHeight;
+    const root = document.documentElement;
+    const viewportMeta = document.querySelector<HTMLMetaElement>('meta[name="viewport"]');
+
+    showMobilePortraitHint = isMobileDevice && !isLandscape;
+
+    if (isMobileDevice && isLandscape) {
+      root.dataset.ovisMobileLayout = 'landscape';
+      if (mobileLandscapeScale == null) {
+        const visualScale = window.visualViewport?.scale ?? 1;
+        const physicalViewportWidth = viewportWidth * visualScale;
+        mobileLandscapeScale = Math.min(1, physicalViewportWidth / mobileLayoutWidth);
+      }
+
+      const viewportContent = `width=${mobileLayoutWidth}, initial-scale=${mobileLandscapeScale.toFixed(5)}, viewport-fit=cover`;
+      if (viewportMeta && viewportMeta.content !== viewportContent) {
+        viewportMeta.content = viewportContent;
+      }
+    } else {
+      root.dataset.ovisMobileLayout = isMobileDevice ? 'portrait' : 'desktop';
+      mobileLandscapeScale = undefined;
+      if (viewportMeta && viewportMeta.content !== defaultViewportContent) {
+        viewportMeta.content = defaultViewportContent;
+      }
+    }
+  }
+
+  function scheduleMobileLayoutUpdate() {
+    if (mobileLayoutFrame != null) cancelAnimationFrame(mobileLayoutFrame);
+    mobileLayoutFrame = requestAnimationFrame(updateMobileLayout);
+  }
   // Initialize token validation on app startup
   const userAgreementFiles: Record<string, string> = {
     de: publicAssetPath("/downloads/ovis_userAgreement_de_template.pdf"),
@@ -109,6 +159,11 @@
   }
   $: userAgreementFile = getUserAgreementPath($locale);
   onMount(async () => {
+    updateMobileLayout();
+    window.addEventListener('resize', scheduleMobileLayoutUpdate);
+    window.addEventListener('orientationchange', scheduleMobileLayoutUpdate);
+    window.visualViewport?.addEventListener('resize', scheduleMobileLayoutUpdate);
+
     // --- NEU: userStore abonnieren und Linkfarbe anwenden ---
     unsubscribeUserStore = userStore.subscribe((v: any) => {
       // Falls dein Store anders strukturiert ist, ggf. anpassen:
@@ -268,6 +323,13 @@ function startUpdateTimer() {
       document.removeEventListener('mousemove', resetInactivityTimer);
       document.removeEventListener('keydown', resetInactivityTimer);
       document.removeEventListener('click', resetInactivityTimer);
+      window.removeEventListener('resize', scheduleMobileLayoutUpdate);
+      window.removeEventListener('orientationchange', scheduleMobileLayoutUpdate);
+      window.visualViewport?.removeEventListener('resize', scheduleMobileLayoutUpdate);
+      if (mobileLayoutFrame != null) cancelAnimationFrame(mobileLayoutFrame);
+      delete document.documentElement.dataset.ovisMobileLayout;
+      const viewportMeta = document.querySelector<HTMLMetaElement>('meta[name="viewport"]');
+      if (viewportMeta) viewportMeta.content = defaultViewportContent;
     }
     await updateSessionTime(true);
   });
@@ -333,6 +395,15 @@ function startUpdateTimer() {
 }
 
 </script>
+{#if showMobilePortraitHint && storeLoaded}
+  <div class="mobile-orientation-hint" role="status">
+    <div class="mobile-orientation-card">
+      <strong>OVIS benötigt Querformat</strong>
+      <span>Bitte drehe dein Gerät, um die Anwendung zu verwenden.</span>
+      <span class="mobile-orientation-symbol" aria-hidden="true">↻</span>
+    </div>
+  </div>
+{/if}
 {#if isInitializing}
   <div class="initializing-spinner-container" role="status" aria-label="Loading">
     <img
@@ -436,7 +507,7 @@ function startUpdateTimer() {
     </nav>
 
     <!-- Rechts -->
-    <div class="footer-right"><a href={appPath('/footer-version')}><span>Version 1.1.0</span></a></div>
+    <div class="footer-right"><a href={appPath('/footer-version')}><span>Version {appVersion}</span></a></div>
   </div>
 </footer>
 

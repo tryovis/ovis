@@ -39,6 +39,13 @@
 
 	let mounted = false;
 
+	function usesMobileLandscapeLayout(): boolean {
+		return (
+			typeof document !== 'undefined' &&
+			document.documentElement.dataset.ovisMobileLayout === 'landscape'
+		);
+	}
+
 	function isMounted() {
 		return mounted;
 	}
@@ -168,10 +175,12 @@
 					},
 					y: {
 						type: 'category',
+						offset: true,
 						title: { display: true, text: $t('event') }
 					}
 				},
 				aspectRatio: aspectRatio,
+				maintainAspectRatio: !usesMobileLandscapeLayout(),
 				plugins: {
 					legend: { display: false },
 					tooltip: {
@@ -199,6 +208,7 @@
 	}
 </script>
 
+<div class="patient-event-chart-root">
 <Headline
 	headlineTitle={$t('patientSingleEventChartTitle')}
 	headlineTooltip={$t('tooltip_SinglePatientEventOverview')}
@@ -214,11 +224,55 @@
 	on:maximized={handleMaximized}
 />
 
-<div style={showChart ? '' : 'display: none;'}>
+<div class="patient-event-chart-view" style={showChart ? '' : 'display: none;'}>
 	<div class="chart-container">
 		<canvas bind:this={lineCanvas}></canvas>
 	</div>
 </div>
+
+<style>
+	.patient-event-chart-root {
+		display: contents;
+	}
+
+	:global(html[data-ovis-mobile-layout='landscape']) .patient-event-chart-root {
+		display: flex;
+		flex-direction: column;
+		height: 100%;
+		min-width: 0;
+		min-height: 0;
+		overflow: hidden;
+	}
+
+	:global(html[data-ovis-mobile-layout='landscape']) .patient-event-chart-view {
+		display: flex;
+		flex: 1 1 auto;
+		flex-direction: column;
+		min-width: 0;
+		min-height: 0;
+		overflow: hidden;
+	}
+
+	:global(html[data-ovis-mobile-layout='landscape'])
+		.patient-event-chart-view
+		.chart-container {
+		position: relative;
+		flex: 1 1 auto;
+		width: 100%;
+		min-width: 0;
+		min-height: 0;
+		overflow: hidden;
+	}
+
+	:global(html[data-ovis-mobile-layout='landscape'])
+		.patient-event-chart-view
+		.chart-container
+		canvas {
+		display: block;
+		width: 100% !important;
+		height: 100% !important;
+	}
+</style>
 
 <div style={!showChart ? '' : 'display: none;'}>
 	<div class="data-table">
@@ -232,4 +286,5 @@
 			</thead>
 		</table>
 	</div>
+</div>
 </div>

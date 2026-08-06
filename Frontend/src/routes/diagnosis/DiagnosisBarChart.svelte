@@ -452,6 +452,7 @@
 			},
 			options: {
 				responsive: true,
+				maintainAspectRatio: false,
 				scales: {
 					y: {
 						type: 'linear',
@@ -780,6 +781,7 @@
 	}
 </script>
 
+<div class="diagnosis-bar-chart-root">
 <Headline
 	headlineTitle={$t('tumorFrequencies')}
 	headlineTooltip={$t('tooltip_DiagnosisBarChart')}
@@ -798,7 +800,7 @@
 />
 <!-- prettier-ignore -->
 <lens-data-passer bind:this={dataPasser}></lens-data-passer>
-<div class="straight-line-container">
+<div class="straight-line-container diagnosis-chart-controls">
 	<div class="dropdown-container">
 		<div class="hdropdown">
 			<label for="dimension">{$t('xAxis')}:</label><br />
@@ -1252,13 +1254,13 @@
 	</div>
 </div>
 
-<div style={showChart ? '' : 'display: none;'}>
-	<div style={mounted ? '' : 'display: none;'}>
+<div class="diagnosis-chart-view" style={showChart ? '' : 'display: none;'}>
+	<div class="diagnosis-chart-content" style={mounted ? '' : 'display: none;'}>
 		<div class="chart-container">
 			<!-- prettier-ignore -->
 			<canvas bind:this={barChart}></canvas>
 		</div>
-		<div class="straight-line-container">
+		<div class="straight-line-container diagnosis-chart-slider">
 			<span class="min-slider">{minSliderLabel}</span>
 			<div class="slider-container">
 				<!-- prettier-ignore -->
@@ -1294,3 +1296,49 @@
 		{/key}
 	</div>
 </div>
+</div>
+
+<style>
+	.diagnosis-bar-chart-root {
+		display: flex;
+		flex-direction: column;
+		height: 100%;
+		min-width: 0;
+		min-height: 0;
+		overflow: hidden;
+	}
+
+	.diagnosis-chart-controls,
+	.diagnosis-chart-slider {
+		flex: 0 0 auto;
+	}
+
+	.diagnosis-chart-view,
+	.diagnosis-chart-content {
+		flex: 1 1 auto;
+		min-width: 0;
+		min-height: 0;
+		overflow: hidden;
+	}
+
+	.diagnosis-chart-content {
+		display: flex;
+		flex-direction: column;
+		height: 100%;
+	}
+
+	.chart-container {
+		position: relative;
+		flex: 1 1 auto;
+		width: 100%;
+		min-width: 0;
+		min-height: 0;
+		overflow: hidden;
+	}
+
+	.chart-container canvas {
+		display: block;
+		width: 100% !important;
+		height: 100% !important;
+	}
+</style>

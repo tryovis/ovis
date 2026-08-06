@@ -17,6 +17,7 @@
 	import { addUserFilter } from '../../components/UserFilter';
 	import { reloadOnly } from '../../store/reloadStore';
 	import type { AggregatedValue } from '../../types/query';
+	import { responsiveChartFontSize, usesMobileLandscapeLayout } from '$lib/responsiveChartSizing';
 
 	// Reactive translation function
 	const translate = (key: string): string => get(t)(key);
@@ -196,16 +197,28 @@
 				]
 			},
 			options: {
+				responsive: true,
+				maintainAspectRatio: !usesMobileLandscapeLayout(),
 				scales: {
 					x: {
 						type: 'linear',
 						beginAtZero: true,
-						title: { display: true, text: translate('ageAtDiagnosis') }
+						title: {
+							display: true,
+							text: translate('ageAtDiagnosis'),
+							font: { size: responsiveChartFontSize() }
+						},
+						ticks: { font: { size: responsiveChartFontSize() } }
 					},
 					y: {
 						type: showLogarithm ? 'logarithmic' : 'linear',
 						beginAtZero: false,
-						title: { display: true, text: translate('numOfTumorCases') }
+						title: {
+							display: true,
+							text: translate('numOfTumorCases'),
+							font: { size: responsiveChartFontSize() }
+						},
+						ticks: { font: { size: responsiveChartFontSize() } }
 					}
 				},
 				aspectRatio: aspectRatio,

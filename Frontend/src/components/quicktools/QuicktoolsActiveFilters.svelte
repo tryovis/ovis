@@ -380,7 +380,7 @@
     <div class="or-block">
         <div class="and-block">
             {#each andNode.children as orNode, orIndex}
-                <div class="grid-container">
+                <div class="filter-entry-grid">
                     {#if orNode.children[0].key !=="isTumor"}
                     <button class="label-item" on:click={() => handleRemoveChildrenByKey(orNode.children[0].key)}>
                         <img src={removeIcon} alt="x" class="remove-icon-label" />
@@ -532,7 +532,7 @@
         width: 100%;
     }
 
-    .grid-container {
+    .filter-entry-grid {
         display: grid;
         grid-template-columns: 4fr 1fr 4fr;
         align-items: flex-start;
@@ -540,8 +540,9 @@
     }
 
     .query-output {
-        max-height: 180px;
-        min-height: 180px;
+		height: var(--ovis-active-filter-height);
+		max-height: var(--ovis-active-filter-height);
+		min-height: var(--ovis-active-filter-height);
         overflow-y: auto;
     }
 

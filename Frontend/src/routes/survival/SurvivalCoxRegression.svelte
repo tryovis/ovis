@@ -12,6 +12,7 @@
 	import { Chart,  registerables } from 'chart.js';
 	import { t, locale, locales } from "../../store/languageStore";
 	import { iconPath } from '$lib/path-utils';
+	import { responsiveChartFontSize, usesCompactChartLayout } from '$lib/responsiveChartSizing';
 
 	Chart.register(...registerables, annotationPlugin);
 
@@ -322,6 +323,7 @@
 				options: {
 					aspectRatio: aspectRatio,
 					responsive: true,
+					maintainAspectRatio: !usesCompactChartLayout(),
 					plugins: {
 						legend: {
 							display: false
@@ -331,7 +333,8 @@
 						x: {
 							display: true,
 							max: 3.5,
-							beginAtZero: true
+							beginAtZero: true,
+							ticks: { font: { size: responsiveChartFontSize() } }
 						},
 						y: {
 							display: true,
@@ -340,6 +343,8 @@
 							ticks: {
 								crossAlign: 'center',
 								stepSize: 1,
+								font: { size: responsiveChartFontSize() },
+								padding: usesCompactChartLayout() ? 2 : 3,
 								callback: function (_tick, idx, _labels) {
 									return getYLabel(idx);
 								}
@@ -399,14 +404,35 @@
 <style>
 	.wip-wrapper {
 		position: relative;
+		display: flex;
+		flex-direction: column;
+		height: 100%;
+		min-width: 0;
+		min-height: 0;
+		overflow: hidden;
 	}
 
 	.chart-wrapper {
 		position: relative;
+		flex: 1 1 auto;
+		min-width: 0;
+		min-height: 0;
+		overflow: hidden;
 	}
 
 	.chart-container {
 		position: relative;
+		width: 100%;
+		height: 100%;
+		min-width: 0;
+		min-height: 0;
+		overflow: hidden;
+	}
+
+	.chart-container canvas {
+		display: block;
+		width: 100% !important;
+		height: 100% !important;
 	}
 
 	/* Overlay blockiert Klicks über Headline + Chart */
