@@ -4,6 +4,7 @@
 	import { t, locale, locales } from "../../store/languageStore";
 	import GenericStackedBarChart from '../../components/GenericStackedBarChart.svelte';
 	import { configStore } from '../../store/configStore';
+	import { onDestroy } from 'svelte';
 
 	let headers = [ $t("complicationLong"), $t("grade"), $t("complGradeCount"), $t("complCount") ];
 
@@ -13,13 +14,18 @@
 	let MolecularMarkerChartShowChart: boolean;
 	let MolecularMarkerChartShowTop5: boolean;
 
-	maxStore.subscribe((value: any) => {
+	const unsubscribeMaxStore = maxStore.subscribe((value: any) => {
 		({ maximizeMolecularMarkerChart } = value);
 	});
 
-	configStore.subscribe((value: any) => {
+	const unsubscribeConfigStore = configStore.subscribe((value: any) => {
 		MolecularMarkerChartShowChart = value.MolecularMarkerChartShowChart;
   		MolecularMarkerChartShowTop5 = value.MolecularMarkerChartShowTop5;
+	});
+
+	onDestroy(() => {
+		unsubscribeMaxStore();
+		unsubscribeConfigStore();
 	});
 
 	function handleMaximized(event: any) {

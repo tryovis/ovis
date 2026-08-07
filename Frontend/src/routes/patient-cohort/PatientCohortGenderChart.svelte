@@ -17,7 +17,7 @@
 	import { filterActiveStore } from '../../store/filterActiveStore.js';
 	import { addUserFilter } from '../../components/UserFilter';
 	import type { AggregatedValue } from '../../types/query';
-	import { responsiveChartFontSize, usesShortDesktopViewport } from '$lib/responsiveChartSizing';
+	import { usesMobileLandscapeLayout } from '$lib/responsiveChartSizing';
 
 	const translate = (key: string): string => get(t)(key);
 
@@ -53,13 +53,12 @@
 
 	let aspectRatio = 1.8;
 
-	function shouldFitMobileContainer(): boolean {
-		return (
-			((typeof document !== 'undefined' &&
-				document.documentElement.dataset.ovisMobileLayout === 'landscape') ||
-				usesShortDesktopViewport()) &&
-			!maximizePatientCohortGenderChart
-		);
+	function shouldFillContainer(): boolean {
+		return !maximizePatientCohortGenderChart;
+	}
+
+	function chartAspectRatio(): number {
+		return usesMobileLandscapeLayout() && !maximizePatientCohortGenderChart ? 2.25 : aspectRatio;
 	}
 
 	// Access the store variables
@@ -219,13 +218,18 @@
 				},
 				options: {
 					responsive: true,
-					maintainAspectRatio: !shouldFitMobileContainer(),
-					aspectRatio: aspectRatio,
+					maintainAspectRatio: !shouldFillContainer(),
+					aspectRatio: chartAspectRatio(),
 					plugins: {
 						legend: {
 							display: true,
 							position: isCCP ? 'top' : 'right',
-							labels: { font: { size: responsiveChartFontSize() } }
+							labels: {
+								boxWidth: 20,
+								boxHeight: 8,
+								padding: 8,
+								font: { size: 10 }
+							}
 						},
 						tooltip: {
 							callbacks: {

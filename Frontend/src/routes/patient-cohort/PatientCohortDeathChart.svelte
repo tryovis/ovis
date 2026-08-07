@@ -19,7 +19,7 @@
 	import type { AggregatedValue } from '../../types/query';
 	import {
 		responsiveLegendLabels,
-		usesShortDesktopViewport
+		usesMobileLandscapeLayout
 	} from '$lib/responsiveChartSizing';
 
 	// Reactive translation function
@@ -55,13 +55,14 @@
 
 	let aspectRatio = 1.8;
 
-	function shouldFitMobileContainer(): boolean {
-		return (
-			((typeof document !== 'undefined' &&
-				document.documentElement.dataset.ovisMobileLayout === 'landscape') ||
-				usesShortDesktopViewport()) &&
-			!maximizePatientCohortDeathChart
-		);
+	function shouldFillContainer(): boolean {
+		return !maximizePatientCohortDeathChart;
+	}
+
+	function chartAspectRatio(): number {
+		if (usesMobileLandscapeLayout() && !maximizePatientCohortDeathChart) return 2.25;
+		if (!maximizePatientCohortDeathChart) return 1;
+		return aspectRatio;
 	}
 
 	// Access the store variables
@@ -187,12 +188,16 @@
 		console.log('AFTER ADD ITEM');
 	};
 
-	function wrapVitalStatusLegendLabel(label: unknown): string | string[] {
+	function compactVitalStatusLegendLabel(label: unknown): string {
 		const text = String(label ?? '');
 		const detailStart = text.indexOf(' (');
 
 		if (detailStart > 0) {
-			return [text.slice(0, detailStart), text.slice(detailStart + 1)];
+			const title = text.slice(0, detailStart);
+			const detail = text.slice(detailStart + 2).replace(/\)$/, '');
+			const separator = detail.lastIndexOf(':');
+			const status = separator >= 0 ? detail.slice(separator + 1).trim() : detail;
+			return `${title}: ${status}`;
 		}
 
 		return text;
@@ -228,19 +233,22 @@
 				},
 				options: {
 					responsive: true,
-					maintainAspectRatio: !shouldFitMobileContainer(),
-					aspectRatio: aspectRatio,
+					maintainAspectRatio: !shouldFillContainer(),
+					aspectRatio: chartAspectRatio(),
 					plugins: {
 						legend: {
-							display: true,
+							display: maximizePatientCohortDeathChart,
 							position: isCCP ? 'top' : 'right',
 							labels: {
 								...responsiveLegendLabels(),
-								generateLabels: (chart) =>
-									Chart.defaults.plugins.legend.labels.generateLabels(chart).map((item) => ({
-										...item,
-										text: wrapVitalStatusLegendLabel(item.text)
-									}))
+								boxWidth: 20,
+								boxHeight: 8,
+								padding: 8,
+								font: {
+									...responsiveLegendLabels().font,
+									size: 10,
+									weight: 'normal'
+								}
 							}
 						},
 						tooltip: {
@@ -343,6 +351,17 @@
 		<div class="chart-container">
 			<canvas bind:this={pieChart}></canvas>
 		</div>
+		<div class="vital-status-legend" aria-label={$t('vitalStatus')}>
+			{#each inputArray.label as label, index}
+				<div class="vital-status-legend-item">
+					<span
+						class="vital-status-swatch"
+						style={`background-color: ${colorPalette[index] ?? 'transparent'}`}
+					></span>
+					<span>{compactVitalStatusLegendLabel(label)}</span>
+				</div>
+			{/each}
+		</div>
 	</div>
 
 	<div style={!showChart ? '' : 'display: none;'}>
@@ -358,3 +377,73 @@
 		</div>
 	</div>
 </div>
+
+<style>
+	.patient-cohort-pie-root:not(.maximized) .patient-cohort-pie-view {
+		display: flex;
+		width: 100%;
+		min-width: 0;
+		min-height: 0;
+	}
+
+	.patient-cohort-pie-root:not(.maximized) .patient-cohort-pie-view > .chart-container {
+		flex: 1 1 0;
+		width: auto;
+		min-width: 0;
+	}
+
+	.vital-status-legend {
+		display: flex;
+		flex: 0 0 clamp(135px, 38%, 170px);
+		flex-direction: column;
+		justify-content: center;
+		gap: 5px;
+		min-width: 0;
+		overflow: hidden;
+		font-size: 11px;
+		font-weight: 400;
+		line-height: 1.15;
+	}
+
+	.patient-cohort-pie-root.maximized .vital-status-legend {
+		display: none;
+	}
+
+	:global(html[data-ovis-mobile-layout='landscape'])
+		.patient-cohort-pie-root:not(.maximized)
+		.patient-cohort-pie-view
+		> .chart-container {
+		flex: 1 1 0;
+		width: auto;
+		min-width: 0;
+	}
+
+	:global(html[data-ovis-mobile-layout='landscape'])
+		.patient-cohort-pie-root:not(.maximized)
+		.vital-status-legend {
+		flex: 0 0 112px;
+		gap: 3px;
+		font-size: 9px;
+		line-height: 1.1;
+	}
+
+	.vital-status-legend-item {
+		display: flex;
+		align-items: flex-start;
+		gap: 4px;
+		min-width: 0;
+		font-weight: 400;
+	}
+
+	.vital-status-legend-item > :last-child {
+		min-width: 0;
+		white-space: normal;
+		overflow-wrap: anywhere;
+	}
+
+	.vital-status-swatch {
+		flex: 0 0 12px;
+		height: 7px;
+		margin-top: 1px;
+	}
+</style>

@@ -17,15 +17,23 @@
           {
             id: "v1.2.0",
             version: "1.2.0",
-            date: "05.08.2026",
-            title: "Responsive Layout Patch",
+            date: "06.08.2026",
+            title: "Responsive Layout, Features and Performance Patch",
             changes: [
               "Fixed several layout and overflow issues, including duplicate page scrollbars, unnecessary horizontal and vertical scrollbars, and content extending beyond the footer",
               "Fixed clipped tooltips and predefined catalogue submenus in the compact quicktools layout",
               "Added adaptive height handling so OVIS and its footer fit common browser configurations with toolbars, bookmarks bars, and other reduced-height viewports",
               "Expanded layout support beyond the original 1903 px maximum width and fixed 820 px content-height target to additional widescreen and laptop-sized viewports",
               "Added a mobile landscape layout and improved mobile usability for navigation, quicktools, charts, tables, SVG maps, and maximized views",
-              "Improved responsive sizing of Chart.js charts, legends, tables, and SVG maps while preserving the established primary desktop layout"
+              "Improved responsive sizing of Chart.js charts, legends, tables, and SVG maps while preserving the established primary desktop layout",
+              "Added configurable user defaults for chart or table display and Top 5/Top 10 chart summaries",
+              "Added compact chart status lines that show how many result categories are currently visible",
+              "Further improved stacked bar chart performance through linear server-side result processing, lazy table preparation, and proper chart lifecycle cleanup",
+              "Added postal-code drill-down and demo coverage for Ulm and Wuerzburg, including updated geographic map source documentation",
+              "Extended Wuerzburg tumor board import and export support",
+              "Added a demo test account with reliable role bootstrapping for existing databases",
+              "Expanded catalogue support for future ICD-10 tumor codes and added configurable ONKOSTAR patient master filters",
+              "Improved study patient sorting by cohort count"
             ],
             expanded: true
           },

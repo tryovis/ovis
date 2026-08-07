@@ -21,6 +21,8 @@ export interface UserRecord {
 	lastModifiedBy: string | null;
 	colorTheme: string;
 	darkMode: boolean;
+	chartShowTop5: boolean | null;
+	chartHideNullValues: boolean | null;
 	language: string;
 }
 
@@ -32,6 +34,8 @@ export interface UserInput {
 	pseudonymization?: boolean;
 	colorTheme?: string;
 	darkMode?: boolean;
+	chartShowTop5?: boolean;
+	chartHideNullValues?: boolean;
 	language?: string;
 	firstLogin?: number;
 	lastLogin?: number;
@@ -142,6 +146,8 @@ export const createUser = (
 			lastModifiedAt: null,
 			lastModifiedBy: '',
 			darkMode: false,
+			chartShowTop5: true,
+			chartHideNullValues: true,
 			colorTheme: 'CCCMunich',
 			language: 'de'
 		}
@@ -196,6 +202,8 @@ export const getUser = (
                         lastModifiedBy,
                         colorTheme,
                         darkMode,
+                        chartShowTop5,
+                        chartHideNullValues,
                         language
 
                     }

@@ -274,7 +274,14 @@
     }
 
     .quicktool-label-container {
+        display: flex;
         align-items: center;
+        gap: 0.375rem;
+        flex-wrap: nowrap;
+    }
+
+    .quicktool-label-container > b {
+        white-space: nowrap;
     }
 
     .quicktool-label-container > div {

@@ -21,35 +21,44 @@ module.exports.agg = [
 	}
 ];
 
-module.exports.genCategoryGroupedResult = (raw) => {
-	let res = { category: [], groups: [] };
-	let grades = new Set();
-	raw.forEach((it) => {
-		res.category.push(it._id);
-		it.com.forEach((co) => grades.add(co.grade));
-	});
+const genCategoryGroupedResult = (raw = []) => {
+	const category = new Array(raw.length);
+	const groupLabels = [];
+	const groupIndexByLabel = new Map();
 
-	grades.forEach((it) =>
-		res.groups.push({
-			count: Array(res.category.length).fill(0),
-			label: it
-		})
-	);
+	for (let categoryIndex = 0; categoryIndex < raw.length; categoryIndex++) {
+		const item = raw[categoryIndex];
+		category[categoryIndex] = item._id;
 
-	raw.forEach((it) => {
-		categoryIndex = res.category.indexOf(it._id);
-		it.com.forEach((co) => {
-			const found = res.groups.find(({ label }) => co.grade === label);
-			found.count[categoryIndex] = co.count;
-		});
-	});
-	return res;
+		for (const groupedCount of item.com ?? []) {
+			if (!groupIndexByLabel.has(groupedCount.grade)) {
+				groupIndexByLabel.set(groupedCount.grade, groupLabels.length);
+				groupLabels.push(groupedCount.grade);
+			}
+		}
+	}
+
+	const groups = groupLabels.map((label) => ({
+		count: Array(raw.length).fill(0),
+		label
+	}));
+
+	for (let categoryIndex = 0; categoryIndex < raw.length; categoryIndex++) {
+		for (const groupedCount of raw[categoryIndex].com ?? []) {
+			const groupIndex = groupIndexByLabel.get(groupedCount.grade);
+			groups[groupIndex].count[categoryIndex] = groupedCount.count;
+		}
+	}
+
+	return { category, groups };
 };
+
+module.exports.genCategoryGroupedResult = genCategoryGroupedResult;
 
 module.exports.getCategoryGroupedRes = async (db, col, filter) => {
 	let agg = [];
 	if (filter) agg = await filter2match({ value: filter, column: col, db });
 	agg.push(...this.agg);
 	let res = await db.collection(col).aggregate(agg).toArray();
-	return this.genCategoryGroupedResult(res);
+	return genCategoryGroupedResult(res);
 };

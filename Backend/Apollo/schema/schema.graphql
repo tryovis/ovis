@@ -97,6 +97,8 @@ module.exports = `#graphql
         language: String
         colorTheme: String
         darkMode: Boolean
+        chartShowTop5: Boolean
+        chartHideNullValues: Boolean
         pseudonymization: Boolean
         userFilter: [String]
         role: String
@@ -119,6 +121,8 @@ module.exports = `#graphql
         language: String
         colorTheme: String
         darkMode: Boolean
+        chartShowTop5: Boolean
+        chartHideNullValues: Boolean
         pseudonymization: Boolean
         userFilter: [String]
         role: String

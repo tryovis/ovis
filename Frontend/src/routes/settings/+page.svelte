@@ -3,6 +3,7 @@
 	import UserSettingsThemePicker from './UserSettingsThemePicker.svelte';
 	import UserSettingsLanguagePicker from './UserSettingsLanguagePicker.svelte';
 	import UserSettingsFilterDisplay from './UserSettingsFilterDisplay.svelte';
+	import UserSettingsChartDisplay from './UserSettingsChartDisplay.svelte';
 	import { t, locale, locales } from '../../store/languageStore';
 	import { iconPath } from '$lib/path-utils';
 
@@ -38,6 +39,10 @@
 
 <div class="box_style box_level2 table-chart">
 	<UserSettingsLanguagePicker />
+</div>
+
+<div class="box_style box_level2 table-chart">
+	<UserSettingsChartDisplay />
 </div>
 
 <div class="box_style box_level2 table-chart">

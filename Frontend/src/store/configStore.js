@@ -4,6 +4,7 @@ import { t, locale, locales } from "../store/languageStore";
 import { get } from "svelte/store";
 import SurvivalKaplanMeierChart from '../routes/survival/SurvivalKaplanMeierChart.svelte';
 import SurvivalFollowUpAssessment from '../routes/survival/SurvivalFollowUpAssessment.svelte';
+import { applyChartDisplayPreferencesToConfig } from './chartDisplayPreferences.js';
 
 const currentYear = new Date().getFullYear();
 const selectedFollowUpYear = currentYear - 1;
@@ -178,3 +179,9 @@ export const configStore = writable({
     PatientSingleDiagnosisMapShowLogarithm: false,
     PatientSingleDiagnosisMapShowChart: true,
 });
+
+export function applyChartDisplayPreferences(preferences) {
+    configStore.update((config) =>
+        applyChartDisplayPreferencesToConfig(config, preferences)
+    );
+}

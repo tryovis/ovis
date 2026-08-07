@@ -10,6 +10,7 @@
 	import { tokenService } from '../services/tokenService.js';
 	import { iconPath, publicAssetPath } from '$lib/path-utils';
 	import { env } from '$env/dynamic/public';
+	import { resolveChartDisplayPreferences } from '../store/chartDisplayPreferences.js';
 
 	interface KeycloakTokens {
 		access_token: string;
@@ -71,12 +72,15 @@
 			}
 
 			const selectedPalette = colorArrays.find((p) => p.name === defaultUser.colorTheme);
+			const chartPreferences = resolveChartDisplayPreferences(defaultUser);
 
 			const userToStore = {
 				currentUser: defaultUser._id,
 				currentRole: defaultUser.role,
 				currentFilter: defaultUser.userFilter?.[defaultUser.userFilter.length - 1] ?? null,
 				darkMode: defaultUser.darkMode,
+				chartShowTop5: chartPreferences.showTop5,
+				chartHideNullValues: chartPreferences.hideNullValues,
 				pseudonymization: defaultUser.pseudonymization,
 				paletteName: defaultUser.colorTheme,
 				colorPalette: selectedPalette?.colors ?? [],
@@ -131,12 +135,15 @@
 			}
 
 			const selectedPalette = colorArrays.find((p) => p.name === matchingUser.colorTheme);
+			const chartPreferences = resolveChartDisplayPreferences(matchingUser);
 
 			const userToStore = {
 				currentUser: matchingUser._id,
 				currentRole: matchingUser.role,
 				currentFilter: matchingUser.userFilter?.[matchingUser.userFilter.length - 1] ?? null,
 				darkMode: matchingUser.darkMode,
+				chartShowTop5: chartPreferences.showTop5,
+				chartHideNullValues: chartPreferences.hideNullValues,
 				pseudonymization: matchingUser.pseudonymization,
 				paletteName: matchingUser.colorTheme,
 				colorPalette: selectedPalette?.colors ?? [],

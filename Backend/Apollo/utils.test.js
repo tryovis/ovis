@@ -137,3 +137,99 @@ test('legacy histology cursor keeps whole diagnosis documents together', async (
 		['$sort', '$match', '$limit', '$unwind', '$project']
 	);
 });
+
+test('study overview sorts the patient column by patient count before paging', async () => {
+	const pipelines = [];
+	const context = {
+		collections: { study: 'study', patient: 'patient' },
+		db: {
+			collection() {
+				return {
+					aggregate(pipeline) {
+						pipelines.push(pipeline);
+						return { toArray: async () => [] };
+					}
+				};
+			}
+		}
+	};
+
+	await genericResolver.Query.getAllStudies(
+		null,
+		{
+			offset: 7,
+			limit: 7,
+			sortField: 'studyPatients',
+			sortDirection: 'desc',
+			columnFilters: []
+		},
+		context
+	);
+
+	assert.deepEqual(pipelines[0], [
+		{
+			$set: {
+				__studyPatientCount: { $size: { $ifNull: ['$studyPatients', []] } }
+			}
+		},
+		{ $sort: { __studyPatientCount: -1, _id: -1 } },
+		{ $skip: 7 },
+		{ $limit: 7 }
+	]);
+});
+
+test('study overview sorts by the patient count remaining after cohort filters', async () => {
+	const studyPipelines = [];
+	const context = {
+		collections: { study: 'study', patient: 'patient' },
+		db: {
+			collection(name) {
+				return {
+					aggregate(pipeline) {
+						if (name === 'study') {
+							studyPipelines.push(pipeline);
+							return { toArray: async () => [] };
+						}
+
+						const group = pipeline.at(-1)?.$group;
+						if (group?.ids) return { next: async () => ({ ids: ['p1'] }) };
+						return { next: async () => ({ ts: [] }) };
+					}
+				};
+			}
+		}
+	};
+
+	await genericResolver.Query.getAllStudies(
+		null,
+		{
+			filter: JSON.stringify({
+				operand: 'OR',
+				children: [
+					{
+						key: 'patID',
+						type: 'EQUALS',
+						system: 'patient',
+						value: 'p1'
+					}
+				]
+			}),
+			limit: 7,
+			sortField: 'studyPatients',
+			sortDirection: 'asc',
+			columnFilters: []
+		},
+		context
+	);
+
+	const pipeline = studyPipelines[0];
+	const cohortIndex = pipeline.findIndex((stage) => stage.$set?.studyPatients);
+	const countIndex = pipeline.findIndex((stage) => stage.$set?.__studyPatientCount);
+	const sortIndex = pipeline.findIndex((stage) => stage.$sort?.__studyPatientCount === 1);
+	const limitIndex = pipeline.findIndex((stage) => stage.$limit === 7);
+
+	assert.notEqual(cohortIndex, -1);
+	assert.ok(cohortIndex < countIndex);
+	assert.ok(countIndex < sortIndex);
+	assert.ok(sortIndex < limitIndex);
+});

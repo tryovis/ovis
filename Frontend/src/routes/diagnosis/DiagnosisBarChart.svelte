@@ -22,6 +22,10 @@
 	import { addUserFilter } from '../../components/UserFilter';
 	import { iconPath } from '$lib/path-utils';
 	import { getDiagnosisBarChartClickFilterTarget } from './diagnosisBarChartFilterTarget';
+	import {
+		isDiagnosisLegendItemHidden,
+		toggleDiagnosisLegendItemVisibility
+	} from './diagnosisBarChartLegendState';
 	import { appendQueryItemToFirstGroup, queryContainsValue } from '../../tableFilterItems';
 	let filterActive = true;
 
@@ -491,16 +495,12 @@
 								const originalLabels = Chart.defaults.plugins.legend.labels.generateLabels(chart);
 								// Hier die eindeutigen Labels konsolidieren
 								const consolidatedLabels = mergeLabels(originalLabels.map((label) => label.text));
-								// Fügen Sie " X" am Ende jedes Labels hinzu
-								let i = 0;
 								const updatedLabels = consolidatedLabels.map((label) => {
 									return {
 										text: label,
 										fillStyle: colorHashMap[label], // Fügen Sie die Farbe zum Label hinzu
 										lineWidth: 0,
-										hidden: chart
-											.getDatasetMeta(0)
-											.data.some((element) => element.custom && element.custom === label)
+										hidden: isDiagnosisLegendItemHidden(chart, label)
 									};
 								});
 
@@ -508,17 +508,7 @@
 							}
 						},
 						onClick: (e, legendItem, legend) => {
-							// Hier können Sie den Klick auf die Legende anpassen
-							const chart = legend.chart;
-							const labelToToggle = legendItem.text;
-
-							chart.data.datasets.forEach((dataset) => {
-								if (dataset.label === labelToToggle) {
-									dataset.hidden = !dataset.hidden;
-								}
-							});
-
-							chart.update();
+							toggleDiagnosisLegendItemVisibility(legend.chart, legendItem);
 						}
 					}
 				},
@@ -1340,5 +1330,43 @@
 		display: block;
 		width: 100% !important;
 		height: 100% !important;
+	}
+
+	/*
+	 * Keep fly-out menus available briefly while the pointer crosses to a child menu.
+	 * The global menu styles use display: none, which closes the menu immediately as
+	 * soon as the pointer passes through even a tiny gap between two menu levels.
+	 */
+	.menu > ul li ul {
+		display: block;
+		transition:
+			opacity 150ms ease 450ms,
+			visibility 0s linear 600ms;
+	}
+
+	.menu > ul li:hover > ul {
+		display: block;
+		opacity: 1;
+		visibility: visible;
+		transition-delay: 0ms;
+	}
+
+	/* Bridge the visible gaps without changing the menu layout. */
+	.menu > ul > li > ul::before {
+		content: '';
+		position: absolute;
+		top: -8px;
+		left: 0;
+		right: 0;
+		height: 8px;
+	}
+
+	.menu > ul li ul li > ul::after {
+		content: '';
+		position: absolute;
+		top: 0;
+		bottom: 0;
+		left: -10px;
+		width: 10px;
 	}
 </style>

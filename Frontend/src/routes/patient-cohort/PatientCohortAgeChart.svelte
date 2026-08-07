@@ -266,40 +266,85 @@
 	}
 </script>
 
-<Headline
-	headlineTitle={translate('ageAtDiagnosis')}
-	headlineTooltip={translate('tooltip_PatientCohortAgeChart')}
-	headlineMaximize={maximizePatientCohortAgeChart}
-	headlineShowChart={showChart}
-	headlineIsChart={true}
-	headlineInitialTop5={null}
-	headlineInitialLogarithm={showLogarithm}
-	headlineInputTableData={tableData}
-	headlineInputTableHeader={headers}
-	headlineChartJSElement={scatterChart}
-	headlineD3Element={null}
-	on:chartToggled={handleChartToggled}
-	on:logarithmToggled={handleLogarithmToggled}
-	on:maximized={handleMaximized}
-/>
+<div class="patient-cohort-age-root" class:maximized={maximizePatientCohortAgeChart}>
+	<Headline
+		headlineTitle={translate('ageAtDiagnosis')}
+		headlineTooltip={translate('tooltip_PatientCohortAgeChart')}
+		headlineMaximize={maximizePatientCohortAgeChart}
+		headlineShowChart={showChart}
+		headlineIsChart={true}
+		headlineInitialTop5={null}
+		headlineInitialLogarithm={showLogarithm}
+		headlineInputTableData={tableData}
+		headlineInputTableHeader={headers}
+		headlineChartJSElement={scatterChart}
+		headlineD3Element={null}
+		on:chartToggled={handleChartToggled}
+		on:logarithmToggled={handleLogarithmToggled}
+		on:maximized={handleMaximized}
+	/>
 
-<!-- prettier-ignore -->
-<lens-data-passer bind:this={dataPasser}></lens-data-passer>
-<div style={showChart ? '' : 'display: none;'}>
-	<div class="chart-container" style="height:100%">
-		<canvas bind:this={scatterChart} style="height:100%"></canvas>
+	<!-- prettier-ignore -->
+	<lens-data-passer bind:this={dataPasser}></lens-data-passer>
+	<div class="patient-cohort-age-chart-view" style={showChart ? '' : 'display: none;'}>
+		<div class="chart-container" style="height:100%">
+			<canvas bind:this={scatterChart} style="height:100%"></canvas>
+		</div>
+	</div>
+
+	<div class="patient-cohort-age-table-view" style={!showChart ? '' : 'display: none;'}>
+		<div class="data-table">
+			<table id="patientCohortAgeChart" class="display" style="width:100%">
+				<thead>
+					<tr>
+						<th>{translate('age')}</th>
+						<th>{translate('count')}</th>
+					</tr>
+				</thead>
+			</table>
+		</div>
 	</div>
 </div>
 
-<div style={!showChart ? '' : 'display: none;'}>
-	<div class="data-table">
-		<table id="patientCohortAgeChart" class="display" style="width:100%">
-			<thead>
-				<tr>
-					<th>{translate('age')}</th>
-					<th>{translate('count')}</th>
-				</tr>
-			</thead>
-		</table>
-	</div>
-</div>
+<style>
+	.patient-cohort-age-root {
+		display: contents;
+	}
+
+	:global(html[data-ovis-mobile-layout='landscape'])
+		.patient-cohort-age-root:not(.maximized) {
+		display: flex;
+		flex-direction: column;
+		height: 100%;
+		min-height: 0;
+		overflow: hidden;
+	}
+
+	:global(html[data-ovis-mobile-layout='landscape'])
+		.patient-cohort-age-root:not(.maximized)
+		.patient-cohort-age-chart-view {
+		display: flex;
+		flex: 1 1 auto;
+		min-height: 0;
+		overflow: hidden;
+	}
+
+	:global(html[data-ovis-mobile-layout='landscape'])
+		.patient-cohort-age-root:not(.maximized)
+		.chart-container {
+		position: relative;
+		flex: 1 1 auto;
+		width: 100%;
+		height: auto !important;
+		min-height: 0;
+	}
+
+	:global(html[data-ovis-mobile-layout='landscape'])
+		.patient-cohort-age-root:not(.maximized)
+		.chart-container
+		canvas {
+		display: block;
+		width: 100% !important;
+		height: 100% !important;
+	}
+</style>

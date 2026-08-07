@@ -3260,9 +3260,9 @@
             "lastName": "Seeker"
         },
         {
-            "area": "München",
+            "area": "Ulm",
             "patID": "12345954",
-            "postalCode": "81927",
+            "postalCode": "89073",
             "countryCode": "DE",
             "vitalDate": "2021-11-29T00:00:00Z",
             "vitalState": "am Leben",
@@ -3274,7 +3274,7 @@
         {
             "area": "Würzburg",
             "patID": "12345683",
-            "postalCode": "97076",
+            "postalCode": "97070",
             "countryCode": "DE",
             "vitalDate": "2016-02-28T00:00:00Z",
             "vitalState": "Verstorben (Tumorbedingt: Unbekannt)",
@@ -3572,9 +3572,9 @@
             "lastName": "Reaper"
         },
         {
-            "area": "München",
+            "area": "Ulm",
             "patID": "12345975",
-            "postalCode": "80805",
+            "postalCode": "89075",
             "countryCode": "DE",
             "vitalDate": "2024-04-05T00:00:00Z",
             "vitalState": "am Leben",
@@ -7796,9 +7796,9 @@
             "lastName": "Saber"
         },
         {
-            "area": "Würzburg",
+            "area": "Ulm",
             "patID": "12345804",
-            "postalCode": "97084",
+            "postalCode": "89079",
             "countryCode": "DE",
             "vitalDate": "2020-07-30T00:00:00Z",
             "vitalState": "am Leben",
@@ -8038,7 +8038,7 @@
         {
             "area": "Würzburg",
             "patID": "12346295",
-            "postalCode": "97078",
+            "postalCode": "97074",
             "countryCode": "DE",
             "vitalDate": "2022-06-25T00:00:00Z",
             "vitalState": "am Leben",
@@ -12970,7 +12970,7 @@
         {
             "area": "Würzburg",
             "patID": "12345817",
-            "postalCode": "97084",
+            "postalCode": "97082",
             "countryCode": "DE",
             "vitalDate": "2021-02-09T00:00:00Z",
             "vitalState": "am Leben",
@@ -14768,9 +14768,9 @@
             "lastName": "Crusher"
         },
         {
-            "area": "Augsburg",
+            "area": "Ulm",
             "patID": "12346750",
-            "postalCode": "86150",
+            "postalCode": "89081",
             "countryCode": "DE",
             "vitalDate": "2024-05-23T00:00:00Z",
             "vitalState": "am Leben",

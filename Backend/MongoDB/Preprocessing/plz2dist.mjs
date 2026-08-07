@@ -73,5 +73,18 @@ export const plz = {
 	81479: 'Thalkirchen-Obersendling-Fürstenried-Forstenried-Solln',
 	81827: 'Trudering-Riem',
 	81829: 'Trudering-Riem',
-	81545: 'Untergiesing-Harlaching'
+	81545: 'Untergiesing-Harlaching',
+	89073: 'Mitte, Oststadt',
+	89075: 'Böfingen, Eselsberg, Mitte, Oststadt, Söflingen',
+	89077: 'Söflingen, Weststadt',
+	89079: 'Donaustetten, Donautal, Eggingen, Einsingen, Gögglingen, Gögglingen-Donaustetten, Unterweiler, Wiblingen',
+	89081: 'Ermingen, Grimmelfingen, Jungingen, Kesselbronn, Lehr, Mähringen',
+	97070: 'Altstadt',
+	97072: 'Altstadt, Sanderau',
+	97074: 'Frauenland, Sanderau',
+	97076: 'Grombühl, Lengfeld',
+	97078: 'Grombühl, Lindleinsmühle, Versbach',
+	97080: 'Altstadt, Dürrbachau, Dürrbachtal, Grombühl, Oberdürrbach, Unterdürrbach',
+	97082: 'Altstadt, Heidingsfeld, Steinbachtal, Zellerau',
+	97084: 'Heidingsfeld, Heuchelhof, Rottenbauer'
 };

@@ -25,6 +25,8 @@
   import { env } from '$env/dynamic/public';
   import { apiPath, appPath, publicAssetPath, iconPath } from '$lib/path-utils';
   import { version as appVersion } from '../../package.json';
+  import { applyChartDisplayPreferences } from '../store/configStore.js';
+  import { resolveChartDisplayPreferences } from '../store/chartDisplayPreferences.js';
 
   const loadingIcon = iconPath('spinner.svg');
 
@@ -137,6 +139,7 @@
     if (mobileLayoutFrame != null) cancelAnimationFrame(mobileLayoutFrame);
     mobileLayoutFrame = requestAnimationFrame(updateMobileLayout);
   }
+
   // Initialize token validation on app startup
   const userAgreementFiles: Record<string, string> = {
     de: publicAssetPath("/downloads/ovis_userAgreement_de_template.pdf"),
@@ -260,6 +263,17 @@
     let userData = await getUser(null, 1000);
     currentUserDB = userData.find((u: any) => u._id === currentUser);
     console.log("currentUserDB", currentUserDB);
+
+    const chartPreferences = resolveChartDisplayPreferences(currentUserDB);
+    applyChartDisplayPreferences(chartPreferences);
+    userStore.update((user) => ({
+      ...user,
+      chartShowTop5: chartPreferences.showTop5,
+      chartHideNullValues: chartPreferences.hideNullValues
+    }));
+
+    const refreshedUser = get(userStore);
+    localStorage.setItem('loggedInUser', JSON.stringify(refreshedUser));
 
     if (!currentUserDB.firstLogin) {
       let input = { firstLogin: Date.now(), lastLogin: Date.now() };
@@ -396,11 +410,19 @@ function startUpdateTimer() {
 
 </script>
 {#if showMobilePortraitHint && storeLoaded}
-  <div class="mobile-orientation-hint" role="status">
+  <div class="mobile-orientation-hint" role="status" aria-live="polite">
     <div class="mobile-orientation-card">
-      <strong>OVIS benötigt Querformat</strong>
-      <span>Bitte drehe dein Gerät, um die Anwendung zu verwenden.</span>
-      <span class="mobile-orientation-symbol" aria-hidden="true">↻</span>
+      <svg class="mobile-orientation-symbol" viewBox="0 0 96 96" aria-hidden="true">
+        <path class="mobile-orientation-arrow" d="M21 29a34 34 0 0 0 3 43" />
+        <path class="mobile-orientation-arrowhead" d="m15 67 10 7 2-12" />
+        <g class="mobile-orientation-phone">
+          <rect x="34" y="20" width="28" height="56" rx="5" />
+          <path d="M43 26h10" />
+          <circle cx="48" cy="69" r="1.5" />
+        </g>
+      </svg>
+      <strong>{$t('mobilePortraitTitle')}</strong>
+      <span>{$t('mobilePortraitMessage')}</span>
     </div>
   </div>
 {/if}

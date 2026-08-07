@@ -20,6 +20,8 @@ interface UserData {
   colorPalette: string[];
   paletteName: string;
   darkMode: boolean;
+  chartShowTop5: boolean;
+  chartHideNullValues: boolean;
   pseudonymization: boolean;
   currentFilter: string;
   keycloakTokens?: KeycloakTokens;
@@ -186,6 +188,8 @@ class TokenService {
       colorPalette: ["#000000", "#000000"],
       paletteName: "CCCMunich",
       darkMode: false,
+      chartShowTop5: true,
+      chartHideNullValues: true,
       pseudonymization: false,
       currentFilter: ""
     });
@@ -245,4 +249,4 @@ class TokenService {
 }
 
 // Export singleton instance
-export const tokenService = new TokenService(); 
+export const tokenService = new TokenService();

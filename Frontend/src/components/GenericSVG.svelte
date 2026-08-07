@@ -188,6 +188,7 @@
 								'Hamburg',
 								'München',
 								'Regensburg',
+								'Ulm',
 								'Würzburg'
 							];
 							if (result3[0] && allowedCities.includes(result3[0].label)) {

@@ -3,6 +3,21 @@ const { filter2match } = require('../astTranslator');
 const { getStudyPatientCount, getStudyPatientTable } = require('./studyPatientTable');
 const { diagnosisHistologyRowStages } = require('../histologyTable');
 
+const studyPatientCountSort = (input) => {
+	if (input?.sortField !== 'studyPatients') return { input, rowStages: [] };
+
+	return {
+		input: { ...input, sortField: '__studyPatientCount' },
+		rowStages: [
+			{
+				$set: {
+					__studyPatientCount: { $size: { $ifNull: ['$studyPatients', []] } }
+				}
+			}
+		]
+	};
+};
+
 const genericGetAll = async (db, colname, args) => {
 	return db
 		.collection(colname)
@@ -228,9 +243,7 @@ module.exports = {
 		getAllStudies: async (_parent, input, context) => {
 			const studyCol = context.collections.study;
 			const patientCol = context.collections.patient;
-
-			// Basis-Aggregation (inkl. Paging/Sort/Project etc.)
-			const agg = await aggregationArry(input, studyCol, context.db);
+			const rowStages = [];
 
 			// Filter leer? => Standardverhalten
 			const isEmptyFilter =
@@ -238,50 +251,54 @@ module.exports = {
 				input.filter === '{"operand":"OR","children":[]}' ||
 				input.filter === 'null';
 
-			if (isEmptyFilter) {
-				return context.db.collection(studyCol).aggregate(agg).toArray();
-			}
+			if (!isEmptyFilter) {
+				// 1) Filter-AST parsen und nur Patient-/Nicht-Study-Klauseln behalten
+				const fullAst = parseAstFilter(input.filter);
+				const patAst = keepNonStudyClauses(fullAst);
 
-			// 1) Filter-AST parsen und nur Patient-/Nicht-Study-Klauseln behalten
-			const fullAst = parseAstFilter(input.filter);
-			const patAst = keepNonStudyClauses(fullAst);
+				// Wenn keine patient-relevanten Filterteile existieren, machen wir nichts extra.
+				// (Dann ist es wirklich ein Study-only Filter.)
+				if (patAst) {
+					// 2) Patientenkohorte bestimmen (patID Set)
+					const patFilterStr = JSON.stringify(patAst);
+					const patMatchStages = await filter2match({
+						value: patFilterStr,
+						column: patientCol,
+						db: context.db
+					});
 
-			// Wenn keine patient-relevanten Filterteile existieren, machen wir nichts extra.
-			// (Dann ist es wirklich ein Study-only Filter.)
-			if (!patAst) {
-				return context.db.collection(studyCol).aggregate(agg).toArray();
-			}
+					const patIDsDoc = await context.db
+						.collection(patientCol)
+						.aggregate([...patMatchStages, { $group: { _id: null, ids: { $addToSet: '$patID' } } }])
+						.next();
 
-			// 2) Patientenkohorte bestimmen (patID Set)
-			const patFilterStr = JSON.stringify(patAst);
-			const patMatchStages = await filter2match({
-				value: patFilterStr,
-				column: patientCol,
-				db: context.db
-			});
+					const patIDs = patIDsDoc?.ids ?? [];
 
-			const patIDsDoc = await context.db
-				.collection(patientCol)
-				.aggregate([...patMatchStages, { $group: { _id: null, ids: { $addToSet: '$patID' } } }])
-				.next();
-
-			const patIDs = patIDsDoc?.ids ?? [];
-
-			// 3) In Studies-Aggregation: studyPatients auf patIDs schneiden
-			agg.push({
-				$set: {
-					studyPatients: {
-						$filter: {
-							input: '$studyPatients',
-							as: 'sp',
-							cond: { $in: ['$$sp.patID', patIDs] }
+					// 3) In Studies-Aggregation: studyPatients auf patIDs schneiden
+					rowStages.push({
+						$set: {
+							studyPatients: {
+								$filter: {
+									input: '$studyPatients',
+									as: 'sp',
+									cond: { $in: ['$$sp.patID', patIDs] }
+								}
+							}
 						}
-					}
-				}
-			});
+					});
 
-			// optional, aber i.d.R. gewünscht: Studien ohne Treffer rauswerfen
-			agg.push({ $match: { 'studyPatients.0': { $exists: true } } });
+					// optional, aber i.d.R. gewünscht: Studien ohne Treffer rauswerfen
+					rowStages.push({ $match: { 'studyPatients.0': { $exists: true } } });
+				}
+			}
+
+			// MongoDB sorts arrays by their elements. For the patient column, materialize
+			// the array length before sorting so server-side paging uses the displayed count.
+			const studySort = studyPatientCountSort(input);
+			rowStages.push(...studySort.rowStages);
+			const agg = await aggregationArry(studySort.input, studyCol, context.db, {
+				rowStages
+			});
 
 			return context.db.collection(studyCol).aggregate(agg).toArray();
 		},

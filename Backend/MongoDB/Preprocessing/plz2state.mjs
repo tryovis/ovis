@@ -806,11 +806,6 @@ export const plz2province = [
 	},
 	{
 		from: 89081,
-		to: 89081,
-		province: 'Bayern'
-	},
-	{
-		from: 89081,
 		to: 89085,
 		province: 'Baden-Württemberg'
 	},

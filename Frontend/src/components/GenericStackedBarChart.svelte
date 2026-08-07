@@ -2,7 +2,7 @@
 	// @ts-nocheck
 	import { Chart, registerables } from 'chart.js';
 	import type { ChartConfiguration, ChartDataset } from 'chart.js';
-	import { createEventDispatcher, onMount } from 'svelte';
+	import { createEventDispatcher, onDestroy, onMount, tick } from 'svelte';
 	import Headline from '../components/Headline.svelte';
 	import { createTable, changeRowCount } from '../tableBuilder';
 	import { userStore } from '../store/userStore';
@@ -12,6 +12,7 @@
 	import { addUserFilter } from '../components/UserFilter';
 	import { responsiveChartFontSize, responsiveLegendLabels } from '$lib/responsiveChartSizing';
 	import type { AggregatedValue } from '../types/query';
+	import ChartStatusLine from './ChartStatusLine.svelte';
 
 	type Complication = {
 		category: (string | null | undefined)[];
@@ -29,7 +30,7 @@
 	let filterActive = true;
 
 	// Abonnieren des filterActiveStore und den Wert aktualisieren
-	filterActiveStore.subscribe((value) => {
+	const unsubscribeFilterActiveStore = filterActiveStore.subscribe((value) => {
 		filterActive = value.filterActive; // Hier den Wert direkt zuweisen
 	});
 
@@ -57,7 +58,14 @@
 	let plotHeight: number = 0;
 	let plotHeightMin: number = 0;
 	let plotHeightMax: number = 760;
+	const additionalCategoryHeight: number = 24;
 	let chartNeedsScroll: boolean = false;
+	let scrollPlotHeight: number = plotHeightMax;
+	let statusReady = false;
+	let statusShownCategories = 0;
+	let statusTotalCategories = 0;
+	let chartRenderId = 0;
+	let chartResizeFrame: number | undefined;
 
 	function usesMobileLandscapeLayout(): boolean {
 		return (
@@ -67,28 +75,41 @@
 	}
 
 	function getPlotHeight(): string {
-		if (!usesMobileLandscapeLayout()) return `${plotHeight}px`;
-		if (!maxStoreValue && !chartNeedsScroll) return '100%';
-		return `${maxStoreValue ? plotHeight : plotHeightMax}px`;
+		if (chartNeedsScroll) return `${scrollPlotHeight}px`;
+		if (usesMobileLandscapeLayout() && !maxStoreValue) return '100%';
+		return `${plotHeight}px`;
 	}
 
 	let colorPalette: string[];
 
 	let dataPasser: LensDataPasser;
 
-	userStore.subscribe((value: { primaryColor: string; colorPalette: string[] }) => {
-		({ colorPalette } = value);
-	});
+	const unsubscribeUserStore = userStore.subscribe(
+		(value: { primaryColor: string; colorPalette: string[] }) => {
+			({ colorPalette } = value);
+		}
+	);
 
 	let barChartTable: unknown;
 	let tableShownRows: number = 0;
 	let tableShownRowsMax: number = 20;
 	let sortingIndex = 3;
 	let tableData: StackedBarChartData[] = [];
-	let reversedTableData: StackedBarChartData[];
+	let reversedTableData: StackedBarChartData[] = [];
+	let tableDataPrepared = false;
+	let tableCreationPending = false;
 	//let columns = [{ data: 'category' }, { data: 'groups' },{ data: 'count' },{ data: 'totalCount' }];
 	let columns = [{ data: 'type' }, { data: 'status' }, { data: 'count' }, { data: 'totalCount' }];
 	let columnAssignments: { [key: string]: string } = {};
+
+	onDestroy(() => {
+		chartRenderId += 1;
+		if (chartResizeFrame !== undefined) cancelAnimationFrame(chartResizeFrame);
+		unsubscribeFilterActiveStore();
+		unsubscribeUserStore();
+		chartInstance?.destroy();
+		barChartTable?.destroy();
+	});
 
 	// Assign each element from the array to col1, col2, col3, etc.
 	tableHeaders?.forEach((header, index) => {
@@ -138,13 +159,6 @@
 		return total;
 	}
 
-	function isMounted() {
-		//if(collection = "therapy"){
-		//	columns = [{ data: 'type' }, { data: 'status' }, { data: 'count' }, {data: 'catalog'}, { data: 'totalCount' }];
-		//}
-		return mounted;
-	}
-
 	function handleChartToggled(event: { detail: { headlineShowChart: boolean } }) {
 		showChartStoreValue = event.detail.headlineShowChart;
 		dispatch('chartToggled', { showChartStoreValue });
@@ -161,10 +175,10 @@
 		setTimeout(() => {
 			if (maxStoreValue) {
 				plotHeight = plotHeightMax;
-				changeRowCount(barChartTable, tableShownRowsMax);
+				if (barChartTable) changeRowCount(barChartTable, tableShownRowsMax);
 			} else {
 				plotHeight = plotHeightMin;
-				changeRowCount(barChartTable, tableShownRows);
+				if (barChartTable) changeRowCount(barChartTable, tableShownRows);
 			}
 		}, 0);
 	}
@@ -180,31 +194,29 @@
 		plotHeight;
 		showTop5StoreValue;
 		maxStoreValue;
-		if (isMounted()) {
-			createGroupedBarChart(inputArray);
+		showChartStoreValue;
+		mounted;
+		inputArray;
+		dataPasser;
+		stackedBarChart;
+		if (mounted && inputArray && dataPasser && stackedBarChart && showChartStoreValue) {
+			renderChartAfterLayout();
 		}
+	}
+
+	$: if (mounted && inputArray && dataPasser && !showChartStoreValue) {
+		ensureTable();
 	}
 
 	onMount(async () => {
 		await import('@samply/lens');
+		await customElements.whenDefined('lens-data-passer');
+		await tick();
 		if (filterActive) {
 			filter = JSON.stringify(dataPasser.getAstAPI());
 		}
 		filter = JSON.stringify(await addUserFilter(JSON.parse(filter)));
 		inputArray = normalizeInputArray(await getGraphData(filter));
-		tableData = flattenArray(inputArray);
-
-		tableData = tableData.map(({ category, groups, ...rest }) => ({
-			...rest,
-			type: category, // 'category' wird zu 'type'
-			status: groups // 'group' wird zu 'status'
-		}));
-
-		reversedTableData = tableData.map(({ category, groups, ...rest }) => ({
-			type: category, // 'category' wird zu 'type'
-			status: groups, // 'group' wird zu 'status'
-			...rest
-		}));
 
 		const heightChartDiv = chartRoot?.closest('.box_level2')?.clientHeight || 0;
 		plotHeightMin = Math.max(120, heightChartDiv - 50);
@@ -214,13 +226,45 @@
 		mounted = true;
 	});
 
+	async function renderChartAfterLayout() {
+		const renderId = ++chartRenderId;
+		await tick();
+
+		if (
+			renderId !== chartRenderId ||
+			!mounted ||
+			!showChartStoreValue ||
+			!inputArray ||
+			!dataPasser ||
+			!stackedBarChart
+		) {
+			return;
+		}
+
+		createGroupedBarChart(inputArray);
+		await tick();
+
+		if (renderId !== chartRenderId || !chartInstance) return;
+		if (chartResizeFrame !== undefined) cancelAnimationFrame(chartResizeFrame);
+		chartResizeFrame = requestAnimationFrame(() => {
+			chartResizeFrame = undefined;
+			if (renderId === chartRenderId) chartInstance?.resize();
+		});
+	}
+
 	function createGroupedBarChart(inputArray: Complication) {
 		if (!stackedBarChart || !inputArray) return;
 
-		const normalizedInput = normalizeInputArray(inputArray);
+		const normalizedInput = inputArray;
 		const categoryLimit = showTop5StoreValue === true ? (showTop10 ? 10 : 5) : 50;
 		const categoryCount = Math.min(normalizedInput.category.length, categoryLimit);
+		statusTotalCategories = normalizedInput.category.length;
+		statusShownCategories = categoryCount;
+		statusReady = true;
 		chartNeedsScroll = categoryCount > 10;
+		scrollPlotHeight = chartNeedsScroll
+			? Math.max(plotHeightMax, plotHeightMin + (categoryCount - 10) * additionalCategoryHeight)
+			: plotHeight;
 		const sourceGroups = normalizedInput.groups;
 		const sourceGroupCount = sourceGroups.length;
 		const topGroupsPerCategory = 9;
@@ -443,16 +487,40 @@
 			chartInstance = new Chart(ctx, chartConfig);
 		}
 
-		if (!barChartTable) {
-			barChartTable = createTable(
-				collection,
-				dataPasser,
-				'barChartTable',
-				tableData,
-				columns,
-				tableShownRows,
-				sortingIndex
-			);
+	}
+
+	function prepareTableData() {
+		if (tableDataPrepared) return;
+
+		tableData = flattenArray(inputArray).map(({ category, groups, ...rest }) => ({
+			...rest,
+			type: category,
+			status: groups
+		}));
+		reversedTableData = tableData;
+		tableDataPrepared = true;
+	}
+
+	async function ensureTable() {
+		if (barChartTable || tableCreationPending || !inputArray) return;
+
+		tableCreationPending = true;
+		try {
+			prepareTableData();
+			await tick();
+			if (!barChartTable && !showChartStoreValue) {
+				barChartTable = createTable(
+					collection,
+					dataPasser,
+					'barChartTable',
+					tableData,
+					columns,
+					maxStoreValue ? tableShownRowsMax : tableShownRows,
+					sortingIndex
+				);
+			}
+		} finally {
+			tableCreationPending = false;
 		}
 	}
 
@@ -494,7 +562,7 @@
 	}
 
 	function flattenArray(inputObj: Complication) {
-		const normalizedInput = normalizeInputArray(inputObj);
+		const normalizedInput = inputObj;
 		const flatArray: StackedBarChartData[] = [];
 		const totalCountsByCategory = normalizedInput.category.map((_category, index) =>
 			sumAtIndex(normalizedInput.groups, index)
@@ -554,6 +622,12 @@
 			</div>
 		</div>
 	</div>
+	<ChartStatusLine
+		ready={statusReady}
+		showTopSummary={showTop5StoreValue}
+		shownCategories={statusShownCategories}
+		totalCategories={statusTotalCategories}
+	/>
 </div>
 
 <div style={!showChartStoreValue ? '' : 'display: none;'}>

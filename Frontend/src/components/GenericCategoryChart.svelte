@@ -2,7 +2,7 @@
 	import { Chart, registerables } from 'chart.js';
 	import { userStore } from '../store/userStore';
 	import { createTable, changeRowCount } from '../tableBuilder';
-	import { createEventDispatcher, onMount } from 'svelte';
+	import { createEventDispatcher, onMount, tick } from 'svelte';
 	import { getCategoryChart } from '../graphQl/gql-generic';
 	import Headline from './Headline.svelte';
 	import { get } from 'svelte/store';
@@ -13,11 +13,8 @@
 	import { filterActiveStore } from '../store/filterActiveStore.js';
 	import { addUserFilter } from '../components/UserFilter';
 	import { iconPath } from '$lib/path-utils';
-	import {
-		responsiveLegendLabels,
-		usesShortDesktopViewport
-	} from '$lib/responsiveChartSizing';
 	import type { AggregatedValue } from '../types/query';
+	import ChartStatusLine from './ChartStatusLine.svelte';
 
 	const emptyIcon = iconPath('null-off.svg');
 	// Lokale Variable für filterActive
@@ -62,18 +59,14 @@
 	let aspectRatio = aspectRatioMin;
 	let tableShownRows = tableShownRowsMin;
 
-	function shouldFitMobileContainer(): boolean {
-		return (
-			(typeof document !== 'undefined' &&
-				document.documentElement.dataset.ovisMobileLayout === 'landscape') ||
-			usesShortDesktopViewport()
-		);
-	}
-
 	let sortingIndex = 1;
 
 	type ChartType = { label: string[]; count: number[] };
 	let inputArray: ChartType;
+	let statusReady = false;
+	let statusShownCategories = 0;
+	let statusTotalCategories = 0;
+	let statusMissingValueCount = 0;
 
 	let pieChart: HTMLCanvasElement;
 	let chartInstance: Chart;
@@ -99,6 +92,8 @@
 	let isMounted = false;
 	onMount(async () => {
 		await import('@samply/lens');
+		await customElements.whenDefined('lens-data-passer');
+		await tick();
 		isMounted = true;
 	});
 
@@ -109,7 +104,9 @@
 		showNullStoreValue;
 		aspectRatio;
 		truncateLengthMin;
-		if (isMounted) {
+		dataPasser;
+		pieChart;
+		if (isMounted && dataPasser && pieChart) {
 			createPieChart();
 			getSelectedLabel();
 		}
@@ -149,7 +146,10 @@
 	let filter = JSON.stringify({ operand: 'OR', children: [] });
 	let showEmptyIcon = false;
 	async function createPieChart() {
+		if (!dataPasser || !pieChart) return;
+
 		showEmptyIcon = false;
+		statusReady = false;
 		tableData = [];
 		if (filterActive) {
 			filter = JSON.stringify(dataPasser.getAstAPI());
@@ -187,6 +187,12 @@
 			// Aktualisiere inputArray mit validierten Daten
 			inputArray.label = validLabels;
 			inputArray.count = validCounts;
+
+			statusMissingValueCount = missingValueCount;
+			statusTotalCategories = inputArray.label.length;
+			const statusCategoryLimit = showTop5StoreValue ? 5 : inputArray.label.length;
+			statusShownCategories = Math.min(statusCategoryLimit, inputArray.label.length);
+			statusReady = true;
 
 			// tableData aufbauen
 			tableData = inputArray.label.map((label, index) => ({
@@ -240,13 +246,21 @@
 					},
 					options: {
 						responsive: true,
-						maintainAspectRatio: !shouldFitMobileContainer(),
+						maintainAspectRatio: false,
 						aspectRatio: aspectRatio,
+						layout: {
+							padding: { bottom: 8 }
+						},
 						plugins: {
 							legend: {
 								display: true,
 								position: legendPosition,
-								labels: responsiveLegendLabels()
+								labels: {
+									boxWidth: 20,
+									boxHeight: 8,
+									padding: 8,
+									font: { size: 10 }
+								}
 							},
 							tooltip: {
 								callbacks: {
@@ -324,6 +338,7 @@
 						chartInstance.destroy();
 					}
 					chartInstance = new Chart(ctx, chartConfig);
+					requestAnimationFrame(() => chartInstance?.resize());
 				}
 
 				columns = [{ data: initialDropdownValue }, { data: 'count' }];
@@ -426,7 +441,7 @@
 	<div class="category-chart-view" style={showChartStoreValue ? '' : 'display: none;'}>
 		<div class="dropdown-container">
 			<div class="dropdown straight-line-container">
-				<label for="dropdownObject" style="margin-right:5px">{$t('featureCategory')}:</label><br />
+				<label for="dropdownObject" style="margin-right:5px">{$t('feature')}:</label><br />
 				<select class="dropbtn" bind:value={initialDropdownValue}>
 					{#each dropdownObject as option (option.value)}
 						<option class="dropdown-option" value={option.value}>{option.label}</option>
@@ -434,6 +449,14 @@
 				</select>
 			</div>
 		</div>
+		<ChartStatusLine
+			ready={statusReady}
+			showTopSummary={showTop5StoreValue}
+			shownCategories={statusShownCategories}
+			totalCategories={statusTotalCategories}
+			missingValuesHidden={!showNullStoreValue}
+			missingValueCount={statusMissingValueCount}
+		/>
 		<div style={!showEmptyIcon ? '' : 'display: none;'} class="chart-container">
 			<!-- prettier-ignore -->
 			<canvas bind:this={pieChart}></canvas>
@@ -460,16 +483,6 @@
 
 <style>
 	.generic-category-root {
-		display: contents;
-	}
-
-	.dropdown {
-		width: 50%;
-		float: right;
-		margin-right: 10px;
-	}
-
-	:global(html[data-ovis-mobile-layout='landscape']) .generic-category-root {
 		display: flex;
 		flex-direction: column;
 		width: 100%;
@@ -479,9 +492,13 @@
 		overflow: hidden;
 	}
 
-	:global(html[data-ovis-mobile-layout='landscape'])
-		.generic-category-root
-		.category-chart-view {
+	.dropdown {
+		width: 50%;
+		float: right;
+		margin-right: 10px;
+	}
+
+	.category-chart-view {
 		display: flex;
 		flex: 1 1 auto;
 		flex-direction: column;
@@ -489,9 +506,7 @@
 		min-height: 0;
 	}
 
-	:global(html[data-ovis-mobile-layout='landscape'])
-		.generic-category-root
-		.chart-container {
+	.chart-container {
 		position: relative;
 		flex: 1 1 auto;
 		width: 100%;
@@ -501,10 +516,7 @@
 		box-sizing: border-box;
 	}
 
-	:global(html[data-ovis-mobile-layout='landscape'])
-		.generic-category-root
-		.chart-container
-		canvas {
+	.chart-container canvas {
 		width: 100% !important;
 		height: 100% !important;
 		max-height: 100% !important;

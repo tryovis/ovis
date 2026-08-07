@@ -14,8 +14,9 @@ export const userStore = writable({
         "#000000","#000000"],
     paletteName: "CCCMunich",
     darkMode: false,
+    chartShowTop5: true,
+    chartHideNullValues: true,
     pseudonymization: false,
     currentFilter: ""
 });
-
 

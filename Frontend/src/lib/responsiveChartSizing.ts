@@ -40,7 +40,7 @@ export function responsiveLegendLabels() {
 		font: {
 			size: responsiveChartFontSize(),
 			family: 'Roboto, Helvetica, Arial, sans-serif',
-			weight: '500' as const
+			weight: 'normal' as const
 		},
 		boxWidth: mobile ? 12 : shortDesktop ? 26 : 40,
 		boxHeight: mobile ? 7 : shortDesktop ? 10 : 12,

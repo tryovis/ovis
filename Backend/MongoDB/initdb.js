@@ -11,6 +11,8 @@ const users = [
 		status: 'active',
 		pseudonymization: false,
 		darkMode: false,
+		chartShowTop5: true,
+		chartHideNullValues: true,
 		colorTheme: 'CCCMunich',
 		language: 'en'
 	}

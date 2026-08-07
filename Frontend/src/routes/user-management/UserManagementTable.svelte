@@ -16,6 +16,8 @@
 	import type { LensDataPasser } from '@samply/lens';
 	import { showToast } from '../../store/toastStore';
 	import { appPath, iconPath } from '$lib/path-utils';
+	import { applyChartDisplayPreferences } from '../../store/configStore';
+	import { resolveChartDisplayPreferences } from '../../store/chartDisplayPreferences';
 
 	const translate = (key: string): string => get(t)(key);
 
@@ -64,6 +66,16 @@
 		{ data: 'lastLogin', header: translate('userLastLogin') },
 		{ data: 'timeOnline', header: translate('userTimeOnline') },
 		{ data: 'userFilter', header: translate('userUserFilter'), render: renderUserFilters },
+		{
+			data: 'chartShowTop5',
+			header: translate('userChartShowTop5'),
+			render: renderChartShowTop5
+		},
+		{
+			data: 'chartHideNullValues',
+			header: translate('userChartHideNullValues'),
+			render: renderChartHideNullValues
+		},
 		{ data: 'pseudonymization', header: translate('userPseudonymization'), render: renderPseudo },
 		{ data: 'status', header: translate('userStatus'), render: renderStatus },
 		{ data: 'lastModifiedAt', header: translate('userLastModifiedAt') },
@@ -309,6 +321,30 @@
 				</div>`;
 	}
 
+	function renderChartPreference(
+		data: boolean | null,
+		row: UserRecord,
+		buttonClass: string
+	) {
+		const enabled = typeof data === 'boolean' ? data : true;
+		const label = enabled ? translate('yes') : translate('no');
+
+		return `<button
+			class="${buttonClass} preference-button"
+			data-identifier="${row._id}"
+			aria-label="${label}"
+			style="min-width: 44px;"
+		>${label}</button>`;
+	}
+
+	function renderChartShowTop5(data: boolean | null, _type: string, row: UserRecord) {
+		return renderChartPreference(data, row, 'chart-top5-button');
+	}
+
+	function renderChartHideNullValues(data: boolean | null, _type: string, row: UserRecord) {
+		return renderChartPreference(data, row, 'chart-null-button');
+	}
+
 	function renderStatus(data: string, _type: string, row: UserRecord) {
 		let statusButton = '';
 		if (data === 'active') {
@@ -453,6 +489,10 @@
 				} else if (target.classList.contains('pseudo-button')) {
 					console.log('Pseudo Button Clicked');
 					switchPseudonymization(identifier);
+				} else if (target.classList.contains('chart-top5-button')) {
+					switchChartPreference(identifier, 'chartShowTop5');
+				} else if (target.classList.contains('chart-null-button')) {
+					switchChartPreference(identifier, 'chartHideNullValues');
 				}
 			};
 
@@ -738,6 +778,33 @@
 		});
 	}
 
+	function switchChartPreference(
+		identifier: string,
+		preference: 'chartShowTop5' | 'chartHideNullValues'
+	) {
+		const user = userData.find((entry) => entry._id === identifier);
+		if (!user) {
+			return;
+		}
+
+		const currentValue = typeof user[preference] === 'boolean' ? user[preference] : true;
+		const nextValue = !currentValue;
+		const input: UserInput =
+			preference === 'chartShowTop5'
+				? { chartShowTop5: nextValue, lastModifiedBy: currentUser }
+				: { chartHideNullValues: nextValue, lastModifiedBy: currentUser };
+
+		updateUser(identifier, input).then(() => {
+			if (identifier === currentUser) {
+				userStore.update((current) => ({ ...current, [preference]: nextValue }));
+				const updatedCurrentUser = get(userStore);
+				localStorage.setItem('loggedInUser', JSON.stringify(updatedCurrentUser));
+				applyChartDisplayPreferences(resolveChartDisplayPreferences(updatedCurrentUser));
+			}
+			drawTable(true);
+		});
+	}
+
 	async function drawTable(preserveState = false) {
 		if (preserveState && userManagementTable) {
 			saveTableState();
@@ -840,6 +907,8 @@
 					<th class="dateColumn">{$t('userLastLogin')}</th>
 					<th>{$t('userTimeOnline')} (i. Sec.)</th>
 					<th>{$t('userUserFilter')}</th>
+					<th>{$t('userChartShowTop5')}</th>
+					<th>{$t('userChartHideNullValues')}</th>
 					<th>{$t('userPseudonymization')}</th>
 					<th>{$t('userStatus')}</th>
 					<th class="dateColumn">{$t('userLastModifiedAt')}</th>
@@ -922,7 +991,6 @@
         width: 16px;
         height: 16px;
     }
-
 
 
 

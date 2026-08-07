@@ -406,4 +406,16 @@
 		font-size: inherit;
 		box-sizing: border-box;
 	}
+
+	/* Keep every control visible inside narrow diagnosis/detail panels. */
+	.data-table :global(.dataTables_wrapper .dataTables_paginate) {
+		max-width: 100%;
+		box-sizing: border-box;
+	}
+
+	.data-table :global(.dataTables_wrapper .dataTables_paginate .paginate_button) {
+		min-width: 1.5em;
+		margin-left: 1px;
+		padding: 0.35em 0.6em;
+	}
 </style>

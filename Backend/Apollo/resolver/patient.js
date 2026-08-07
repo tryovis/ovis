@@ -1,5 +1,22 @@
 const { filter2match } = require('../astTranslator');
 
+const postalCodeDistricts = Object.freeze({
+	89073: 'Mitte, Oststadt',
+	89075: 'Böfingen, Eselsberg, Mitte, Oststadt, Söflingen',
+	89077: 'Söflingen, Weststadt',
+	89079:
+		'Donaustetten, Donautal, Eggingen, Einsingen, Gögglingen, Gögglingen-Donaustetten, Unterweiler, Wiblingen',
+	89081: 'Ermingen, Grimmelfingen, Jungingen, Kesselbronn, Lehr, Mähringen',
+	97070: 'Altstadt',
+	97072: 'Altstadt, Sanderau',
+	97074: 'Frauenland, Sanderau',
+	97076: 'Grombühl, Lengfeld',
+	97078: 'Grombühl, Lindleinsmühle, Versbach',
+	97080: 'Altstadt, Dürrbachau, Dürrbachtal, Grombühl, Oberdürrbach, Unterdürrbach',
+	97082: 'Altstadt, Heidingsfeld, Steinbachtal, Zellerau',
+	97084: 'Heidingsfeld, Heuchelhof, Rottenbauer'
+});
+
 const genPatQuery = (collection, patID, fields) => {
 	console.log(`${patID}, ${fields}`);
 	const agg = [
@@ -95,7 +112,13 @@ module.exports = {
 					}
 				}
 			);
-			return await context.db.collection(colname).aggregate(agg).toArray();
+			const result = await context.db.collection(colname).aggregate(agg).toArray();
+			if (level !== 'postalCode') return result;
+
+			return result.map((item) => ({
+				...item,
+				description: item.description || postalCodeDistricts[item.label]
+			}));
 		},
 
 		getPatientSingleHeader: async (_parent, { patID }, context) => {
