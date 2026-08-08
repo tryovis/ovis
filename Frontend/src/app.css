@@ -994,6 +994,19 @@ html[data-ovis-mobile-layout='landscape'] .outer-div {
 	opacity: 1; /* Tooltip wird sichtbar mit Fade-In-Effekt */
 }
 
+/* Popovers render in the browser's top layer, so headline tooltips are not
+   clipped by chart roots, dashboard cells, or nested overflow containers. */
+.tooltip .tooltiptext:popover-open {
+	display: block;
+	visibility: visible;
+	opacity: 1;
+	box-sizing: border-box;
+	max-height: calc(100dvh - 24px);
+	margin: 0;
+	border: 0;
+	overflow-y: auto;
+}
+
 .straight-line-container {
 	display: flex;
 	justify-content: space-between;

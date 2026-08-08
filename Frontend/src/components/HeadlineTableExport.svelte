@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { iconPath } from '$lib/path-utils';
 	import { saveTableCsv, type TableExportProgress, type TableRow } from '$lib/table-download';
+	import { showViewportTooltip } from '$lib/tooltip-popover';
 	import { locale, t } from '../store/languageStore';
 	import { showToast } from '../store/toastStore';
 
@@ -19,6 +20,11 @@
 	const loadingIcon = iconPath('spinner.svg');
 	let isExporting = false;
 	let progress: TableExportProgress | null = null;
+	let tooltipPosition = '';
+
+	const handleMouseEnter = (event: MouseEvent) => {
+		tooltipPosition = showViewportTooltip(event);
+	};
 
 	$: progressText = progress
 		? `${progress.current.toLocaleString($locale)} / ${progress.total.toLocaleString($locale)} ${$t(
@@ -76,9 +82,11 @@
 		disabled={isExporting || exportDisabled}
 		aria-busy={isExporting}
 		aria-label={isExporting ? 'CSV-Export läuft' : 'CSV-Datei herunterladen'}
+		on:mouseenter={handleMouseEnter}
 		on:click={exportTable}
 	>
-		{#if !isExporting}<span class="tooltiptext">Download CSV-Datei</span>{/if}
+		{#if !isExporting}<span class="tooltiptext" style={tooltipPosition}>Download CSV-Datei</span
+			>{/if}
 		<img
 			src={isExporting ? loadingIcon : downloadIcon}
 			alt=""

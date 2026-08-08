@@ -27,6 +27,10 @@
   import { version as appVersion } from '../../package.json';
   import { applyChartDisplayPreferences } from '../store/configStore.js';
   import { resolveChartDisplayPreferences } from '../store/chartDisplayPreferences.js';
+  import {
+    DEFAULT_VIEWPORT_CONTENT,
+    MOBILE_LANDSCAPE_VIEWPORT_CONTENT
+  } from '$lib/mobileViewport.js';
 
   const loadingIcon = iconPath('spinner.svg');
 
@@ -92,9 +96,6 @@
   let lastUpdate: string | null = null; // State für Ausgabe
   let showMobilePortraitHint = false;
   let mobileLayoutFrame: number | undefined;
-  let mobileLandscapeScale: number | undefined;
-  const mobileLayoutWidth = 1600;
-  const defaultViewportContent = 'width=device-width, initial-scale=1, viewport-fit=cover';
 
   function updateMobileLayout() {
     if (typeof window === 'undefined') return;
@@ -116,21 +117,13 @@
 
     if (isMobileDevice && isLandscape) {
       root.dataset.ovisMobileLayout = 'landscape';
-      if (mobileLandscapeScale == null) {
-        const visualScale = window.visualViewport?.scale ?? 1;
-        const physicalViewportWidth = viewportWidth * visualScale;
-        mobileLandscapeScale = Math.min(1, physicalViewportWidth / mobileLayoutWidth);
-      }
-
-      const viewportContent = `width=${mobileLayoutWidth}, initial-scale=${mobileLandscapeScale.toFixed(5)}, viewport-fit=cover`;
-      if (viewportMeta && viewportMeta.content !== viewportContent) {
-        viewportMeta.content = viewportContent;
+      if (viewportMeta && viewportMeta.content !== MOBILE_LANDSCAPE_VIEWPORT_CONTENT) {
+        viewportMeta.content = MOBILE_LANDSCAPE_VIEWPORT_CONTENT;
       }
     } else {
       root.dataset.ovisMobileLayout = isMobileDevice ? 'portrait' : 'desktop';
-      mobileLandscapeScale = undefined;
-      if (viewportMeta && viewportMeta.content !== defaultViewportContent) {
-        viewportMeta.content = defaultViewportContent;
+      if (viewportMeta && viewportMeta.content !== DEFAULT_VIEWPORT_CONTENT) {
+        viewportMeta.content = DEFAULT_VIEWPORT_CONTENT;
       }
     }
   }
@@ -343,7 +336,7 @@ function startUpdateTimer() {
       if (mobileLayoutFrame != null) cancelAnimationFrame(mobileLayoutFrame);
       delete document.documentElement.dataset.ovisMobileLayout;
       const viewportMeta = document.querySelector<HTMLMetaElement>('meta[name="viewport"]');
-      if (viewportMeta) viewportMeta.content = defaultViewportContent;
+      if (viewportMeta) viewportMeta.content = DEFAULT_VIEWPORT_CONTENT;
     }
     await updateSessionTime(true);
   });

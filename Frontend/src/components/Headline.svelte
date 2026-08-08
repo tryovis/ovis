@@ -5,6 +5,7 @@
 	import { t } from '../store/languageStore';
 	import { iconPath } from '$lib/path-utils';
 	import { createDownloadName, downloadCanvasChart, downloadSvgChart } from '$lib/chart-download';
+	import { showViewportTooltip } from '$lib/tooltip-popover';
 	import HeadlineTableExport from './HeadlineTableExport.svelte';
 
 	const downloadIcon = iconPath('download-icon.svg');
@@ -102,27 +103,13 @@
 		downloadName = createDownloadName(headlineTitle);
 	});
 
-	let mouseX = 0;
-	let mouseY = 0;
 	let tooltipPosition = '';
 
 	// Reactive translation function for template usage
 	const translate = (key: string): string => get(t)(key);
 
 	const handleMouseEnter = (event: MouseEvent) => {
-		tooltipPosition = '';
-		mouseX = event.clientX;
-		mouseY = event.clientY;
-		if (mouseX > 1500) {
-			tooltipPosition += 'transform: translateX(-90%)';
-		} else {
-			tooltipPosition += 'transform: translateX(-0%)';
-		}
-		if (mouseY > 500) {
-			tooltipPosition += ' translateY(-110%);';
-		} else {
-			tooltipPosition += ' translateY(-0%);';
-		}
+		tooltipPosition = showViewportTooltip(event);
 	};
 </script>
 
