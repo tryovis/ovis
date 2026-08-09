@@ -1,0 +1,66 @@
+module.exports = `#graphql
+  enum UsageEventType {
+    SESSION_TIME
+    FILTER_CHANGE
+    MODULE_INTERACTION
+  }
+
+  enum UsageMetric {
+    ONLINE_TIME
+    FILTER_ACTIONS
+    MODULE_INTERACTIONS
+  }
+
+  enum UsageInterval {
+    DAY
+    WEEK
+    MONTH
+  }
+
+  enum UsageTargetType {
+    ALL
+    CHART
+    TABLE
+    VISUALIZATION
+  }
+
+  input UsageEventInput {
+    type: UsageEventType!
+    userId: String!
+    timestamp: Float
+    module: String
+    targetType: UsageTargetType
+    durationSeconds: Int
+  }
+
+  type UsageByUser {
+    userId: String!
+    timeOnline: Int!
+    filterClicks: Int!
+  }
+
+  type UsageTimelinePoint {
+    timestamp: Float!
+    value: Float!
+  }
+
+  type UsageByModule {
+    module: String!
+    count: Int!
+  }
+
+  type UsageWriteResult {
+    acknowledged: Boolean!
+    insertedCount: Int!
+  }
+
+  extend type Query {
+    getUsageByUser: [UsageByUser!]!
+    getUsageTimeline(metric: UsageMetric!, interval: UsageInterval!): [UsageTimelinePoint!]!
+    getUsageByModule(targetType: UsageTargetType = ALL): [UsageByModule!]!
+  }
+
+  extend type Mutation {
+    recordUsageEvents(events: [UsageEventInput!]!): UsageWriteResult!
+  }
+`;

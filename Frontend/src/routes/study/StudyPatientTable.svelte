@@ -29,7 +29,7 @@
 </script>
 
 <GenericTable
-	collection="study"
+	collection="studyPatient"
 	countCollection="studyPatient"
 	columns={columns}
 	getTableData={getStudyPatientTable}

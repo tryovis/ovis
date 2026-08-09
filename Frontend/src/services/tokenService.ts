@@ -183,7 +183,7 @@ class TokenService {
       currentRole: "user",
       currentLanguage: "de",
       currentTheme: false,
-      primaryColorRGB: {},
+      primaryColorRGB: { r: 0, g: 0, b: 0 },
       primaryColor: "#000000",
       colorPalette: ["#000000", "#000000"],
       paletteName: "CCCMunich",

@@ -921,15 +921,15 @@
 
 <style>
 	.box_style {
-		border: 1px solid #ddd;
+		border: 1px solid var(--border-color);
 		padding: 10px;
 		margin-bottom: 10px;
 	}
 	.box_level1 {
-		background-color: #f9f9f9;
+		background-color: var(--level1-bg);
 	}
 	.box_level2 {
-		background-color: #fff;
+		background-color: var(--level2-bg);
 		padding-left: 20px;
 	}
 	.iconRoundButton {
@@ -976,14 +976,15 @@
 		margin: 10px 20px; /* Mehr Platz links und rechts */
 		cursor: pointer; /* Zeiger beim Überfahren */
 		border-radius: 12px; /* Abgerundete Ecken */
-		border: 2px solid #ccc; /* Dezente Rahmenfarbe */
-		background-color: white; /* Weißer Hintergrund */
+		border: 2px solid var(--border-color); /* Dezente Rahmenfarbe */
+		background-color: var(--dropdown-bg); /* Weißer Hintergrund */
+		color: var(--font-color);
 		box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1); /* Leichter Schatten */
 		transition: background-color 0.3s ease; /* Glatte Übergänge bei Hover */
 	}
 
 	.operator-button:hover {
-		background-color: #f9f9f9; /* Leicht grauer Hintergrund beim Hover */
+		background-color: var(--dropdown-hover); /* Leicht grauer Hintergrund beim Hover */
 	}
 
 	.tooltip-container {

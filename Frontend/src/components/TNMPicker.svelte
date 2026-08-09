@@ -83,9 +83,9 @@
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    background-color: #fff;
+    background-color: var(--level4-bg);
     padding: 10px;
-    border: 1px solid #ccc;
+    border: 1px solid var(--border-color);
     border-radius: 5px;
     box-shadow: 0 0 10px rgba(0,0,0,0.1);
     z-index: 9999;
@@ -102,7 +102,7 @@
     padding: 10px 20px;
     border: 1px solid var(--border-color);
     border-radius: 5px;
-    background-color: rgb(235,235,235);
+    background-color: var(--level1-bg);
     color: var(--font-color);
     cursor: pointer;
   }

@@ -18,6 +18,8 @@ const coursesResolver = require('./resolver/progress.js');
 const tnmResolver = require('./resolver/tnmMetastases.js');
 const followupResolver = require('./resolver/followUp.js');
 const splyResovler = require('./resolver/supplementary.js');
+const analyticsResolver = require('./resolver/analytics.js');
+const platformResolver = require('./resolver/platform.js');
 
 const typedefs = require('./schema/schema.graphql');
 const diag = require('./schema/diagnostic.graphql');
@@ -33,6 +35,8 @@ const tnm = require('./schema/tnmMetastase.graphql');
 const stdy = require('./schema/study.graphql');
 const followup = require('./schema/followUp.graphql');
 const spplmntry = require('./schema/supplementary.graphql');
+const analytics = require('./schema/analytics.graphql');
+const platform = require('./schema/platform.graphql');
 
 const PORT = process.env.PORT || 4001;
 const source = process.env.SOURCE;
@@ -45,6 +49,7 @@ const COLLECTIONS = {
 	supplementary: 'supplementary',
 	molecularmarker: 'molecularMarker',
 	diagnosis: 'diagnosis',
+	histology: 'histology',
 	kaplanmeier: 'kaplanMeier',
 	patient: 'patient',
 	metastasis: 'metastasis',
@@ -57,8 +62,12 @@ const COLLECTIONS = {
 	diagnostic: 'diagnostic',
 	followup: 'followUp',
 	study: 'study',
+	studyPatient: 'studyPatient',
 	bioMaterial: 'bioMaterial',
-	status: 'status'
+	status: 'status',
+	usageEvent: 'usageEvent',
+	platformConfiguration: 'platformConfiguration',
+	platformDocument: 'platformDocument'
 };
 
 const resolvers = [
@@ -72,7 +81,9 @@ const resolvers = [
 	coursesResolver,
 	tnmResolver,
 	followupResolver,
-	splyResovler
+	splyResovler,
+	analyticsResolver,
+	platformResolver
 ];
 
 const typeDefs = [
@@ -89,7 +100,9 @@ const typeDefs = [
 	tnm,
 	followup,
 	stdy,
-	spplmntry
+	spplmntry,
+	analytics,
+	platform
 ];
 
 let apolloExpress;
@@ -101,6 +114,14 @@ async function startApolloServer() {
 
 	const app = express();
 	const httpServer = http.createServer(app);
+	const database = await establishConnection(dbName);
+	await Promise.all([
+		database.collection(COLLECTIONS.usageEvent).createIndex({ type: 1, createdAt: 1 }),
+		database.collection(COLLECTIONS.usageEvent).createIndex({ type: 1, userId: 1 }),
+		database
+			.collection(COLLECTIONS.usageEvent)
+			.createIndex({ type: 1, targetType: 1, module: 1 })
+	]);
 
 	const server = new ApolloServer({
 		typeDefs,
@@ -118,7 +139,7 @@ async function startApolloServer() {
 			context: async ({ req }) => {
 				return {
 					...req,
-					db: await establishConnection(dbName),
+					db: database,
 					collections: COLLECTIONS
 				};
 			}

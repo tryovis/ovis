@@ -8,10 +8,11 @@
     let isCCP: boolean = false;
     let svgPath = publicAssetPath('/Ovis_logo.svg');
     let svgPathCCP = publicAssetPath('/CCP_logo.svg');
-    let primaryColor: string = "#29b8ff";
     let colorPalette: string[] = [];
-    let svgObject: HTMLElement | null = null;
+    let logoContainer: HTMLDivElement | null = null;
+    let svgObject: SVGSVGElement | null = null;
     let mounted = false;
+    let loadToken = 0;
     
     // Abonnement auf den Zustand
     variantStore.subscribe((value: any) => {
@@ -25,7 +26,7 @@
     
     // Abonnement auf colorPalette im userStore
     userStore.subscribe((value: any) => {
-      const { primaryColor, colorPalette: newColorPalette } = value;
+      const { colorPalette: newColorPalette } = value;
       if (JSON.stringify(newColorPalette) !== JSON.stringify(colorPalette)) {
         colorPalette = newColorPalette;
         // Wenn sich der Zustand ändert, zerstöre das SVG-Element und erstelle es neu
@@ -37,61 +38,78 @@
     });
     
     onMount(() => {
-      // Erstelle das SVG-Element beim ersten Rendern der Komponente
-      createSVG();
       mounted = true;
+      void createSVG();
     });
     
     // Funktion zum Erstellen des SVG-Elements
-    function createSVG() {
-      const container = document.getElementById('svgContainer');
-      if (container) {
-        container.innerHTML = '';
-        const svg = document.createElement('object');
+    async function createSVG() {
+      const container = logoContainer;
+      if (!container) return;
+
+      const token = ++loadToken;
+      const source = isCCP ? svgPathCCP : svgPath;
+
+      try {
+        const response = await fetch(source);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+        const parsedDocument = new DOMParser().parseFromString(await response.text(), 'image/svg+xml');
+        if (parsedDocument.querySelector('parsererror')) throw new Error('Invalid SVG document');
+
+        parsedDocument.querySelectorAll('script, foreignObject').forEach((element) => element.remove());
+        const parsedSvg = parsedDocument.documentElement;
+        if (parsedSvg.tagName.toLowerCase() !== 'svg' || token !== loadToken) return;
+
+        const svg = document.importNode(parsedSvg, true) as SVGSVGElement;
         svg.id = 'logoSvg';
-        svg.type = 'image/svg+xml';
-        svg.data = isCCP ? svgPathCCP : svgPath;
         svg.classList.add('bodymap');
-        
-        // Add error handling for logo loading
-        svg.onerror = function() {
-          console.error('Failed to load logo:', svg.data);
-          // Fallback to regular img tag
-          const fallbackImg = document.createElement('img');
-          fallbackImg.src = svgPath;
-          fallbackImg.alt = 'OVIS Logo';
-          fallbackImg.style.width = '100%';
-          fallbackImg.style.height = 'auto';
-          container.innerHTML = '';
-          container.appendChild(fallbackImg);
-        };
-        
-        container.appendChild(svg);
+        svg.setAttribute('width', '100%');
+        svg.setAttribute('height', '100%');
+        svg.style.width = '100%';
+        svg.style.height = 'auto';
+        svg.style.maxWidth = '100%';
+        svg.style.maxHeight = '100%';
+        svg.style.display = 'block';
+        svg.style.setProperty('background', 'transparent', 'important');
+
+        const mount = container.shadowRoot ?? container.attachShadow({ mode: 'open' });
+        mount.replaceChildren(svg);
         svgObject = svg;
         updateColors();
+      } catch (error) {
+        if (token !== loadToken) return;
+        console.error('Failed to load logo:', source, error);
+
+        const fallbackImg = document.createElement('img');
+        fallbackImg.src = source;
+        fallbackImg.alt = 'OVIS Logo';
+        fallbackImg.style.width = '100%';
+        fallbackImg.style.height = 'auto';
+        fallbackImg.style.background = 'transparent';
+        const mount = container.shadowRoot ?? container.attachShadow({ mode: 'open' });
+        mount.replaceChildren(fallbackImg);
+        svgObject = null;
       }
     }
     
     // Funktion zum Zerstören des SVG-Elements
     function destroySVG() {
-      if (svgObject) {
-        svgObject.remove();
-      }
+      loadToken++;
+      svgObject = null;
+      logoContainer?.shadowRoot?.replaceChildren();
     }
     
     // Funktion zum Aktualisieren der Farben
     function updateColors() {
       if (svgObject) {
-        svgObject.addEventListener('load', function() {
-          var svgDoc = svgObject!.contentDocument;
-          var pfadeC1 = svgDoc!.querySelectorAll('[id^="c1"]');
-          pfadeC1.forEach(function(pfad) {
-            pfad.style.fill = colorPalette[0];
-          });
-          var pfadeC2 = svgDoc!.querySelectorAll('[id^="c2"]');
-          pfadeC2.forEach(function(pfad) {
-            pfad.style.fill = colorPalette[1];
-          });
+        const pfadeC1 = svgObject.querySelectorAll<SVGElement>('[id^="c1"]');
+        pfadeC1.forEach(function(pfad) {
+          if (colorPalette[0]) pfad.style.fill = colorPalette[0];
+        });
+        const pfadeC2 = svgObject.querySelectorAll<SVGElement>('[id^="c2"]');
+        pfadeC2.forEach(function(pfad) {
+          if (colorPalette[1]) pfad.style.fill = colorPalette[1];
         });
       }
     }
@@ -114,7 +132,7 @@
     }
   </script>
   
-  <div id="svgContainer" class="logo-container"></div>
+  <div bind:this={logoContainer} id="svgContainer" class="logo-container"></div>
   
   <style>
     .logo-container {
@@ -123,6 +141,7 @@
       display: flex;
       align-items: center;
       justify-content: center;
+      background: transparent;
     }
     
     .logo-container :global(.bodymap) {
@@ -130,6 +149,6 @@
       height: auto;
       max-width: 100%;
       max-height: 100%;
+      background: transparent !important;
     }
   </style>
-  

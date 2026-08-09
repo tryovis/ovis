@@ -428,6 +428,9 @@
 		if (!barChart) return;
 
 		let colorHashMap = mergeColorsToLabels(uniqueLabels, colorPalette);
+		const legendTextColor =
+			getComputedStyle(document.body).getPropertyValue('--chart-text-color').trim() ||
+			getComputedStyle(document.body).color;
 		if (!setSlider(resetSliderRange)) return;
 		inputArray.category = inputArray.category.slice(leftSlider, rightSlider + 1);
 		inputArray.groups.forEach((group) => {
@@ -491,6 +494,7 @@
 					legend: {
 						display: true,
 						labels: {
+							color: legendTextColor,
 							generateLabels: function (chart) {
 								const originalLabels = Chart.defaults.plugins.legend.labels.generateLabels(chart);
 								// Hier die eindeutigen Labels konsolidieren
@@ -499,6 +503,7 @@
 									return {
 										text: label,
 										fillStyle: colorHashMap[label], // Fügen Sie die Farbe zum Label hinzu
+										fontColor: legendTextColor,
 										lineWidth: 0,
 										hidden: isDiagnosisLegendItemHidden(chart, label)
 									};

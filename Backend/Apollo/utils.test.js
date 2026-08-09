@@ -8,12 +8,11 @@ Module._load = function loadWithBsonStub(request, parent, isMain) {
 	return originalLoad.call(this, request, parent, isMain);
 };
 const { aggregationArry, countAggregationArry } = require('./utils');
-const { diagnosisHistologyRowStages } = require('./histologyTable');
 const diagnosisResolver = require('./resolver/diagnosis');
 const genericResolver = require('./resolver/resolver');
 Module._load = originalLoad;
 
-test('expanded table pagination limits final histology rows instead of diagnosis documents', async () => {
+test('histology pagination operates directly on histology documents', async () => {
 	const pipeline = await aggregationArry(
 		{
 			limit: 4,
@@ -22,48 +21,44 @@ test('expanded table pagination limits final histology rows instead of diagnosis
 			sortDirection: 'asc',
 			columnFilters: [{ field: 'ICDO_histologyCode', value: '8140' }]
 		},
-		'diagnosis',
-		null,
-		{ rowStages: diagnosisHistologyRowStages, stableSortFields: { __histologyIndex: 1 } }
+		'histology',
+		null
 	);
 
 	assert.deepEqual(
 		pipeline.map((stage) => Object.keys(stage)[0]),
-		['$unwind', '$project', '$match', '$sort', '$skip', '$limit']
+		['$match', '$sort', '$skip', '$limit']
 	);
-	assert.deepEqual(pipeline[3], {
-		$sort: { ICDO_histologyCode: 1, _id: -1, __histologyIndex: 1 }
-	});
+	assert.deepEqual(pipeline[1], { $sort: { ICDO_histologyCode: 1, _id: -1 } });
 	assert.deepEqual(pipeline.at(-2), { $skip: 4 });
 	assert.deepEqual(pipeline.at(-1), { $limit: 4 });
 });
 
-test('expanded table counts flattened and filtered histology rows', async () => {
+test('histology counts operate directly on filtered histology documents', async () => {
 	const pipeline = await countAggregationArry(
 		{
 			columnFilters: [{ field: 'ICDO_histologyCode', value: '8140' }]
 		},
-		'diagnosis',
-		null,
-		{ rowStages: diagnosisHistologyRowStages }
+		'histology',
+		null
 	);
 
 	assert.deepEqual(
 		pipeline.map((stage) => Object.keys(stage)[0]),
-		['$unwind', '$project', '$match', '$count']
+		['$match', '$count']
 	);
 	assert.deepEqual(pipeline.at(-1), { $count: 'count' });
 });
 
-test('histology resolvers use final-row paging and counting pipelines', async () => {
-	const pipelines = [];
+test('histology table and count resolvers select the histology collection', async () => {
+	const calls = [];
 	const context = {
-		collections: { diagnosis: 'diagnosis' },
+		collections: { diagnosis: 'diagnosis', histology: 'histology' },
 		db: {
-			collection() {
+			collection(name) {
 				return {
 					aggregate(pipeline) {
-						pipelines.push(pipeline);
+						calls.push({ name, pipeline });
 						return {
 							toArray: async () => [],
 							next: async () => ({ count: 7 })
@@ -86,20 +81,21 @@ test('histology resolvers use final-row paging and counting pipelines', async ()
 	);
 
 	assert.equal(count, 7);
+	assert.deepEqual(calls.map(({ name }) => name), ['histology', 'histology']);
 	assert.deepEqual(
-		pipelines[0].map((stage) => Object.keys(stage)[0]),
-		['$unwind', '$project', '$sort', '$skip', '$limit']
+		calls[0].pipeline.map((stage) => Object.keys(stage)[0]),
+		['$sort', '$skip', '$limit']
 	);
 	assert.deepEqual(
-		pipelines[1].map((stage) => Object.keys(stage)[0]),
-		['$unwind', '$project', '$count']
+		calls[1].pipeline.map((stage) => Object.keys(stage)[0]),
+		['$count']
 	);
 });
 
-test('legacy histology cursor keeps whole diagnosis documents together', async () => {
+test('histology cursor paging no longer appends unwind or projection stages', async () => {
 	const pipelines = [];
 	const context = {
-		collections: { diagnosis: 'diagnosis' },
+		collections: { histology: 'histology' },
 		db: {
 			collection() {
 				return {
@@ -130,11 +126,11 @@ test('legacy histology cursor keeps whole diagnosis documents together', async (
 
 	assert.deepEqual(
 		pipelines[0].map((stage) => Object.keys(stage)[0]),
-		['$sort', '$limit', '$unwind', '$project']
+		['$sort', '$limit']
 	);
 	assert.deepEqual(
 		pipelines[1].map((stage) => Object.keys(stage)[0]),
-		['$sort', '$match', '$limit', '$unwind', '$project']
+		['$sort', '$match', '$limit']
 	);
 });
 

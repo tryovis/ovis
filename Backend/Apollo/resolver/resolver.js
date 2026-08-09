@@ -1,22 +1,11 @@
 const { aggregationArry, countAggregationArry } = require('../utils');
 const { filter2match } = require('../astTranslator');
-const { getStudyPatientCount, getStudyPatientTable } = require('./studyPatientTable');
-const { diagnosisHistologyRowStages } = require('../histologyTable');
-
-const studyPatientCountSort = (input) => {
-	if (input?.sortField !== 'studyPatients') return { input, rowStages: [] };
-
-	return {
-		input: { ...input, sortField: '__studyPatientCount' },
-		rowStages: [
-			{
-				$set: {
-					__studyPatientCount: { $size: { $ifNull: ['$studyPatients', []] } }
-				}
-			}
-		]
-	};
-};
+const {
+	getStudyOverview,
+	getStudyOverviewCount,
+	getStudyPatientCount,
+	getStudyPatientTable
+} = require('./studyPatientTable');
 
 const genericGetAll = async (db, colname, args) => {
 	return db
@@ -31,8 +20,7 @@ const collectionNameForCount = (context, collection) => {
 		molecularMarker: context.collections.molecularmarker,
 		operation: context.collections.therapy,
 		systemic: context.collections.therapy,
-		radiation: context.collections.therapy,
-		histology: context.collections.diagnosis
+		radiation: context.collections.therapy
 	};
 	return collectionMap[collection] ?? context.collections[collection] ?? collection;
 };
@@ -80,37 +68,6 @@ const genericCount = async (collection, selectedType, flaten, filter) => {
 	return formattedResult;
 };
 
-// --- Helper: Filter AST (aus preprocessor) parsen und nur Nicht-Study-Klauseln behalten ---
-function parseAstFilter(raw) {
-	try {
-		// im Projekt werden "_" zu "." (ausser _3 und _id) umcodiert
-		// (gleiches Muster wie im Backend sonst genutzt wird)
-		return JSON.parse(raw.replaceAll(/_(?!3)(?!id)/g, '.'));
-	} catch (_e) {
-		return null;
-	}
-}
-
-function keepNonStudyClauses(ast) {
-	if (!ast) return null;
-
-	// logisch zusammengesetzte Knoten
-	if (Array.isArray(ast.children)) {
-		const kids = ast.children.map(keepNonStudyClauses).filter(Boolean);
-
-		// wenn nichts übrig bleibt, weg damit
-		if (kids.length === 0) return null;
-
-		return { ...ast, children: kids };
-	}
-
-	// leaf expression
-	// filter2match nutzt "system" um zu entscheiden, aus welcher Collection die IDs kommen
-	if (ast.system === 'study') return null;
-
-	return ast;
-}
-
 module.exports = {
 	Query: {
 		getAllPatient: (_parent, input, context) =>
@@ -119,9 +76,9 @@ module.exports = {
 		getTableCount: (_parent, input, context) =>
 			input.collection === 'studyPatient'
 				? getStudyPatientCount(input, context)
-				: tableCount(context.db, collectionNameForCount(context, input.collection), input, {
-						rowStages: input.collection === 'histology' ? diagnosisHistologyRowStages : []
-				  }),
+				: input.collection === 'study'
+				? getStudyOverviewCount(input, context)
+				: tableCount(context.db, collectionNameForCount(context, input.collection), input),
 
 		getFirstAssessment: (_parent, input, context) =>
 			genericGetAll(context.db, context.collections.diagnosis, input),
@@ -202,17 +159,12 @@ module.exports = {
 				let agg = [{ $count: 'count' }, { $set: { collection: col } }];
 				if ('radiation' === col)
 					agg.unshift({ $unwind: { path: '$radiation', preserveNullAndEmptyArrays: true } });
-				if ('histology' === col) {
-					agg.unshift({ $unwind: '$ICDO' });
-					db = context.db.collection(context.collections.diagnosis);
-				}
-
 				if (['systemic', 'operation', 'radiation'].includes(col)) {
 					agg.unshift({ $match: { generalType: col } });
 					db = context.db.collection(context.collections.therapy);
 				}
 
-				db ??= context.db.collection(col);
+				db ??= context.db.collection(context.collections[col] ?? col);
 				if (input.filter)
 					agg.unshift(
 						...(await filter2match({ value: input.filter, column: col, db: context.db }))
@@ -237,71 +189,7 @@ module.exports = {
 			return genericCount(context.db.collection(ccol), selectedType, flaten, f2m);
 		},
 
-		// ------------------------------
-		// FIX: studyPatients "mitfiltern"
-		// ------------------------------
-		getAllStudies: async (_parent, input, context) => {
-			const studyCol = context.collections.study;
-			const patientCol = context.collections.patient;
-			const rowStages = [];
-
-			// Filter leer? => Standardverhalten
-			const isEmptyFilter =
-				!input?.filter ||
-				input.filter === '{"operand":"OR","children":[]}' ||
-				input.filter === 'null';
-
-			if (!isEmptyFilter) {
-				// 1) Filter-AST parsen und nur Patient-/Nicht-Study-Klauseln behalten
-				const fullAst = parseAstFilter(input.filter);
-				const patAst = keepNonStudyClauses(fullAst);
-
-				// Wenn keine patient-relevanten Filterteile existieren, machen wir nichts extra.
-				// (Dann ist es wirklich ein Study-only Filter.)
-				if (patAst) {
-					// 2) Patientenkohorte bestimmen (patID Set)
-					const patFilterStr = JSON.stringify(patAst);
-					const patMatchStages = await filter2match({
-						value: patFilterStr,
-						column: patientCol,
-						db: context.db
-					});
-
-					const patIDsDoc = await context.db
-						.collection(patientCol)
-						.aggregate([...patMatchStages, { $group: { _id: null, ids: { $addToSet: '$patID' } } }])
-						.next();
-
-					const patIDs = patIDsDoc?.ids ?? [];
-
-					// 3) In Studies-Aggregation: studyPatients auf patIDs schneiden
-					rowStages.push({
-						$set: {
-							studyPatients: {
-								$filter: {
-									input: '$studyPatients',
-									as: 'sp',
-									cond: { $in: ['$$sp.patID', patIDs] }
-								}
-							}
-						}
-					});
-
-					// optional, aber i.d.R. gewünscht: Studien ohne Treffer rauswerfen
-					rowStages.push({ $match: { 'studyPatients.0': { $exists: true } } });
-				}
-			}
-
-			// MongoDB sorts arrays by their elements. For the patient column, materialize
-			// the array length before sorting so server-side paging uses the displayed count.
-			const studySort = studyPatientCountSort(input);
-			rowStages.push(...studySort.rowStages);
-			const agg = await aggregationArry(studySort.input, studyCol, context.db, {
-				rowStages
-			});
-
-			return context.db.collection(studyCol).aggregate(agg).toArray();
-		},
+		getAllStudies: (_parent, input, context) => getStudyOverview(input, context),
 
 		getStudyPatientTable: (_parent, input, context) => getStudyPatientTable(input, context),
 

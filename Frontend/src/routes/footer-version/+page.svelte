@@ -289,8 +289,8 @@
   }
 
   .entry {
-    background: #fff;
-    border: 1px solid rgba(0,0,0,.08);
+    background: var(--level4-bg);
+    border: 1px solid var(--border-color);
     border-radius: 12px;
     box-shadow: 0 1px 3px rgba(0,0,0,.04);
     overflow: hidden;
@@ -303,7 +303,8 @@
     align-items: center;
     gap: 12px;
     padding: 10px 14px;
-    background: #fafafa;
+    background: var(--level3-bg);
+    color: var(--font-color);
     cursor: pointer;
     border: 0;
     text-align: left;
@@ -319,7 +320,7 @@
 
   .entry__version { font-weight: 700; }
   .entry__date { font-size: .9rem; opacity: .7; }
-  .entry__title { font-weight: 600; color: #111; }
+  .entry__title { font-weight: 600; color: var(--font-color); }
 
   .chevron {
     width: 20px; height: 20px;
@@ -329,8 +330,8 @@
 
   .entry__panel {
     padding: 12px 16px 16px;
-    background: #fff;
-    border-top: 1px solid rgba(0,0,0,.06);
+    background: var(--level4-bg);
+    border-top: 1px solid var(--border-color);
   }
 
   .changes {

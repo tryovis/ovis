@@ -18,6 +18,7 @@
 	import { tick } from 'svelte';
 	import { iconPath, publicAssetPath } from '$lib/path-utils';
 	import type { AggregatedValue } from '../types/query';
+	import { trackUsageEvent } from '$lib/usage-tracking';
 
 	let filterActive = true;
 
@@ -58,13 +59,14 @@
 	let currentSVGHeight = SVGHeight;
 	let inputArray: SVGInputItem[];
 	let maxCount: number;
-	let svgDoc: Document | null = null;
+	let svgHost: HTMLDivElement | null = null;
+	let svgRoot: SVGSVGElement | null = null;
 	let mapTable: import('datatables.net').Api<unknown> | null = null;
 	let tableShownRows = tableShownRowsMin;
 	let sortingIndex = 1;
 	let tableName = SVGType + 'MapTable';
 	let mounted = false;
-	let svgObject: HTMLObjectElement | null = null;
+	let loadedSvgPath = '';
 	let currentCatalog = '';
 	let tooltipText = '';
 	let currentColor = '';
@@ -78,6 +80,11 @@
 
 	// verhindert, dass veraltete async-Läufe noch einfärben
 	let loadToken = 0;
+
+	$: if (mounted && svgHost && currentSVG && currentSVG !== loadedSvgPath) {
+		loadedSvgPath = currentSVG;
+		void loadInlineSvg(currentSVG);
+	}
 
 	userStore.subscribe((value: { primaryColorRGB: { r?: string; g?: string; b?: string } }) => {
 		primaryColorRGB = {
@@ -246,23 +253,19 @@
 	}
 
 	async function initializeSVG(): Promise<void> {
-		const doc = svgObject?.contentDocument;
-		if (!doc || !inputArray?.length) return;
+		const root = svgRoot;
+		if (!root || !inputArray?.length) return;
 
-		svgDoc = doc;
 		maxCount = Math.max(...inputArray.map((item) => item.count));
 
-		recolor(svgObject);
-		await addLegend(svgObject);
+		recolor(root);
+		await addLegend(root);
 
 		isToggled = false;
 		setMaxLevel();
 	}
 
-	function normalizeSvgViewport(doc: Document): void {
-		const svg = doc.documentElement;
-		if (svg.tagName.toLowerCase() !== 'svg') return;
-
+	function normalizeSvgViewport(svg: SVGSVGElement): void {
 		if (!svg.getAttribute('viewBox')) {
 			const sourceWidth = Number.parseFloat(svg.getAttribute('width') ?? '') || SVGWidth;
 			const sourceHeight = Number.parseFloat(svg.getAttribute('height') ?? '') || SVGHeight;
@@ -276,19 +279,60 @@
 		svg.style.height = '100%';
 		svg.style.display = 'block';
 		svg.style.overflow = 'hidden';
+		svg.style.setProperty('background', 'transparent', 'important');
 	}
 
-	async function handleSvgLoad(): Promise<void> {
+	function getSvgElementById(root: SVGSVGElement | null, id: string): SVGElement | null {
+		if (!root || !id?.trim()) return null;
+		return root.querySelector<SVGElement>(`#${CSS.escape(id)}`);
+	}
+
+	async function loadInlineSvg(source: string): Promise<void> {
+		const host = svgHost;
+		if (!host) return;
+
 		const token = ++loadToken;
+		try {
+			const response = await fetch(source);
+			if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+			const parsedDocument = new DOMParser().parseFromString(await response.text(), 'image/svg+xml');
+			if (parsedDocument.querySelector('parsererror')) throw new Error('Invalid SVG document');
+
+			parsedDocument.querySelectorAll('script, foreignObject').forEach((element) => element.remove());
+			const parsedSvg = parsedDocument.documentElement;
+			if (parsedSvg.tagName.toLowerCase() !== 'svg' || token !== loadToken) return;
+
+			const root = document.importNode(parsedSvg, true) as SVGSVGElement;
+			normalizeSvgViewport(root);
+			const mount = host.shadowRoot ?? host.attachShadow({ mode: 'open' });
+			mount.replaceChildren(root);
+			svgRoot = root;
+		} catch (error) {
+			if (token !== loadToken) return;
+			console.error('Failed to load SVG map:', source, error);
+			host.shadowRoot?.replaceChildren();
+			svgRoot = null;
+			return;
+		}
+
+		const loadedRoot = svgRoot;
+		if (!loadedRoot) return;
+
+		try {
+			await handleSvgLoad(loadedRoot, token);
+		} catch (error) {
+			if (token !== loadToken) return;
+			console.error('Failed to initialize SVG map:', source, error);
+		}
+	}
+
+	async function handleSvgLoad(root: SVGSVGElement, token: number): Promise<void> {
 		await tick();
+		if (token !== loadToken) return;
 
-		const obj = svgObject;
-		const doc = obj?.contentDocument;
-		if (!obj || !doc) return;
+		applySvgTextTheme(root);
 
-		normalizeSvgViewport(doc);
-
-		svgDoc = doc;
 		setCatalog();
 
 		switch (SVGType) {
@@ -311,8 +355,8 @@
 		if (token !== loadToken) return;
 
 		if (isToggled) {
-			recolor(obj);
-			await addLegend(obj);
+			recolor(root);
+			await addLegend(root);
 			isToggled = false;
 		}
 
@@ -507,14 +551,14 @@
 
 		maxCount = Math.max(...inputArray.map((item) => item.count));
 
-		const activeDoc = svgObject?.contentDocument;
-		if (!activeDoc) return;
+		const activeRoot = svgRoot;
+		if (!activeRoot) return;
 
-		svgDoc = activeDoc;
+		applySvgTextTheme(activeRoot);
 
 		inputArray.forEach(({ label, count }) => {
 			const color = calculateHeatmapColor(count, maxCount);
-			const pathElement = activeDoc.getElementById(label);
+			const pathElement = getSvgElementById(activeRoot, label);
 			let description: string | undefined;
 
 			if (pathElement) {
@@ -531,7 +575,7 @@
 			}
 		});
 
-		await addLegend(svgObject);
+		await addLegend(activeRoot);
 	}
 
 	function interpolateColor(
@@ -566,21 +610,29 @@
 	}
 
 	function changePathColor(pathId: string, color: string) {
-		const pathElement = svgDoc?.getElementById(pathId);
+		const pathElement = getSvgElementById(svgRoot, pathId);
 		if (pathElement) {
 			(pathElement as SVGPathElement).style.fill = color;
 		}
 	}
 
-	function recolor(svgObject: HTMLObjectElement | null) {
-		const doc = svgObject?.contentDocument;
-		if (!doc || !inputArray?.length) return;
+	function applySvgTextTheme(root: SVGSVGElement) {
+		if (!document.body.classList.contains('dark-mode')) return;
 
-		svgDoc = doc;
+		const textColor =
+			getComputedStyle(document.body).getPropertyValue('--chart-text-color').trim() || 'white';
+		root.querySelectorAll<SVGElement>('text, tspan').forEach((element) => {
+			element.style.setProperty('fill', textColor, 'important');
+			element.style.setProperty('stroke', 'none', 'important');
+		});
+	}
+
+	function recolor(root: SVGSVGElement | null) {
+		if (!root || !inputArray?.length) return;
 
 		inputArray.forEach(({ label, count }) => {
 			const color = calculateHeatmapColor(count, maxCount);
-			const pathElement = doc.getElementById(label);
+			const pathElement = getSvgElementById(root, label);
 			if (pathElement) {
 				(pathElement as SVGPathElement).style.fill = color;
 			}
@@ -588,7 +640,7 @@
 	}
 
 	function onMouseOver(label: string, count: number, event: MouseEvent, description?: string) {
-		const pathElement = svgDoc?.getElementById(label);
+		const pathElement = getSvgElementById(svgRoot, label);
 		if (!pathElement || !event || !('pageX' in event)) return;
 
 		currentColor = window.getComputedStyle(pathElement).fill;
@@ -666,6 +718,12 @@
 	};
 
 	async function handleClick(label: string, description: string) {
+		trackUsageEvent({
+			type: 'MODULE_INTERACTION',
+			targetType: 'VISUALIZATION',
+			module: `${SVGType}:map`
+		});
+		trackUsageEvent({ type: 'FILTER_CHANGE', module: SVGType });
 		currentLevel = Number(currentLevel);
 
 		if (currentLevel < maxLevel) currentColor = '';
@@ -785,13 +843,13 @@
 		}
 	}
 
-	async function addLegend(svgObject: HTMLObjectElement | null) {
-		if (!showLegend || !svgObject?.contentDocument) return;
+	async function addLegend(root: SVGSVGElement | null) {
+		if (!showLegend || !root) return;
 
 		await removeLegend();
 
 		if (inputArray && inputArray.length > 0) {
-			const svg = d3.select(svgObject.contentDocument.querySelector('svg'));
+			const svg = d3.select(root);
 			if (svg.empty()) return;
 
 			const rectWidth = 15;
@@ -799,6 +857,8 @@
 			const rectSpacing = 0;
 			const padding = 10;
 			const textSize = 13;
+			const legendTextColor =
+				typeof document === 'undefined' ? 'black' : getComputedStyle(document.body).color;
 
 			const rectX = 350;
 			const rectY = 15;
@@ -831,8 +891,8 @@
 				.style('font-size', `${textSize}px`)
 				.style('font-weight', 'normal')
 				.style('font-family', 'Roboto, sans-serif')
-				.style('fill', 'black')
-				.style('stroke', 'black')
+				.style('fill', legendTextColor)
+				.style('stroke', legendTextColor)
 				.style('stroke-width', '0.2')
 				.text(`${get(t)('count')}: 0`);
 
@@ -845,8 +905,8 @@
 				.style('font-size', `${textSize}px`)
 				.style('font-weight', 'normal')
 				.style('font-family', 'Roboto, sans-serif')
-				.style('fill', 'black')
-				.style('stroke', 'black')
+				.style('fill', legendTextColor)
+				.style('stroke', legendTextColor)
 				.style('stroke-width', '0.2px')
 				.text(
 					(showLogarithmStoreValue ? 'log(' : '') +
@@ -860,9 +920,7 @@
 
 	async function removeLegend() {
 		return new Promise<void>((resolve) => {
-			const legendGroupDelete = d3
-				.select(svgObject?.contentDocument?.querySelector('svg'))
-				.select('.legend-group');
+			const legendGroupDelete = d3.select(svgRoot).select('.legend-group');
 
 			if (!legendGroupDelete.empty()) {
 				legendGroupDelete.remove();
@@ -965,7 +1023,7 @@
 		headlineInputTableHeader={headers}
 		headlineInitialLogarithm={showLogarithmStoreValue}
 		headlineChartJSElement={null}
-		headlineD3Element={svgObject}
+		headlineD3Element={svgRoot}
 		headlineLoading={null}
 		on:maximized={handleMaximized}
 		on:chartToggled={handleChartToggled}
@@ -992,17 +1050,14 @@
 					</button>
 				{/if}
 
-				{#key currentSVG}
-					<object
-						bind:this={svgObject}
-						title="SVG"
-						type="image/svg+xml"
-						data={currentSVG}
-						id={SVGType}
-						class="bodymap"
-						on:load={handleSvgLoad}
-					></object>
-				{/key}
+				<div
+					bind:this={svgHost}
+					title="SVG"
+					id={SVGType}
+					class="bodymap"
+					role="img"
+					aria-label={headlineTitle}
+				></div>
 			</div>
 		</div>
 	</div>
@@ -1121,6 +1176,14 @@
 		display: block;
 		width: 100%;
 		height: 100%;
+		background: transparent;
+	}
+
+	.bodymap :global(svg) {
+		display: block;
+		width: 100%;
+		height: 100%;
+		background: transparent !important;
 	}
 
 	:global(.bodymap-table) {

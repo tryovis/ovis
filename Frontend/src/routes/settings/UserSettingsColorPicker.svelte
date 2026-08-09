@@ -1,115 +1,107 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
-
-	import { userStore } from '../../store/userStore';
+	import { t } from '../../store/languageStore';
 	import { updateUser } from '../../graphQl/gql-userManagement';
+	import { userStore } from '../../store/userStore';
+	import { applyUserAppearance, platformConfigStore } from '../../store/platformConfigStore';
 	import { colorArrays } from '../../components/ColorArray.js';
 
-	let primaryColor: string;
-	let colorPalette: string[];
-	let paletteName: string;
-	let currentUser: string;
+	type Palette = { name: string; colors: string[] };
 
-	userStore.subscribe((value: any) => {
-		({ primaryColor, colorPalette, paletteName, currentUser } = value);
-	});
+	let savingPalette = '';
 
-	let tmpPrimaryColor: string;
+	function buildAvailablePalettes(): Palette[] {
+		const palettes: Palette[] = colorArrays.map(({ name, colors }) => ({
+			name,
+			colors: [...colors]
+		}));
+		const addPalette = (name: string, colors: string[]) => {
+			if (name && colors?.length >= 2 && !palettes.some((palette) => palette.name === name)) {
+				palettes.push({ name, colors: [...colors] });
+			}
+		};
 
-	//TODO: Funktion kommt auch in QuicktoolsLogo for => Duplette
-	function hexToRgb(hex) {
-		var result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-
-		return result
-			? {
-					r: parseInt(result[1], 16),
-
-					g: parseInt(result[2], 16),
-
-					b: parseInt(result[3], 16)
-			  }
-			: null;
+		addPalette($platformConfigStore.colorTheme, $platformConfigStore.colorPalette);
+		addPalette($userStore.paletteName, $userStore.colorPalette);
+		return palettes;
 	}
 
-	onMount(() => {
-		console.log('PaletteName', paletteName);
-		console.log('Primary Color', primaryColor);
-		tmpPrimaryColor = primaryColor;
-	});
+	$: availablePalettes = buildAvailablePalettes();
 
-	let selectedColorArray: string[] = colorArrays[0].colors; // Default color array
-
-	function setColorArray(colorArray: string[], name: string) {
-		selectedColorArray = colorArray;
-		paletteName = name;
-
-		let input = { colorTheme: name }; // Das zu aktualisierende Feld und der neue Wert
-
-		updateUser(currentUser, input).then((response) => {
-			userStore.update((storeValues) => {
-				storeValues.colorPalette = colorArray;
-				storeValues.primaryColor = colorArray[0];
-				storeValues.primaryColorRGB = hexToRgb(colorArray[0]);
-				storeValues.paletteName = paletteName;
-				return storeValues;
-			});
-		});
+	async function setColorArray(colors: string[], name: string) {
+		if (savingPalette || name === $userStore.paletteName) return;
+		savingPalette = name;
+		try {
+			await updateUser($userStore.currentUser, { colorTheme: name, colorPalette: colors });
+			applyUserAppearance(
+				{
+					language: $userStore.currentLanguage,
+					colorTheme: name,
+					colorPalette: colors
+				},
+				$platformConfigStore
+			);
+		} catch (error) {
+			console.error('User color scheme could not be updated:', error);
+		} finally {
+			savingPalette = '';
+		}
 	}
 </script>
 
 <div class="labeldiv">
-	<label style="width:100px" for="colorPicker"><b>Color Theme:</b></label>
+	<strong>{$t('userColorTheme')}:</strong>
 </div>
 
-{#each colorArrays as { name, colors }, index}
-	<div class="themediv">
+{#each availablePalettes as { name, colors }, index (name)}
+	<label class:selected={$userStore.paletteName === name} class="themediv">
 		<input
 			type="radio"
-			id="html{index}"
-			name="fav_language"
+			id={`user-palette-${index}`}
+			name="user-color-theme"
+			checked={$userStore.paletteName === name}
+			disabled={savingPalette !== ''}
 			on:change={() => setColorArray(colors, name)}
-			checked={paletteName === name}
 		/>
-		{#each colors as color, index (color)}
-			<span style="background-color: {color}" class="color-point" />
-		{/each}
-		<p>{name}</p>
-	</div>
+		<span class="swatches" aria-label={name}>
+			{#each colors as color}
+				<span style:background-color={color} class="color-point" />
+			{/each}
+		</span>
+		<strong>{name}</strong>
+	</label>
 {/each}
 
 <style>
-	.labeldiv {
+	.labeldiv,
+	.themediv,
+	.swatches {
 		display: flex;
 		align-items: center;
 	}
+
 	.themediv {
-		display: flex;
-		align-items: center;
+		gap: 10px;
+		min-height: 32px;
 		margin-left: 100px;
+		cursor: pointer;
 	}
 
-	label {
-		margin-right: 10px;
+	.themediv.selected {
+		color: var(--link-color, #017c40);
 	}
 
-	input {
-		margin-right: 10px;
+	.themediv input {
+		margin: 0;
 	}
 
-	p {
-		margin-bottom: 5px; /* Füge Platz unter dem Schriftzug hinzu */
-	}
-
-	/* Neuer Stil für die farbigen Punkte */
-	.color-points {
-		display: flex;
-		margin-top: 10px;
+	.swatches {
+		width: min(360px, 55vw);
 	}
 
 	.color-point {
-		width: 20px;
-		height: 20px;
-		margin-right: 5px;
-		border: 1px solid #000; /* Optional: Füge einen Rand hinzu */
+		min-width: 8px;
+		height: 22px;
+		border: 1px solid rgba(0, 0, 0, 0.2);
+		flex: 1 1 0;
 	}
 </style>

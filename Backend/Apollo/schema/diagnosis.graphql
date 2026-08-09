@@ -38,7 +38,12 @@ module.exports = `
         reportID: String 
         reportDate: Float
         ICD: ICD10 
-        ICDO: [ICDO] 
+        ICDO: [ICDO] @deprecated(reason: "Use the flat ICDO_* fields")
+        ICDO_histologyCode: String
+        ICDO_histologyCodeText: String
+        ICDO_histologyDate: Float
+        ICDO_localizationCode: String
+        ICDO_localizationCodeText: String
         vitalState: String 
         centerCase: String 
         PathologicalTNM_RClass: String 
@@ -70,7 +75,12 @@ module.exports = `
         tumorID: String
         diagnosisDate: Float
         ICD: ICD10
-        ICDO: ICDO 
+        ICDO: ICDO @deprecated(reason: "Use the flat ICDO_* fields")
+        ICDO_histologyCode: String
+        ICDO_histologyCodeText: String
+        ICDO_histologyDate: Float
+        ICDO_localizationCode: String
+        ICDO_localizationCodeText: String
         ageAtDiagnosis: Int
         reportID: String
     }

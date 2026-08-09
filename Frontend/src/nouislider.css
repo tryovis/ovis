@@ -128,7 +128,7 @@
   cursor: ns-resize;
 }
 .noUi-handle {
-  border: 1px solid #D9D9D9;
+  border: 1px solid var(--border-color);
   border-radius: 3px;
   background: #FFF;
   cursor: pointer;
@@ -183,7 +183,7 @@
 }
 .noUi-pips {
   position: absolute;
-  color: #999;
+  color: var(--muted-font-color);
 }
 /* Values;
  *
@@ -194,7 +194,7 @@
   text-align: center;
 }
 .noUi-value-sub {
-  color: #ccc;
+  color: var(--muted-font-color);
   font-size: 10px;
 }
 /* Markings;
@@ -273,8 +273,8 @@
   position: absolute;
   border: 1px solid #D9D9D9;
   border-radius: 3px;
-  background: #fff;
-  color: #000;
+  background: var(--dropdown-bg);
+  color: var(--font-color);
   padding: 5px;
   text-align: center;
   white-space: nowrap;

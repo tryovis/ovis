@@ -26,6 +26,7 @@ declare module '$env/static/public' {
 	export const PUBLIC_SITE_SPECIFIC_TECHNICAL_ADMIN_NAME: string | undefined;
 	export const PUBLIC_SITE_SPECIFIC_TECHNICAL_ADMIN_EMAIL: string | undefined;
 	export const PUBLIC_SYSTEM_START_LANGUAGE: string | undefined;
+	export const PUBLIC_SYSTEM_COLOR_THEME: string | undefined;
 	export const PUBLIC_LDAP_ENABLED: string | undefined;
 	export const PUBLIC_NAV_PATIENT_COHORT_ENABLED: string | undefined;
 	export const PUBLIC_NAV_PATIENT_SINGLE_ENABLED: string | undefined;

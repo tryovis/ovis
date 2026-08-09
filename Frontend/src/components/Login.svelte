@@ -4,13 +4,18 @@
 	import { authStore } from '../store/authStore.js';
 	import { getUser } from '../graphQl/gql-userManagement';
 	import { userStore } from '../store/userStore';
-	import { colorArrays } from '../components/ColorArray.js';
 	import { login } from '../keyCloakHandlers/authentication.js';
 	import { getUserInfo } from '../keyCloakHandlers/userManagement.js';
 	import { tokenService } from '../services/tokenService.js';
-	import { iconPath, publicAssetPath } from '$lib/path-utils';
+	import { publicAssetPath } from '$lib/path-utils';
 	import { env } from '$env/dynamic/public';
 	import { resolveChartDisplayPreferences } from '../store/chartDisplayPreferences.js';
+	import {
+		platformConfigStore,
+		platformDocumentUrl,
+		resolveUserAppearance
+	} from '../store/platformConfigStore';
+	import { locale } from '../store/languageStore';
 
 	interface KeycloakTokens {
 		access_token: string;
@@ -29,11 +34,12 @@
 	let confirmNewPassword = '';
 	const technicalAdminName = env.PUBLIC_SITE_SPECIFIC_TECHNICAL_ADMIN_NAME?.trim() || 'Local Admin';
 	const technicalAdminEmail = env.PUBLIC_SITE_SPECIFIC_TECHNICAL_ADMIN_EMAIL?.trim() || '';
-	let language = env.PUBLIC_SYSTEM_START_LANGUAGE?.trim() || 'en';
+	let language = $platformConfigStore.systemLanguage;
+	$: language = $platformConfigStore.systemLanguage;
 	let hasLDAP: boolean = env.PUBLIC_LDAP_ENABLED === 'true';
 	let isDemo: boolean =
-	env.PUBLIC_IMPORT_MODE?.trim().toUpperCase() === 'DEMO' &&
-	env.PUBLIC_SITE_SPECIFIC_TECHNICAL_ADMIN_NAME?.trim() === 'Daniel Nasseh';
+		env.PUBLIC_IMPORT_MODE?.trim().toUpperCase() === 'DEMO' &&
+		env.PUBLIC_SITE_SPECIFIC_TECHNICAL_ADMIN_NAME?.trim() === 'Daniel Nasseh';
 	let isLoadingAuth = true;
 
 	let isCCP: boolean;
@@ -71,8 +77,8 @@
 				return;
 			}
 
-			const selectedPalette = colorArrays.find((p) => p.name === defaultUser.colorTheme);
 			const chartPreferences = resolveChartDisplayPreferences(defaultUser);
+			const userAppearance = resolveUserAppearance(defaultUser, $platformConfigStore);
 
 			const userToStore = {
 				currentUser: defaultUser._id,
@@ -82,25 +88,18 @@
 				chartShowTop5: chartPreferences.showTop5,
 				chartHideNullValues: chartPreferences.hideNullValues,
 				pseudonymization: defaultUser.pseudonymization,
-				paletteName: defaultUser.colorTheme,
-				colorPalette: selectedPalette?.colors ?? [],
-				primaryColor: selectedPalette?.colors?.[0] ?? '#000000',
-				primaryColorRGB: hexToRgb(selectedPalette?.colors?.[0]) ?? { r: 0, g: 0, b: 0 },
-				currentLanguage: language,
+				...userAppearance,
 				currentTheme: false
 			};
 
 			userStore.set(userToStore);
+			locale.set(userAppearance.currentLanguage);
 			localStorage.setItem('loggedInUser', JSON.stringify(userToStore));
 			authStore.set(true);
 		} catch (error) {
 			console.error('Auto-login error:', error);
 			isLoadingAuth = false;
 		}
-	}
-
-	function toggleLanguage() {
-		language = language === 'en' ? 'de' : 'en';
 	}
 
 	async function handleLoginClick() {
@@ -134,8 +133,8 @@
 				return;
 			}
 
-			const selectedPalette = colorArrays.find((p) => p.name === matchingUser.colorTheme);
 			const chartPreferences = resolveChartDisplayPreferences(matchingUser);
+			const userAppearance = resolveUserAppearance(matchingUser, $platformConfigStore);
 
 			const userToStore = {
 				currentUser: matchingUser._id,
@@ -145,11 +144,7 @@
 				chartShowTop5: chartPreferences.showTop5,
 				chartHideNullValues: chartPreferences.hideNullValues,
 				pseudonymization: matchingUser.pseudonymization,
-				paletteName: matchingUser.colorTheme,
-				colorPalette: selectedPalette?.colors ?? [],
-				primaryColor: selectedPalette?.colors?.[0] ?? '#000000',
-				primaryColorRGB: hexToRgb(selectedPalette?.colors?.[0]) ?? { r: 0, g: 0, b: 0 },
-				currentLanguage: language,
+				...userAppearance,
 				currentTheme: false,
 				keycloakTokens: {
 					access_token: authResult.access_token,
@@ -160,6 +155,7 @@
 			};
 
 			userStore.set(userToStore);
+			locale.set(userAppearance.currentLanguage);
 			localStorage.setItem('loggedInUser', JSON.stringify(userToStore));
 			authStore.set(true);
 		} catch (error) {
@@ -178,17 +174,6 @@
 		}
 	}
 
-	function hexToRgb(hex: string | undefined) {
-		if (!hex) return null;
-		var result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-		return result
-			? {
-					r: parseInt(result[1], 16),
-					g: parseInt(result[2], 16),
-					b: parseInt(result[3], 16)
-			  }
-			: null;
-	}
 	function handleChangePasswordClick() {
 		console.log('Change Password button clicked');
 		console.log('Username:', username);
@@ -197,16 +182,8 @@
 		console.log('Confirm New Password:', confirmNewPassword);
 	}
 
-	// Reaktive Download-Pfade je nach Sprache
-	$: authPath =
-		language === 'en'
-			? publicAssetPath('/downloads/ovis_authorization_en_template.pdf')
-			: publicAssetPath('/downloads/ovis_authorization_de_template.pdf');
-
-	$: usagePath =
-		language === 'en'
-			? publicAssetPath('/downloads/ovis_userAgreement_en_template.pdf')
-			: publicAssetPath('/downloads/ovis_userAgreement_de_template.pdf');
+	$: authPath = platformDocumentUrl($platformConfigStore, 'DATA_ACCESS', language);
+	$: usagePath = platformDocumentUrl($platformConfigStore, 'USER_AGREEMENT', language);
 </script>
 
 {#if !isLoadingAuth && !$authStore && loginEnabled}
@@ -214,9 +191,6 @@
 		class="background"
 		style="background-image: url('{publicAssetPath('/loginBackground.png')}')"
 	>
-		<div class="language-switch" on:click={toggleLanguage}>
-			<img src={iconPath(`${language === 'de' ? 'en' : 'de'}.png`)} alt="Language Flag" />
-		</div>
 		<div class="login-container">
 			<img src={publicAssetPath('/Ovis_logo.svg')} alt="Ovis Logo" class="logo" />
 
@@ -282,11 +256,11 @@
 						: 'Um sich in OVIS einzuloggen, müssen Sie eine Berechtigung nach den Vorgaben des Standorts einholen und bestätigen, dass Sie die Nutzungsordnung gelesen haben.'}
 				</p>
 
-				<a href={authPath} download={authPath.split('/').pop()}>
+				<a href={authPath} download>
 					{language === 'en' ? 'Obtain Authorization' : 'Berechtigung einholen'}
 				</a>
 				|
-				<a href={usagePath} download={usagePath.split('/').pop()}>
+				<a href={usagePath} download>
 					{language === 'en' ? 'Usage Agreement' : 'Nutzungsordnung'}
 				</a>
 
@@ -353,16 +327,6 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-	}
-	.language-switch {
-		position: absolute;
-		top: 20px;
-		right: 20px;
-		cursor: pointer;
-	}
-	.language-switch img {
-		width: 30px;
-		height: auto;
 	}
 	.login-container {
 		background: rgba(255, 255, 255, 0.8);

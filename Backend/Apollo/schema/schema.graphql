@@ -94,8 +94,10 @@ module.exports = `#graphql
         firstName: String
         lastName: String
         timeOnline: Int
+        filterClicks: Int
         language: String
         colorTheme: String
+        colorPalette: [String]
         darkMode: Boolean
         chartShowTop5: Boolean
         chartHideNullValues: Boolean
@@ -118,8 +120,10 @@ module.exports = `#graphql
         firstName: String
         lastName: String
         timeOnline: Int
+        filterClicks: Int
         language: String
         colorTheme: String
+        colorPalette: [String]
         darkMode: Boolean
         chartShowTop5: Boolean
         chartHideNullValues: Boolean

@@ -96,12 +96,12 @@
 
 	.placeholder {
 		font-style: italic;
-		color: gray;
+		color: var(--muted-font-color);
 	}
 
 	.placeholder-active {
 		font-style: italic;
-		color: gray;
+		color: var(--muted-font-color);
 	}
 
 	.dropdown-option {

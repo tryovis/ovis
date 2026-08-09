@@ -24,6 +24,7 @@
 	const continueIcon = iconPath('continue.svg');
 
 	export let headlineTitle: string;
+	export let headlineIcon: string | null = null;
 	export let headlineTooltip: string | null = null;
 	export let headlineMaximize: boolean | null = null;
 	export let headlineShowChart: boolean | null = null;
@@ -118,6 +119,9 @@
 	<div class="straight-line-container headline-row">
 		<div class="headline-title-container">
 			<b class="headline-title" title={headlineTitle}>{headlineTitle}</b>
+			{#if headlineIcon}
+				<img src={headlineIcon} alt="" aria-hidden="true" class="headline-leading-icon" />
+			{/if}
 			{#if headlineLoading}
 				<i
 					>→ {translate(headlineLoadingComplete ? 'loadingCapReached' : 'loadingContent')}</i
@@ -260,6 +264,9 @@
 	}
 
 	.headline-title-container {
+		display: flex;
+		align-items: center;
+		gap: 7px;
 		flex: 1 1 auto;
 		justify-content: flex-start;
 		min-width: 0;
@@ -273,6 +280,12 @@
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
+	}
+
+	.headline-leading-icon {
+		width: 20px;
+		height: 20px;
+		flex: 0 0 20px;
 	}
 
 	.icons-container {

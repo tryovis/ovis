@@ -8,19 +8,19 @@ const projection = {
 	ICD_ICD10: '$ICD.ICD10',
 	ICD_ICD10Group: '$ICD.ICD10Group',
 	ICD10_groupdetailed: '$ICD.ICD10GroupText',
-	ICDO_localizationCode: '$ICDO.localizationCode',
-	ICDO_localizationCodeText: '$ICDO.localizationCodeText',
-	ICDO_histologyCode: '$ICDO.histologyCode',
-	ICDO_histologyCodeText: '$ICDO.histologyCodeText',
+	ICDO_localizationCode: '$ICDO_localizationCode',
+	ICDO_localizationCodeText: '$ICDO_localizationCodeText',
+	ICDO_histologyCode: '$ICDO_histologyCode',
+	ICDO_histologyCodeText: '$ICDO_histologyCodeText',
 	VitalState: '$vitalState',
 	primaryCase: '$primaryCase',
 	centerCase: '$centerCase',
 	patientCase: '$patientCase',
 	side: '$side',
 	grading_first: '$grading_first',
-	grading_highest: 'grading_highest',
-	grading_last: 'grading_last',
-	grading_lowest: 'grading_lowest',
+	grading_highest: '$grading_highest',
+	grading_last: '$grading_last',
+	grading_lowest: '$grading_lowest',
 	diagnosisAssurance: '$diagnosisAssurance',
 	diagnosisReason: '$diagnosisReason',
 	metastasis: '$metastasis',
@@ -85,32 +85,6 @@ const projection = {
 	},
 	ECOG_highest: {
 		$ifNull: [{ $max: '$fECOG' }, { $ifNull: [{ $max: '$xECOG' }, { $max: '$ECOG' }] }]
-	},
-	grading_first: { $first: '$icdograding' },
-	grading_last: { $last: '$icdograding' },
-	grading_lowest: {
-		$arrayElemAt: [
-			{
-				$filter: {
-					input: '$icdograding',
-					as: 'item',
-					cond: { $eq: ['$$item.ordinal', { $min: '$icdograding.ordinal' }] }
-				}
-			},
-			0
-		]
-	},
-	grading_highest: {
-		$arrayElemAt: [
-			{
-				$filter: {
-					input: '$icdograding',
-					as: 'item',
-					cond: { $eq: ['$$item.ordinal', { $max: '$icdograding.ordinal' }] }
-				}
-			},
-			0
-		]
 	}
 };
 
@@ -127,15 +101,6 @@ const timeSetProjection = {
 	}
 };
 
-const icdoDiagnosisProjection = {
-	$first: {
-		$filter: {
-			input: '$ICDO',
-			cond: { $eq: ['$$this.source', 'diagnosis'] }
-		}
-	}
-};
-
 const ecogFeatureProjection = {
 	fECOG: {
 		$filter: { input: '$ECOG', as: 'e', cond: { $in: ['$$e', ['0', '1', '2', '3', '4']] } }
@@ -143,61 +108,7 @@ const ecogFeatureProjection = {
 	xECOG: { $filter: { input: '$ECOG', as: 'e', cond: { $in: ['$$e', ['X']] } } }
 };
 
-const icdoGradingProjection = {
-	$map: {
-		input: '$ICDO.grading',
-		as: 'it',
-		in: {
-			grading: '$$it',
-			ordinal: {
-				$switch: {
-					branches: [
-						{ case: { $eq: ['$$it', 'unbekannt'] }, then: -2 },
-						{ case: { $eq: ['$$it', 'Trifft nicht zu'] }, then: -1 },
-						{ case: { $eq: ['$$it', 'Differenzierungsgrad nicht bestimmbar'] }, then: 0 },
-						{ case: { $eq: ['$$it', '0'] }, then: 1 },
-						{ case: { $eq: ['$$it', '1'] }, then: 2 },
-						{
-							case: {
-								$regexMatch: { input: '$$it', regex: '^niedriggradig', options: 'i' }
-							},
-							then: 3
-						},
-						{ case: { $eq: ['$$it', '2'] }, then: 4 },
-						{
-							case: {
-								$regexMatch: {
-									input: '$$it',
-									regex: '^mittelgradig maligne',
-									options: 'i'
-								}
-							},
-							then: 5
-						},
-						{ case: { $eq: ['$$it', '3'] }, then: 6 },
-						{
-							case: {
-								$regexMatch: { input: '$$it', regex: '^hochgradig', options: 'i' }
-							},
-							then: 7
-						},
-						{ case: { $eq: ['$$it', '4'] }, then: 8 }
-					],
-					default: -3
-				}
-			}
-		}
-	}
-};
-
 const timeFeatures = new Set(['years', 'quarters', 'months', 'weeks']);
-const icdoFeatures = new Set(['ICDO_localizationCode', 'ICDO_histologyCode']);
-const gradingFeatures = new Set([
-	'grading_first',
-	'grading_highest',
-	'grading_last',
-	'grading_lowest'
-]);
 const ecogFeatures = new Set(['ECOG_first', 'ECOG_highest', 'ECOG_last', 'ECOG_lowest']);
 
 const addTimeProjection = (target, feature) => {
@@ -214,31 +125,11 @@ const buildPreProjectSet = ({ group, abscissa, from, until }) => {
 	const $set = {};
 	for (const feature of requestedFeatures) addTimeProjection($set, feature);
 
-	const needsICDO = [...requestedFeatures].some(
-		(feature) => icdoFeatures.has(feature) || gradingFeatures.has(feature)
-	);
-	if (needsICDO) $set.ICDO = icdoDiagnosisProjection;
-
 	if ([...requestedFeatures].some((feature) => ecogFeatures.has(feature))) {
 		Object.assign($set, ecogFeatureProjection);
 	}
 
-	if ([...requestedFeatures].some((feature) => gradingFeatures.has(feature))) {
-		$set.icdograding = icdoGradingProjection;
-	}
-
 	return $set;
-};
-
-const buildPostProjectSet = ({ group, abscissa }) => {
-	if (!gradingFeatures.has(group) && !gradingFeatures.has(abscissa)) return null;
-
-	return {
-		grading_first: '$grading_first.grading',
-		grading_last: '$grading_last.grading',
-		grading_lowest: '$grading_lowest.grading',
-		grading_highest: '$grading_highest.grading'
-	};
 };
 
 const Query = {
@@ -337,9 +228,6 @@ const Query = {
 		const preProjectSet = buildPreProjectSet({ group, abscissa, from, until });
 		if (Object.keys(preProjectSet).length > 0) aggregations.push({ $set: preProjectSet });
 		aggregations.push({ $project });
-
-		const postProjectSet = buildPostProjectSet({ group, abscissa });
-		if (postProjectSet) aggregations.push({ $set: postProjectSet });
 
 		aggregations.push(
 			{

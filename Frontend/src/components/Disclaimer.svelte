@@ -1,12 +1,18 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { env } from '$env/dynamic/public';
-  import { t } from '../store/languageStore';
+  import { locale, t } from '../store/languageStore';
+  import { platformConfigStore, platformDocumentUrl } from '../store/platformConfigStore';
 
   const SHOW_USERAGREEMENT =
     String(env.PUBLIC_SITE_SPECIFIC_SHOW_USERAGREEMENT).toLowerCase() === 'true';
 
   let showDisclaimer = false;
+  $: agreementPath = platformDocumentUrl($platformConfigStore, 'USER_AGREEMENT', $locale);
+  $: agreementText = $t('disclaimer4').replace(
+    /\/downloads\/ovis_userAgreement_(?:de|en)_template\.pdf/g,
+    agreementPath
+  );
 
   function hasDisclaimerBeenShown(): boolean {
     return sessionStorage.getItem('disclaimerShown') === 'true';
@@ -41,7 +47,7 @@
       <p>{@html $t('disclaimer2')}</p>
 
       {#if SHOW_USERAGREEMENT}
-        <p>{@html $t('disclaimer4')}</p>
+        <p>{@html agreementText}</p>
       {/if}
 
       <button type="button" on:click={closeDisclaimer}>
@@ -71,9 +77,9 @@
     max-height: calc(100vh - 40px);
     overflow-y: auto;
     padding: 20px;
-    border: 1px solid #ccc;
+    border: 1px solid var(--border-color);
     border-radius: 5px;
-    background-color: #fff;
+    background-color: var(--level4-bg);
     box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
     transform: translate(-50%, -50%);
   }

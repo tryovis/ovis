@@ -12,6 +12,11 @@ import type { _3dType, Cubes3DType, Grid3DType } from 'd3-3d';
 const textScaleGap = 15;
 let colorPalette: string[];
 
+function themeColor(property: string, fallback: string): string {
+	if (typeof document === 'undefined') return fallback;
+	return getComputedStyle(document.body).getPropertyValue(property).trim() || fallback;
+}
+
 interface UserStoreValue {
 	colorPalette: string[];
 }
@@ -85,8 +90,8 @@ export function plot3DGraph(
 		.attr('class', 'cube')
 		.attr('fill', (d: unknown) => setColor((d as CubeData).tnm, uniqueMValues))
 		.attr('id', (d: unknown) => (d as CubeData).id)
-		.attr('stroke', 'black')
 		.merge(cubes)
+		.attr('stroke', '#000000')
 		.sort(cubes3d.sort)
 		.on('mouseover', (event: MouseEvent) => handleCubeMouseOver(event, maximizeTNM3DChart))
 		.on('mouseout', (event: MouseEvent) => handleCubeMouseOut(event))
@@ -488,7 +493,7 @@ function generateGrid(
 		.append('path')
 		.attr(`class`, `grid-${axis}`)
 		.merge(grid)
-		.attr('stroke', 'black')
+		.attr('stroke', themeColor('--chart-border-color', 'black'))
 		.attr('stroke-width', 0.3)
 		.attr('fill', function (d: unknown) {
 			return (d as GridData).ccw ? 'white' : '#717171';
@@ -536,7 +541,7 @@ function drawScale(
 		.append('path')
 		.attr('class', selector)
 		.merge(scale)
-		.attr('stroke', 'black')
+		.attr('stroke', themeColor('--chart-border-color', 'black'))
 		.attr('stroke-width', 1.5)
 		.attr('d', scale3D.draw);
 
@@ -554,6 +559,7 @@ function drawScale(
 		.merge(text)
 		.attr('x', (d: unknown) => (d as ScaleData).projected.x + xGap)
 		.attr('y', (d: unknown) => (d as ScaleData).projected.y)
+		.attr('fill', themeColor('--chart-text-color', 'black'))
 		.text(function (d: unknown) {
 			if (typeof positionCondition === 'function' && positionCondition(d)) {
 				const ind = index(d);
@@ -593,7 +599,7 @@ export function initializeLegend(
 			.append('rect')
 			.attr('width', legendWidth)
 			.attr('height', legendHeight)
-			.attr('fill', 'white')
+			.attr('fill', themeColor('--level4-bg', 'white'))
 			.attr('opacity', 0.7);
 
 		// Add circles and labels for each uniqueMValue in the legend
@@ -618,6 +624,7 @@ export function initializeLegend(
 			})
 			.attr('dy', '0.32em')
 			.text((_d: string, i: number) => 'M' + uniqueMValues[i])
-			.attr('font-size', '12px');
+			.attr('font-size', '12px')
+			.attr('fill', themeColor('--chart-text-color', 'black'));
 	}
 }

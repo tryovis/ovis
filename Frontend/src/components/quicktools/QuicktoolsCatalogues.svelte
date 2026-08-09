@@ -521,12 +521,12 @@
 						</li>
 						<li class="link">
 							<button on:click={() => selectCatalog('enets', 'ENETS GEPNET')}>
-								<font color="gray">ENETS GEPNET (TODO)</font>
+								<span class="muted-label">ENETS GEPNET (TODO)</span>
 							</button>
 						</li>
 
 						<li>
-							<font color="gray">Lokale Organisationseinheit (TODO)</font>
+							<span class="muted-label">Lokale Organisationseinheit (TODO)</span>
 							<ul>
 								<li class="link disabled">
 									<button on:click={() => selectCatalog('organisationBrust', 'Brustzentrum')}
@@ -593,7 +593,11 @@
 	}
 	.placeholder {
 		font-style: italic;
-		color: gray;
+		color: var(--muted-font-color);
+	}
+
+	.muted-label {
+		color: var(--muted-font-color);
 	}
 	.dkh-list{
 		max-height: 180px; /* maximale Höhe */

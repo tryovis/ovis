@@ -576,9 +576,13 @@
         height: 12px;
     }
 
+    :global(.dark-mode) .pencil-icon {
+        filter: brightness(0) invert(1);
+    }
+
     .more-values {
         font-style: italic;
-        color: grey;
+        color: var(--muted-font-color);
         margin-left: 8px;
     }
 </style>

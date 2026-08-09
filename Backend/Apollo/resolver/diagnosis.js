@@ -1,6 +1,14 @@
 const { aggregationArry } = require('../utils');
 const { filter2match } = require('../astTranslator');
-const { diagnosisHistologyRowStages } = require('../histologyTable');
+
+const legacyIcdo = (diagnosis) => ({
+	localizationCode: diagnosis.ICDO_localizationCode,
+	localizationCodeText: diagnosis.ICDO_localizationCodeText,
+	histologyCode: diagnosis.ICDO_histologyCode,
+	histologyCodeText: diagnosis.ICDO_histologyCodeText,
+	histologyDate: diagnosis.ICDO_histologyDate,
+	source: 'diagnosis'
+});
 
 module.exports = {
 	Query: {
@@ -76,22 +84,21 @@ module.exports = {
 		getQuicktoolsBasicsHistology: async (_parent, _args, context) =>
 			(
 				await context.db
-					.collection(context.collections.diagnosis)
+					.collection(context.collections.histology)
 					.aggregate([
 						{
-							$unwind: '$ICDO'
-						},
-						{
 							$match: {
-								'ICDO.histologyCodeText': { $type: 'string' },
-								'ICDO.histologyCode': { $type: 'string' }
+								ICDO_histologyCodeText: { $type: 'string' },
+								ICDO_histologyCode: { $type: 'string' }
 							}
 						},
 						{
 							$group: {
 								_id: null,
 								histology: {
-									$addToSet: { $concat: ['$ICDO.histologyCode', ' → ', '$ICDO.histologyCodeText'] }
+									$addToSet: {
+										$concat: ['$ICDO_histologyCode', ' → ', '$ICDO_histologyCodeText']
+									}
 								}
 							}
 						},
@@ -110,24 +117,16 @@ module.exports = {
 						}
 					])
 					.next()
-			).hist,
+			)?.hist ?? [],
 
 		getDiagnosisHistologyTable: async (_parent, args, context) => {
-			const usesOffsetPaging = args.offset != null;
 			const aggregation = await aggregationArry(
-				{ ...args },
-				context.collections.diagnosis,
-				context.db,
-				usesOffsetPaging
-					? {
-							rowStages: diagnosisHistologyRowStages,
-							stableSortFields: { __histologyIndex: 1 }
-					  }
-					: undefined
+				args,
+				context.collections.histology,
+				context.db
 			);
-			if (!usesOffsetPaging) aggregation.push(...diagnosisHistologyRowStages);
 			return await context.db
-				.collection(context.collections.diagnosis)
+				.collection(context.collections.histology)
 				.aggregate(aggregation)
 				.toArray();
 		},
@@ -135,17 +134,14 @@ module.exports = {
 			const aggregation = await aggregationArry(args, context.collections.diagnosis, context.db);
 			aggregation.push({
 				$project: {
-					ICDO: {
-						$first: {
-							$filter: {
-								input: '$ICDO',
-								cond: { $eq: ['$$this.source', 'diagnosis'] }
-							}
-						}
-					},
 					_id: 1,
 					tumorID: 1,
 					patID: 1,
+					ICDO_histologyCode: 1,
+					ICDO_histologyCodeText: 1,
+					ICDO_histologyDate: 1,
+					ICDO_localizationCode: 1,
+					ICDO_localizationCodeText: 1,
 					reportID: 1,
 					diagnosisDate: 1,
 					source: 1,
@@ -159,5 +155,11 @@ module.exports = {
 				.aggregate(aggregation)
 				.toArray();
 		}
+	},
+	Diagnosis: {
+		ICDO: (diagnosis) => [legacyIcdo(diagnosis)]
+	},
+	PatientCohort: {
+		ICDO: legacyIcdo
 	}
 };

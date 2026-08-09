@@ -64,10 +64,8 @@ export const getPatientCohortHistoryTable = (continueFromID: string | undefined 
             ICD {
               ICD10
             }
-            ICDO {
-              localizationCode
-              histologyCode
-           }
+            ICDO_localizationCode
+            ICDO_histologyCode
             ageAtDiagnosis
             reportID
           }

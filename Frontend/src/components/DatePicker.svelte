@@ -363,9 +363,9 @@
         top: 50%;
         left: 50%;
         transform: translate(-50%, -50%);
-        background-color: #fff;
+        background-color: var(--level4-bg);
         padding: 10px;
-        border: 1px solid #ccc;
+        border: 1px solid var(--border-color);
         border-radius: 5px;
         box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
         z-index: 9999;
@@ -422,22 +422,22 @@
     padding: 10px 20px; /* Innenabstand */
     border: 1px solid var(--border-color); /* Gleicher Rand wie die Input-Felder */
     border-radius: 5px; /* Abgerundete Ecken */
-    background-color: rgb(235, 235, 235); /* Leicht dunklere Hintergrundfarbe */
+    background-color: var(--level1-bg); /* Leicht dunklere Hintergrundfarbe */
     color: var(--font-color); /* Textfarbe passend zur Farbpalette */
     cursor: pointer; /* Zeiger ändern */
     transition: background-color 0.3s ease, box-shadow 0.3s ease; /* Weiche Übergänge */
 }
 
 .confirm-button:hover {
-    background-color: rgb(220, 220, 220); /* Etwas dunklerer Hover-Effekt */
+    background-color: var(--dropdown-hover); /* Etwas dunklerer Hover-Effekt */
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); /* Dezenter Schatten beim Hovern */
 }
 
 .confirm-button:disabled {
     cursor: not-allowed; /* Kein Zeiger bei deaktiviertem Button */
-    background-color: #f7f7f7; /* Sehr helles Grau */
-    color: #aaa; /* Blassere Textfarbe */
-    border: 1px solid #ddd; /* Hellerer Rand */
+    background-color: var(--level2-bg); /* Sehr helles Grau */
+    color: var(--muted-font-color); /* Blassere Textfarbe */
+    border: 1px solid var(--border-color); /* Hellerer Rand */
 }
 
 

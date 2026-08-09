@@ -16,7 +16,7 @@
 
     function parseUserFilter(filterx) {
         if (!filterx || typeof filterx !== "object" || !filterx.children || filterx.children.length === 0) {
-            return "<span style='color: gray;'>No Filters</span>";
+            return "<span style='color: var(--muted-font-color);'>No Filters</span>";
         }
 
         return `

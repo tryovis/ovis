@@ -400,7 +400,8 @@ export function createTable(
 	}
 
 	if (tableID === 'userManagementTable') {
-		const columnWidths = [100, 200, 50, 50, 50, 50, 100, 400, 50, 50, 50, 50, 50];
+		// Filter clicks is additive; keep the original wide filter and admin columns aligned.
+		const columnWidths = [100, 200, 50, 50, 50, 50, 100, 50, 400, 70, 50, 50, 50, 50];
 		getColumnIndexes(dataTable).forEach((index) => {
 			if (index < columnWidths.length) {
 				jQuery(dataTable.column(index).header()).css('width', columnWidths[index] + 'px');

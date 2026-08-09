@@ -44,3 +44,4 @@ openspec/
 
 docs/
 .pi/extensions/emdash-hook.ts
+Backend/Apollo/differential/ast-differential-*.json

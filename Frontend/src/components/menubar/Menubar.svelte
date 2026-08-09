@@ -93,7 +93,10 @@
 	const studyIcon = iconPath('study.png');
 	const molecularDiagnosticIcon = iconPath('dna.png');
 	const bioMaterialIcon = iconPath('bioMaterial.png');
+	const adminIcon = iconPath('tools.svg');
 	const userManagementIcon = iconPath('user-management.svg');
+	const platformCustomizationIcon = iconPath('cog.svg');
+	const analyticsIcon = iconPath('chart-bar.svg');
 	const lockedIcon = iconPath('locked.svg');
 	const unlockedIcon = iconPath('unlocked.svg');
 
@@ -201,6 +204,30 @@
 		}
 	];
 
+	const adminItems: DropdownItem[] = [
+		{
+			id: 'user-management',
+			route: 'user-management',
+			icon: userManagementIcon,
+			labelKey: 'userManagement',
+			enabled: navConfig.userManagement.enabled
+		},
+		{
+			id: 'platform-customization',
+			route: 'platform-customization',
+			icon: platformCustomizationIcon,
+			labelKey: 'platformCustomization',
+			enabled: navConfig.platformCustomization.enabled
+		},
+		{
+			id: 'analytics',
+			route: 'analytics',
+			icon: analyticsIcon,
+			labelKey: 'analytics',
+			enabled: navConfig.analytics.enabled
+		}
+	];
+
 	const mainLinks: LinkItem[] = [
 		{
 			id: 'diagnosis',
@@ -258,14 +285,6 @@
 			enabled: navConfig.study.enabled,
 			labelKey: 'studies',
 			requireNonCcp: true
-		},
-		{
-			id: 'user-management',
-			route: 'user-management',
-			icon: userManagementIcon,
-			enabled: navConfig.userManagement.enabled,
-			labelKey: 'userManagement',
-			hideForRoles: ['user']
 		}
 	];
 
@@ -280,7 +299,9 @@
 	let patientMenuVisible = false;
 	let therapyMenuVisible = false;
 	let timelineMenuVisible = false;
-	type OpenDropdown = 'patient' | 'therapy' | 'timeline' | null;
+	let visibleAdminItems: DropdownItem[] = [];
+	let adminMenuVisible = false;
+	type OpenDropdown = 'patient' | 'therapy' | 'timeline' | 'admin' | null;
 	let openDropdown: OpenDropdown = null;
 	let mainLinksFiltered: LinkItem[] = [];
 	let topLinksFiltered: LinkItem[] = [];
@@ -323,6 +344,8 @@
 	$: therapyMenuVisible = visibleTherapyItems.length > 0;
 	$: visibleTimelineItems = timelineItems.filter((item) => isDropdownItemVisible(item));
 	$: timelineMenuVisible = visibleTimelineItems.length > 0;
+	$: visibleAdminItems = adminItems.filter((item) => item.enabled);
+	$: adminMenuVisible = currentRole !== 'user' && visibleAdminItems.length > 0;
 	$: mainLinksFiltered = mainLinks.filter((item) => isLinkVisible(item));
 	$: topLinksFiltered = topLinks.filter((item) => isLinkVisible(item));
 </script>
@@ -448,6 +471,31 @@
 			{/if}
 		</a>
 	{/each}
+	{#if adminMenuVisible}
+		<div
+			class="dropdown {visibleAdminItems.some(item => currentRouteText === '/' + item.route)
+				? 'current_selection'
+				: ''}"
+			class:touch-open={openDropdown === 'admin'}
+		>
+			<button
+				type="button"
+				class="dropbtn"
+				aria-expanded={openDropdown === 'admin'}
+				on:click={(event) => toggleDropdown('admin', event)}
+			>
+				<img src={adminIcon} alt="admin" class="menuebar-icon" />{$t('admin')}
+				<img src={caretDownIcon} alt="carretDown" class="caret-down-icon" />
+			</button>
+			<div class="dropdown-content">
+				{#each visibleAdminItems as item (item.id)}
+					<a href={item.route}>
+						<img src={item.icon} alt={item.id} class="menuebar-icon no-invert" />{$t(item.labelKey)}
+					</a>
+				{/each}
+			</div>
+		</div>
+	{/if}
 </div>
 
 <style>
@@ -464,13 +512,21 @@
 		margin-left: 5px;
 	}
 
+	:global(.dark-mode) .caret-down-icon {
+		filter: brightness(0) invert(1);
+	}
+
+	:global(.dark-mode) .dropdown-content .menuebar-icon {
+		filter: brightness(0) invert(1);
+	}
+
 
 	/* Dropdown button */
 	.dropdown .dropbtn {
 		font-size: 15px;
 		border: none;
 		outline: none;
-		color: rgb(0, 0, 0);
+		color: var(--font-color);
 		padding: 14px 16px;
 		background-color: inherit;
 		font-family: inherit; /* Important for vertical align on mobile phones */
@@ -482,7 +538,7 @@
 	.dropdown-content {
 		display: none;
 		position: absolute;
-		background-color: #f9f9f9;
+		background-color: var(--dropdown-bg);
 		min-width: 160px;
 		box-shadow: 0px 8px 16px 0px rgba(0, 0, 0, 0.2);
 		z-index: 1;
@@ -497,7 +553,7 @@
 	/* Links inside the dropdown */
 	.dropdown-content a {
 		float: none;
-		color: black;
+		color: var(--font-color);
 		padding: 12px 16px;
 		text-decoration: none;
 		display: block;
@@ -507,7 +563,7 @@
 
 	/* Add a grey background color to dropdown links on hover */
 	.dropdown-content a:hover {
-		background-color: rgb(235, 235, 235);
+		background-color: var(--dropdown-hover);
 	}
 
 	/* Show the dropdown menu on hover */

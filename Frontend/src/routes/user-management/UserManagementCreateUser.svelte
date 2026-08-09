@@ -2,6 +2,10 @@
 	import Headline from '../../components/Headline.svelte';
 	import { createUser } from '../../graphQl/gql-userManagement';
 	import { userStore } from '../../store/userStore';
+	import { platformConfigStore } from '../../store/platformConfigStore';
+	import { iconPath } from '$lib/path-utils';
+
+	const addUserIcon = iconPath('user-management.svg');
 
 	let currentUser = '';
 
@@ -17,7 +21,11 @@
 		// Aufruf der createUser-Funktion mit der Benutzer-ID
 		let creator = currentUser;
 		try {
-			const response = await createUser(identifier, 'user', null, null, null, creator);
+			const response = await createUser(identifier, 'user', null, null, null, creator, {
+				colorTheme: $platformConfigStore.colorTheme,
+				colorPalette: $platformConfigStore.colorPalette,
+				language: $platformConfigStore.systemLanguage
+			});
 			// Handle response if needed
 			console.log('Response:', response);
 			// Emit an event globally to inform the other component
@@ -31,6 +39,7 @@
 
 <Headline
 	headlineTitle={'Create User'}
+	headlineIcon={addUserIcon}
 	headlineTooltip={'TOOLTIP'}
 	headlineMaximize={null}
 	headlineShowChart={null}

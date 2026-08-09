@@ -16,8 +16,6 @@
 	import type { LensDataPasser } from '@samply/lens';
 	import { showToast } from '../../store/toastStore';
 	import { appPath, iconPath } from '$lib/path-utils';
-	import { applyChartDisplayPreferences } from '../../store/configStore';
-	import { resolveChartDisplayPreferences } from '../../store/chartDisplayPreferences';
 
 	const translate = (key: string): string => get(t)(key);
 
@@ -65,17 +63,8 @@
 		{ data: 'firstLogin', header: translate('userFirstLogin') },
 		{ data: 'lastLogin', header: translate('userLastLogin') },
 		{ data: 'timeOnline', header: translate('userTimeOnline') },
+		{ data: 'filterClicks', header: translate('userFilterClicks') },
 		{ data: 'userFilter', header: translate('userUserFilter'), render: renderUserFilters },
-		{
-			data: 'chartShowTop5',
-			header: translate('userChartShowTop5'),
-			render: renderChartShowTop5
-		},
-		{
-			data: 'chartHideNullValues',
-			header: translate('userChartHideNullValues'),
-			render: renderChartHideNullValues
-		},
 		{ data: 'pseudonymization', header: translate('userPseudonymization'), render: renderPseudo },
 		{ data: 'status', header: translate('userStatus'), render: renderStatus },
 		{ data: 'lastModifiedAt', header: translate('userLastModifiedAt') },
@@ -162,15 +151,15 @@
 			: '';
 
 		return `
-        <div style="display: flex; flex-direction: column; align-items: flex-start; width: 100%;">
-            <div class="box_style box_level3" style="width: 100%; min-width: 200px; max-width: 200px; text-align: center;">
+        <div class="user-filter-cell">
+            <div class="box_style box_level3 user-filter-summary">
                 ${
 									filterObject
 										? parseUserFilter(filterObject)
-										: "<span style='color: gray;'>No Filters</span>"
+										: "<span style='color: var(--muted-font-color);'>No Filters</span>"
 								}
             </div>
-            <div style="display: flex; gap: 5px; margin-top: 5px;">
+            <div class="user-filter-actions">
                 ${addButton} <!-- Add-Button bleibt immer sichtbar -->
                 ${editButton}
                 ${eraseButton}
@@ -189,7 +178,7 @@
 			!filterx.children ||
 			filterx.children.length === 0
 		) {
-			return "<span style='color: gray;'>No Filters</span>";
+			return "<span style='color: var(--muted-font-color);'>No Filters</span>";
 		}
 
 		console.log('Parsed Filter Structure:', JSON.stringify(filterx, null, 2));
@@ -293,7 +282,7 @@
 		if (data === true) {
 			pseudoLabel = 'Pseudo.';
 			pseudoButton =
-				'<button class="pseudo-button iconRound"  alt="info" data-identifier="' +
+				'<button class="pseudo-button iconRound" alt="info" data-identifier="' +
 				row._id +
 				'"><img class="pseudo-button" src="' +
 				iconPath('pseudo_off.svg') +
@@ -303,7 +292,7 @@
 		} else {
 			pseudoLabel = 'Offen';
 			pseudoButton =
-				'<button class="pseudo-button iconRound" alt="info"  data-identifier="' +
+				'<button class="pseudo-button iconRound" alt="info" data-identifier="' +
 				row._id +
 				'"><img class="pseudo-button" src="' +
 				iconPath('pseudo.svg') +
@@ -312,37 +301,9 @@
 				'"></button>';
 		}
 		return `<div style="display: flex; justify-content: flex-end; align-items: center;">
-					<div>
-						<span>${pseudoLabel}</span>
-					</div>
-					<div style="margin-left: auto;">
-						${pseudoButton}
-					</div>
+					<div><span>${pseudoLabel}</span></div>
+					<div style="margin-left: auto;">${pseudoButton}</div>
 				</div>`;
-	}
-
-	function renderChartPreference(
-		data: boolean | null,
-		row: UserRecord,
-		buttonClass: string
-	) {
-		const enabled = typeof data === 'boolean' ? data : true;
-		const label = enabled ? translate('yes') : translate('no');
-
-		return `<button
-			class="${buttonClass} preference-button"
-			data-identifier="${row._id}"
-			aria-label="${label}"
-			style="min-width: 44px;"
-		>${label}</button>`;
-	}
-
-	function renderChartShowTop5(data: boolean | null, _type: string, row: UserRecord) {
-		return renderChartPreference(data, row, 'chart-top5-button');
-	}
-
-	function renderChartHideNullValues(data: boolean | null, _type: string, row: UserRecord) {
-		return renderChartPreference(data, row, 'chart-null-button');
 	}
 
 	function renderStatus(data: string, _type: string, row: UserRecord) {
@@ -407,6 +368,7 @@
 
 	onMount(() => {
 		let removeClickListener = () => {};
+		window.addEventListener('ovis-usage-events-recorded', handleUsageEventsRecorded);
 		const unsubscribe = userStore.subscribe(
 			(value: { currentUser: string; currentRole: string }) => {
 				({ currentUser, currentRole } = value);
@@ -489,10 +451,6 @@
 				} else if (target.classList.contains('pseudo-button')) {
 					console.log('Pseudo Button Clicked');
 					switchPseudonymization(identifier);
-				} else if (target.classList.contains('chart-top5-button')) {
-					switchChartPreference(identifier, 'chartShowTop5');
-				} else if (target.classList.contains('chart-null-button')) {
-					switchChartPreference(identifier, 'chartHideNullValues');
 				}
 			};
 
@@ -505,12 +463,18 @@
 		return () => {
 			unsubscribe();
 			window.removeEventListener('userCreated', handleUserCreated);
+			window.removeEventListener('ovis-usage-events-recorded', handleUsageEventsRecorded);
 			removeClickListener();
 		};
 	});
 
 	function handleUserCreated() {
 		drawTable();
+	}
+
+	function handleUsageEventsRecorded(event: Event) {
+		const types = (event as CustomEvent<{ types?: string[] }>).detail?.types ?? [];
+		if (types.includes('FILTER_CHANGE')) void drawTable(true);
 	}
 
 	function saveTableState() {
@@ -767,40 +731,12 @@
 		if (!user) {
 			return;
 		}
-		let input: UserInput = { pseudonymization: false, lastModifiedBy: currentUser }; // Das zu aktualisierende Feld und der neue Wert
-		if (user.pseudonymization === false) {
-			input = { pseudonymization: true, lastModifiedBy: currentUser };
-		} else {
-			input = { pseudonymization: false, lastModifiedBy: currentUser };
-		}
+
+		const input: UserInput = {
+			pseudonymization: user.pseudonymization === false,
+			lastModifiedBy: currentUser
+		};
 		updateUser(identifier, input).then(() => {
-			drawTable(true);
-		});
-	}
-
-	function switchChartPreference(
-		identifier: string,
-		preference: 'chartShowTop5' | 'chartHideNullValues'
-	) {
-		const user = userData.find((entry) => entry._id === identifier);
-		if (!user) {
-			return;
-		}
-
-		const currentValue = typeof user[preference] === 'boolean' ? user[preference] : true;
-		const nextValue = !currentValue;
-		const input: UserInput =
-			preference === 'chartShowTop5'
-				? { chartShowTop5: nextValue, lastModifiedBy: currentUser }
-				: { chartHideNullValues: nextValue, lastModifiedBy: currentUser };
-
-		updateUser(identifier, input).then(() => {
-			if (identifier === currentUser) {
-				userStore.update((current) => ({ ...current, [preference]: nextValue }));
-				const updatedCurrentUser = get(userStore);
-				localStorage.setItem('loggedInUser', JSON.stringify(updatedCurrentUser));
-				applyChartDisplayPreferences(resolveChartDisplayPreferences(updatedCurrentUser));
-			}
 			drawTable(true);
 		});
 	}
@@ -906,9 +842,8 @@
 					<th class="dateColumn">{$t('userFirstLogin')}</th>
 					<th class="dateColumn">{$t('userLastLogin')}</th>
 					<th>{$t('userTimeOnline')} (i. Sec.)</th>
+					<th>{$t('userFilterClicks')}</th>
 					<th>{$t('userUserFilter')}</th>
-					<th>{$t('userChartShowTop5')}</th>
-					<th>{$t('userChartHideNullValues')}</th>
 					<th>{$t('userPseudonymization')}</th>
 					<th>{$t('userStatus')}</th>
 					<th class="dateColumn">{$t('userLastModifiedAt')}</th>
@@ -944,14 +879,38 @@
 		height: 14px; /* Anpassen der Höhe nach Bedarf */
 	}
 
+	:global(#userManagementTable .user-filter-cell) {
+		display: flex;
+		flex-direction: column;
+		align-items: stretch;
+		width: 100%;
+		min-width: 0;
+	}
+
+	:global(#userManagementTable .user-filter-summary) {
+		box-sizing: border-box;
+		width: 100%;
+		min-width: 0;
+		max-width: 100%;
+		overflow: hidden;
+		text-align: center;
+	}
+
+	:global(#userManagementTable .user-filter-actions) {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 5px;
+		margin-top: 5px;
+	}
+
 	.confirmation-popup {
 		position: fixed;
 		top: 50%;
 		left: 50%;
 		transform: translate(-50%, -50%);
-		background-color: #fff;
+		background-color: var(--level4-bg);
 		padding: 20px;
-		border: 1px solid #ccc;
+		border: 1px solid var(--border-color);
 		border-radius: 5px;
 		box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
 		z-index: 9999;

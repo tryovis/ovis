@@ -29,6 +29,8 @@
     const settingsIcon = iconPath('user-icon.svg')
     const editIcon = iconPath('pencil.svg')
     const userManagementIcon = iconPath('user-management.svg')
+    const platformCustomizationIcon = iconPath('cog.svg')
+    const analyticsIcon = iconPath('chart-bar.svg')
     const bioMaterialIcon = iconPath('bioMaterial.png')
     const molecularMarkerIcon = iconPath('dna.png')
 
@@ -58,6 +60,8 @@
     { path: '/settings', text: $t("userSettings"), icon: settingsIcon },
     { path: '/filter-edit', text: $t("editFilters"), icon: editIcon },
     { path: '/user-management', text: $t("userManagement"), icon: userManagementIcon },
+    { path: '/platform-customization', text: $t("platformCustomization"), icon: platformCustomizationIcon },
+    { path: '/analytics', text: $t("analytics"), icon: analyticsIcon },
     { path: '/bio-material', text: $t("bioMaterial"), icon: bioMaterialIcon },
     
   ];

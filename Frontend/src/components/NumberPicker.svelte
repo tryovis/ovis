@@ -133,9 +133,9 @@
         top: 50%;
         left: 50%;
         transform: translate(-50%, -50%);
-        background-color: #fff;
+        background-color: var(--level4-bg);
         padding: 10px;
-        border: 1px solid #ccc;
+        border: 1px solid var(--border-color);
         border-radius: 5px;
         box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
         z-index: 9999;
@@ -172,21 +172,21 @@
         padding: 10px 20px;
         border: 1px solid var(--border-color);
         border-radius: 5px;
-        background-color: rgb(235, 235, 235);
+        background-color: var(--level1-bg);
         color: var(--font-color);
         cursor: pointer;
         transition: background-color 0.3s ease, box-shadow 0.3s ease;
     }
 
     .confirm-button:hover {
-        background-color: rgb(220, 220, 220);
+        background-color: var(--dropdown-hover);
         box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     }
 
     .confirm-button:disabled {
         cursor: not-allowed;
-        background-color: #f7f7f7;
-        color: #aaa;
-        border: 1px solid #ddd;
+        background-color: var(--level2-bg);
+        color: var(--muted-font-color);
+        border: 1px solid var(--border-color);
     }
 </style>

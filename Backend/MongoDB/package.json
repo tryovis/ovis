@@ -5,6 +5,7 @@
     "main": "index.js",
     "scripts": {
         "test": "echo \"Error: no test specified\" && exit 1",
+        "test:study": "node --test Preprocessing/studyModel.test.mjs",
         "format": "prettier --config ../../.prettierrc.cjs --ignore-path ../../.prettierignore --write \"*.js\" \"*.mjs\" \"Preprocessing/**/*.mjs\"",
         "format:check": "prettier --config ../../.prettierrc.cjs --ignore-path ../../.prettierignore --check \"*.js\" \"*.mjs\" \"Preprocessing/**/*.mjs\""
     },

@@ -48,6 +48,12 @@ export const navConfig = {
   },
   userManagement: {
     enabled: flag(env.PUBLIC_NAV_USER_MANAGEMENT_ENABLED, true)
+  },
+  platformCustomization: {
+    enabled: flag(env.PUBLIC_NAV_PLATFORM_CUSTOMIZATION_ENABLED, true)
+  },
+  analytics: {
+    enabled: flag(env.PUBLIC_NAV_ANALYTICS_ENABLED, true)
   }
 };
 

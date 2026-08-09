@@ -29,7 +29,9 @@ export function downloadSvgChart(
 	const svgElement =
 		chartElement instanceof HTMLObjectElement
 			? chartElement.contentDocument?.querySelector('svg')
-			: chartElement.querySelector('svg');
+			: chartElement.matches('svg')
+				? chartElement
+				: chartElement.querySelector('svg');
 	if (!svgElement) return;
 
 	const image = new Image();

@@ -334,6 +334,13 @@ export function InitSvg(
 ) {
 	const I18N: KmI18n = { ...DEFAULT_I18N_DE, ...(i18n || {}) };
 	const compact = layout?.compact ?? false;
+	const bodyStyles = getComputedStyle(document.body);
+	const chartTextColor =
+		bodyStyles.getPropertyValue('--chart-text-color').trim() || 'rgb(102, 102, 102)';
+	const chartMutedTextColor =
+		bodyStyles.getPropertyValue('--chart-muted-text-color').trim() || chartTextColor;
+	const chartPanelColor =
+		bodyStyles.getPropertyValue('--level4-bg').trim() || 'rgb(255, 255, 255)';
 	//Hier erstmal nur zwei Gruppen (UICC z.B. - mehrere werden benötigt)
 	var margin = compact
 			? { top: 6, right: 16, bottom: 24, left: 38 }
@@ -349,7 +356,8 @@ export function InitSvg(
 		.attr('height', height + margin.top + margin.bottom)
 		.style('font-size', compact ? '9px' : null)
 		.append('g')
-		.attr('transform', 'translate(' + margin.left + ',' + margin.top + ')');
+		.attr('transform', 'translate(' + margin.left + ',' + margin.top + ')')
+		.style('color', chartMutedTextColor);
 
 	const daysDivider = getDaysDivider(timetype);
 
@@ -381,6 +389,7 @@ export function InitSvg(
 		.attr('x', width / 2)
 		.attr('y', height + margin.top + 20) // Passe die Position nach Bedarf an
 		.attr('text-anchor', 'middle')
+		.attr('fill', chartTextColor)
 		.text(
 			timetype === 'Tag'
 				? I18N.xAxisDays
@@ -404,6 +413,7 @@ export function InitSvg(
 		.attr('y', 0 - margin.left) // Erhöhe den y-Wert für mehr Platz
 		.attr('dy', '1em')
 		.style('text-anchor', 'middle')
+		.attr('fill', chartTextColor)
 		.text(I18N.yAxisSurvivalProbability);
 
 	var legendWidth = compact ? 116 : 160;
@@ -429,8 +439,8 @@ export function InitSvg(
 			.append('rect')
 			.attr('width', legendWidth)
 			.attr('height', legendHeight)
-			.attr('fill', 'white')
-			.attr('opacity', 0.7);
+			.attr('fill', chartPanelColor)
+			.attr('opacity', 0.9);
 
 		// Hinzufügen eines kleinen weißen Rechtecks oben rechts in der Legende
 		legend
@@ -439,7 +449,7 @@ export function InitSvg(
 			.attr('y', compact ? 3 : 5)
 			.attr('width', compact ? 12 : 20)
 			.attr('height', compact ? 6 : 10)
-			.attr('fill', 'white');
+			.attr('fill', chartPanelColor);
 
 		// Hinzufügen von Farbkreisen und Beschriftungen für die Legende
 		legend
@@ -463,7 +473,8 @@ export function InitSvg(
 			})
 			.attr('dy', '0.32em')
 			.text((d: any) => d.label)
-			.attr('font-size', compact ? '9px' : '12px');
+			.attr('font-size', compact ? '9px' : '12px')
+			.attr('fill', chartTextColor);
 	}
 	return { x, y, svg };
 }

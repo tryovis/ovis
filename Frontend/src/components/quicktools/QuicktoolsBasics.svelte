@@ -107,7 +107,7 @@
 			id: 'Random generierte UUID', // UUID kann hier eingefügt werden
 			key: 'ICDO_histologyCode', // TODO
 			name: 'childCategorie.name', // Beispielhafter Name
-			system: 'diagnosis',
+			system: 'histology',
 			type: 'EQUALS',
 			values: [
 				{
@@ -264,22 +264,22 @@
 <style>
 .input-field {
     font-style: normal;
-    color: black;
+    color: var(--font-color);
 }
 
 .placeholder {
     font-style: italic;
-    color: gray;
+    color: var(--muted-font-color);
 }
 
 .placeholder-active {
     font-style: italic;
-    color: gray;
+    color: var(--muted-font-color);
 }
 
 .dropdown-option {
     font-style: normal;
-    color: black;
+    color: var(--font-color);
 }
 
 

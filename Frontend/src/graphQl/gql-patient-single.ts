@@ -60,10 +60,8 @@ export const getPatientSingleHeader = (patID: string) => graphqlFetch(dataUrl, {
                     ICD {
                       ICD10
                     }
-                    ICDO {
-                      localizationCode
-                      histologyCode
-                    }
+                    ICDO_localizationCode
+                    ICDO_histologyCode
                     ageAtDiagnosis
                     reportID
                 }
@@ -164,4 +162,3 @@ export const getPatientSingleHeader = (patID: string) => graphqlFetch(dataUrl, {
          // result.data.getPatientSingleHeader.VitalDate = new Date(result.data.getPatientSingleHeader.VitalDate).toLocaleDateString('de-DE', localeOptions);
           return result.data.getPatientOverview
       })
-      

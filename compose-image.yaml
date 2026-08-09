@@ -6,6 +6,7 @@ services:
     ports:
       - "127.0.0.1:${FRONTEND_PORT:-5173}:5173"
     environment:
+      - BODY_SIZE_LIMIT=${BODY_SIZE_LIMIT:-16777216}
       - HTTP_PROXY=${OVIS_HTTP_PROXY:-}
       - HTTPS_PROXY=${OVIS_HTTPS_PROXY:-}
       - NO_PROXY=${OVIS_NO_PROXY:-}
@@ -19,6 +20,7 @@ services:
       - PUBLIC_LOGIN_ENABLED=${PUBLIC_LOGIN_ENABLED:-false}
       - OVIS_PUBLIC_BASE_PATH=${OVIS_PUBLIC_BASE_PATH:-}
       - PUBLIC_SYSTEM_START_LANGUAGE=${PUBLIC_SYSTEM_START_LANGUAGE:-en}
+      - PUBLIC_SYSTEM_COLOR_THEME=${PUBLIC_SYSTEM_COLOR_THEME:-CCCMunich}
       - PUBLIC_NAV_PATIENT_COHORT_ENABLED=${PUBLIC_NAV_PATIENT_COHORT_ENABLED:-true}
       - PUBLIC_NAV_PATIENT_SINGLE_ENABLED=${PUBLIC_NAV_PATIENT_SINGLE_ENABLED:-true}
       - PUBLIC_NAV_DIAGNOSIS_ENABLED=${PUBLIC_NAV_DIAGNOSIS_ENABLED:-true}
@@ -85,6 +87,8 @@ services:
       - no_proxy=${OVIS_NO_PROXY:-}
       - CORS_ORIGIN=*
       - DB=onc_test
+      - PUBLIC_SYSTEM_START_LANGUAGE=${PUBLIC_SYSTEM_START_LANGUAGE:-en}
+      - PUBLIC_SYSTEM_COLOR_THEME=${PUBLIC_SYSTEM_COLOR_THEME:-CCCMunich}
       # MongoDB address is always the same internally
       - ADDRESS=mongodb://ovis-backend-database-mongodb:27017
     healthcheck:
@@ -224,7 +228,7 @@ services:
     environment:
       - MONGO_HOST=ovis-backend-database-mongodb
       - MONGO_BACKUP_DBS=onc_test
-      - MONGO_BACKUP_COLLECTIONS=${MONGO_BACKUP_COLLECTIONS:-user}
+      - MONGO_BACKUP_COLLECTIONS=${MONGO_BACKUP_COLLECTIONS:-user,platformConfiguration,platformDocument}
       - MONGO_BACKUP_RETENTION=${MONGO_BACKUP_RETENTION:-0}
       - BACKUP_INTERVAL_SECONDS=${MONGO_BACKUP_INTERVAL_SECONDS:-21600}
     volumes:

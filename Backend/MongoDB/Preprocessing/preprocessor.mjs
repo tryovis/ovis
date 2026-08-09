@@ -14,6 +14,12 @@ import { config, normalizeLower } from './env-config.mjs';
 import { performance } from 'node:perf_hooks';
 import { formatAgeAtDiagnosisGroup } from './ageAtDiagnosisGroup.mjs';
 import { parseSurgeon } from './therapyFieldParsers.mjs';
+import {
+	deriveGradingFeatures,
+	getHistologyCodes,
+	materializeHistologyDocuments
+} from './histologyModel.mjs';
+import { materializeStudyCollections } from './studyModel.mjs';
 
 const timingEnabled = false;
 const profilingEnabled = false;
@@ -26,7 +32,7 @@ const processStartedAt = performance.now();
 const orderedInsertOptions = { forceServerObjectId: true };
 const insertBatchMaxDocs = Number(process.env.PREPROCESSOR_INSERT_BATCH_DOCS || 1000);
 const insertBatchMaxBytes = Number(process.env.PREPROCESSOR_INSERT_BATCH_BYTES || 8 * 1024 * 1024);
-const pipelineStepCount = 23;
+const pipelineStepCount = 25;
 const nonInteractiveProgressIntervalMs = Number(
 	process.env.PREPROCESSOR_PROGRESS_INTERVAL_MS || 10000
 );
@@ -176,11 +182,11 @@ const _starts_onko = (a, b) =>
  * - entity (ID des Subfelds)
  * - ICD_ICD10        (exakt oder mit Suffix "*": Prefix-Match)
  * - ICD_ICD10_3      (exakt, z.B. "C50")
- * - ICDO_histologyCode (Prefix-Match auf irgendeinem ICDO-Eintrag)
+ * - ICDO_histologyCode (Prefix-Match auf Diagnose- oder Pathologie-Histologie)
  * - ageMin, ageMax   (numerisch, vergleicht obj.ageAtDiagnosis)
  * - status + type    (prüft data.status auf passenden Eintrag am selben tumorID)
  */
-function matchesOnkozertRule(rule, obj, data) {
+function matchesOnkozertRule(rule, obj, data, histologies = []) {
 	for (const [key, val] of Object.entries(rule ?? {})) {
 		if (key === 'entity' || val === undefined || val === null || val === '') continue;
 
@@ -198,8 +204,7 @@ function matchesOnkozertRule(rule, obj, data) {
 				break;
 			}
 			case 'ICDO_histologyCode': {
-				const list = obj?.ICDO ?? [];
-				const ok = Array.isArray(list) && list.some((h) => _starts_onko(h?.histologyCode, val));
+				const ok = getHistologyCodes(obj, histologies).some((code) => _starts_onko(code, val));
 				if (!ok) return false;
 				break;
 			}
@@ -253,50 +258,6 @@ const within90Days = (a, b) => {
 	if (!A || !B) return false;
 	const days = (B - A) / (1000 * 60 * 60 * 24);
 	return days < 90; // ggf. <= 90, je nach Definition
-};
-
-const toDateKey = (value) => {
-	const d = sanitizeDate(value);
-	if (!d) return null;
-	const year = d.getFullYear();
-	const month = String(d.getMonth() + 1).padStart(2, '0');
-	const day = String(d.getDate()).padStart(2, '0');
-	return `${year}-${month}-${day}`;
-};
-
-const normalizeHistologyCode = (value) => (value ?? '').toString().trim().toUpperCase();
-
-const applyMixedTumorFlag = (icdoEntries = []) => {
-	const entriesByDate = new Map();
-
-	for (const entry of icdoEntries) {
-		entry.mixedTumor = false;
-
-		const dateKey = toDateKey(entry.histologyDate);
-		const histologyCode = normalizeHistologyCode(entry.histologyCode);
-		if (!dateKey || !histologyCode) continue;
-
-		let entries = entriesByDate.get(dateKey);
-		if (!entries) {
-			entries = [];
-			entriesByDate.set(dateKey, entries);
-		}
-		entries.push(entry);
-	}
-
-	for (const entries of entriesByDate.values()) {
-		const distinctCodes = new Set(
-			entries.map((entry) => normalizeHistologyCode(entry.histologyCode)).filter(Boolean)
-		);
-
-		if (distinctCodes.size >= 2) {
-			entries.forEach((entry) => {
-				entry.mixedTumor = true;
-			});
-		}
-	}
-
-	return icdoEntries;
 };
 
 const matchesNormalizedSet = (value, set) => {
@@ -402,11 +363,10 @@ function buildRareCancerHistologyIndex(entries = []) {
 	return index;
 }
 
-function isRareCancerDiagnosis(icd10, icdoEntries = []) {
+function isRareCancerDiagnosis(icd10, histologyCodes = []) {
 	const histologies = rareCancerHistologiesByDiagnosis.get(icd10);
 	if (!histologies) return false;
-	for (const h of icdoEntries) {
-		const histologyCode = h.histologyCode;
+	for (const histologyCode of histologyCodes) {
 		if (!histologyCode) continue;
 		for (const histology of histologies) {
 			if (histologyCode.includes(histology)) return true;
@@ -469,7 +429,7 @@ function createOnkozertEntityFlags() {
 	return Object.fromEntries([...onkozertRuleIndex.entities].map((entity) => [entity, false]));
 }
 
-function getOnkozertCandidateRules(obj) {
+function getOnkozertCandidateRules(obj, histologies = []) {
 	const candidates = new Set(onkozertRuleIndex.fallback);
 	const icd10 = obj?.ICD?.ICD10 ?? '';
 	const icd10Lower = String(icd10).trim().toLowerCase();
@@ -483,8 +443,8 @@ function getOnkozertCandidateRules(obj) {
 		candidates.add(rule);
 	}
 
-	for (const histology of obj?.ICDO ?? []) {
-		const histologyCode = String(histology?.histologyCode ?? '').toUpperCase();
+	for (const code of getHistologyCodes(obj, histologies)) {
+		const histologyCode = String(code).toUpperCase();
 		if (!histologyCode) continue;
 		for (const length of onkozertRuleIndex.histologyPrefixLengths) {
 			for (const rule of onkozertRuleIndex.histologyPrefixes.get(histologyCode.slice(0, length)) ??
@@ -1089,7 +1049,12 @@ async function loadInputData() {
 
 const deleteCollections = async (cols2delete) => {
 	if (cols2delete.length === 0) return;
-	const delitions = cols2delete.map((it) => odb.collection(it).drop());
+	const expanded = new Set(cols2delete);
+	if (expanded.has('study')) expanded.add('studyPatient');
+	const delitions = [...expanded].map(async (it) => {
+		if (!(await odb.listCollections({ name: it }).hasNext())) return false;
+		return odb.collection(it).drop();
+	});
 	const res = await Promise.all(delitions);
 };
 
@@ -1118,27 +1083,15 @@ function genDiag(it, addin) {
 	ICD.ICD10Group = icdtxt?.codegroup || '';
 	ICD.ICD10GroupText = icdtxt?.textgroup || '';
 
-	let ICDO = [];
-	ICDO.push({
-		histologyCode: it.ICDO_histologyCode,
-		histologyCodeText: it.ICDO_histologyCodeText,
-		histologyDate: it.ICDO_histologyDate ? sanitizeDate(it.ICDO_histologyDate) : null,
-		localizationCode: it.ICDO_localizationCode,
-		localizationCodeText: it.ICDO_localizationCodeText,
-		mixedTumor: false,
-		source: 'diagnosis'
-	});
-
 	it.ICD = ICD;
-	it.ICDO = ICDO.sort((a, b) => a.histologyDate - b.histologyDate);
+	it.ICDO_histologyCodeText = it.ICDO_histologyCodeText ?? it.ICDO_histologyDescription;
+	it.ICDO_histologyDate = it.ICDO_histologyDate ? sanitizeDate(it.ICDO_histologyDate) : null;
 
-	it.rareCancer = isRareCancerDiagnosis(it.ICD.ICD10, it.ICDO);
+	it.rareCancer = isRareCancerDiagnosis(it.ICD.ICD10, [it.ICDO_histologyCode]);
 
 	const sclcHistologyCodes = ['8041', '8042', '8043', '8044', '8045'];
 	if (it.ICD.ICD10.startsWith('C34'))
-		it.sclc = it.ICDO.some((h) =>
-			sclcHistologyCodes.some((code) => h.histologyCode?.includes(code))
-		)
+		it.sclc = sclcHistologyCodes.some((code) => it.ICDO_histologyCode?.includes(code))
 			? 'sclc'
 			: 'nsclc';
 	else it.sclc = null;
@@ -1147,11 +1100,6 @@ function genDiag(it, addin) {
 
 	delete it.ICD_ICD10;
 	delete it.ICD_ICD10Text;
-	delete it.ICDO_histologyCode;
-	delete it.ICDO_histologyCodeText;
-	delete it.ICDO_localizationCode;
-	delete it.ICDO_localizationCodeText;
-	delete it.ICDO_histologyDate;
 	return addin(it);
 }
 
@@ -1734,23 +1682,16 @@ function genKaplanMeier(diagnosis, patient, pprogress, mmetastasis, tnm, therapy
 	return dp;
 }
 
-function genStdy(it) {
-	it.start = it.start === '00.00.0000' ? null : sanitizeDate(fixDateString(it.start));
-	it.firstPatInPlanned =
-		it.firstPatInPlanned === '00.00.0000'
-			? null
-			: sanitizeDate(fixDateString(it.firstPatInPlanned));
-	it.studyPatients.forEach((sp) =>
-		sp.recruitmentDate === '00.00.0000'
-			? (sp.recruitmentDate = null)
-			: (sp.recruitmentDate = sanitizeDate(fixDateString(sp.recruitmentDate)))
-	);
-	if (matchesNormalizedSet(it.phase, config.study.nullPhasesNormalized)) {
-		it.phase = null;
+const normalizeStudyDate = (value) => {
+	if (value == null || value === '' || value === '00.00.0000') return null;
+	if (typeof value === 'string' && value.includes('.')) {
+		return sanitizeDate(fixDateString(value));
 	}
-	it.tumorID = it.studyPatients.flatMap((sp) => lookupIndexes.tumorIDsByPatID.get(sp.patID) ?? []);
-	return it;
-}
+	return sanitizeDate(value);
+};
+
+const normalizeStudyPhase = (value) =>
+	matchesNormalizedSet(value, config.study.nullPhasesNormalized) ? null : value;
 
 async function write2mon(genFun, ins, collection, nested) {
 	startProgressStep(`Saving ${collection}`, ins?.length ?? 0);
@@ -1962,22 +1903,7 @@ const runPreprocessor = async () => {
 
 		const histologyProfileStartedAt = profilingEnabled ? performance.now() : 0;
 		const fhi = lookupIndexes.histologyByTumorID.get(it.tumorID) ?? [];
-		fhi.forEach((h) => {
-			obj.ICDO.push({
-				histologyCode: h.ICDO_histologyCode,
-				histologyCodeText: h.ICDO_histologyCodeText,
-				histologyDate: h.ICDO_histologyDate ? sanitizeDate(h.ICDO_histologyDate) : null,
-				grading: h.grading,
-				Nb: h.ICDO_Nb,
-				Nu: h.ICDO_Nu,
-				sNb: h.ICDO_sNb,
-				sNu: h.ICDO_sNu,
-				source: 'other',
-				mixedTumor: false
-			});
-		});
-		applyMixedTumorFlag(obj.ICDO);
-		obj.ICDO.sort((a, b) => a.histologyDate - b.histologyDate);
+		Object.assign(obj, deriveGradingFeatures(fhi));
 		addProfileTiming('diagnosis:histology', histologyProfileStartedAt, fhi.length);
 
 		const previousTherapyProfileStartedAt = profilingEnabled ? performance.now() : 0;
@@ -2096,16 +2022,20 @@ const runPreprocessor = async () => {
 
 		// === OnkoZert-Bewertung ===
 		const onkozertProfileStartedAt = profilingEnabled ? performance.now() : 0;
-		const onkozertCandidateRules = getOnkozertCandidateRules(obj);
+		const onkozertCandidateRules = getOnkozertCandidateRules(obj, fhi);
 		obj.oz = createOnkozertEntityFlags();
 		for (const rule of onkozertCandidateRules) {
 			if (!rule?.entity) continue;
-			obj.oz[rule.entity] = (obj.oz[rule.entity] ?? false) || matchesOnkozertRule(rule, obj, data);
+			obj.oz[rule.entity] =
+				(obj.oz[rule.entity] ?? false) || matchesOnkozertRule(rule, obj, data, fhi);
 		}
 		addProfileTiming('diagnosis:onkozert', onkozertProfileStartedAt, onkozertCandidateRules.size);
 
 		return obj;
 	});
+	const histologyDocuments = materializeHistologyDocuments(data.diagnosis, data.histology);
+	await write2mon(null, histologyDocuments, 'histology');
+	histologyDocuments.length = 0;
 	compactDataCollection('diagnosis', compactDiagnosis);
 	rebuildDiagnosisLookupIndexes();
 	releaseDiagnosisOnlyLookups();
@@ -2225,7 +2155,21 @@ const runPreprocessor = async () => {
 	clearDataCollection('metastasis');
 	clearDataCollection('tnm');
 
-	await write2mon(genStdy, data.study, 'study');
+	const { studyDocuments, studyPatientDocuments } = materializeStudyCollections(data.study, {
+		normalizeStudyDate,
+		normalizeRecruitmentDate: normalizeStudyDate,
+		normalizePhase: normalizeStudyPhase
+	});
+	await write2mon(null, studyDocuments, 'study');
+	await write2mon(null, studyPatientDocuments, 'studyPatient');
+	await Promise.all([
+		odb.collection('study').createIndex({ studyKey: 1 }, { unique: true }),
+		odb.collection('studyPatient').createIndex({ studyKey: 1 }),
+		odb.collection('studyPatient').createIndex({ patID: 1 }),
+		odb.collection('studyPatient').createIndex({ studyID: 1, patID: 1 })
+	]);
+	studyDocuments.length = 0;
+	studyPatientDocuments.length = 0;
 	clearDataCollection('study');
 	await write2mon(null, data.bioMaterial, 'bioMaterial');
 	clearDataCollection('bioMaterial');

@@ -8,7 +8,6 @@
   import { getLastMetaData } from '../graphQl/gql-generic';
   import { userStore } from '../store/userStore';
   import { toastStore } from '../store/toastStore';
-  import { colorArrays } from '../components/ColorArray.js';
   import { t, locale } from "../store/languageStore";
   import { reloadStore, reloadOnly } from '../store/reloadStore';
   import { filterActiveStore } from '../store/filterActiveStore.js';
@@ -23,10 +22,18 @@
   import { get } from 'svelte/store';
   import { tokenService } from '../services/tokenService.js';
   import { env } from '$env/dynamic/public';
-  import { apiPath, appPath, publicAssetPath, iconPath } from '$lib/path-utils';
+  import { apiPath, appPath, iconPath } from '$lib/path-utils';
   import { version as appVersion } from '../../package.json';
   import { applyChartDisplayPreferences } from '../store/configStore.js';
   import { resolveChartDisplayPreferences } from '../store/chartDisplayPreferences.js';
+  import { flushUsageEvents, stopUsageTracking, trackUsageEvent } from '$lib/usage-tracking';
+  import { initChartThemeSync } from '$lib/chartTheme';
+  import {
+    applyUserAppearance,
+    loadPlatformConfiguration,
+    platformConfigStore,
+    platformDocumentUrl
+  } from '../store/platformConfigStore';
   import {
     DEFAULT_VIEWPORT_CONTENT,
     MOBILE_LANDSCAPE_VIEWPORT_CONTENT
@@ -54,10 +61,22 @@
   // --- NEU: Linkfarbe aus userStore -> CSS Variable --link-color ---
   let primaryColor: string = '#0d6efd'; // Fallback
   let unsubscribeUserStore: (() => void) | undefined;
+  let cleanupChartThemeSync: (() => void) | undefined;
 
   function applyLinkColorToRoot() {
     if (typeof document !== 'undefined' && primaryColor) {
-      document.documentElement.style.setProperty('--link-color', primaryColor);
+      const channels = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(primaryColor);
+      const isNearBlack = channels
+        ? Math.max(
+            Number.parseInt(channels[1], 16),
+            Number.parseInt(channels[2], 16),
+            Number.parseInt(channels[3], 16)
+          ) <= 80
+        : false;
+      const linkColor = document.body.classList.contains('dark-mode') && isNearBlack
+        ? 'rgb(255, 255, 255)'
+        : primaryColor;
+      document.documentElement.style.setProperty('--link-color', linkColor);
     }
   }
   // ------------------------------------------------------------------
@@ -87,6 +106,7 @@
   let sessionInterval = 30; // In Sekunden
   let lastCatalogueTimestamp = 0;
   let cataloguePollingInterval: ReturnType<typeof setInterval>;
+  let platformConfigPollingInterval: ReturnType<typeof setInterval>;
   let catalogueSource = 'loading';
 
 
@@ -96,6 +116,55 @@
   let lastUpdate: string | null = null; // State für Ausgabe
   let showMobilePortraitHint = false;
   let mobileLayoutFrame: number | undefined;
+  let filterTrackingStartedAt = 0;
+  let filterChangeTimer: ReturnType<typeof setTimeout> | undefined;
+
+  const analyticsModuleForTarget = (target: Element) => {
+    const route = window.location.pathname.replace(/^\/+|\/+$/g, '') || 'home';
+    const card = target.closest('.box_style.box_level2');
+    if (!card) return route;
+
+    const semanticClass = [...card.classList].find(
+      (className) => !['box_style', 'box_level2'].includes(className)
+    );
+    if (!semanticClass) return route;
+
+    const similarCards = [...document.querySelectorAll(`.${semanticClass}.box_level2`)];
+    const duplicateIndex = similarCards.indexOf(card);
+    return `${route}:${semanticClass}${similarCards.length > 1 ? `-${duplicateIndex + 1}` : ''}`;
+  };
+
+  function trackPointerInteraction(event: MouseEvent) {
+    const target = event.target;
+    if (!(target instanceof Element)) return;
+
+    let targetType: 'CHART' | 'TABLE' | 'VISUALIZATION' | null = null;
+    if (target.closest('canvas')) targetType = 'CHART';
+    else if (target.closest('table tbody td')) targetType = 'TABLE';
+    else if (target.closest('.chart-container svg')) targetType = 'VISUALIZATION';
+
+    if (targetType) {
+      trackUsageEvent({
+        type: 'MODULE_INTERACTION',
+        targetType,
+        module: analyticsModuleForTarget(target)
+      });
+    }
+  }
+
+  function trackFilterInteraction() {
+    if (Date.now() - filterTrackingStartedAt < 1000) return;
+    if (filterChangeTimer) clearTimeout(filterChangeTimer);
+    filterChangeTimer = setTimeout(() => {
+      filterChangeTimer = undefined;
+      trackUsageEvent({ type: 'FILTER_CHANGE' });
+      void flushUsageEvents();
+    }, 250);
+  }
+
+  function flushUsageWhenHidden() {
+    if (document.visibilityState === 'hidden') void flushUsageEvents(true);
+  }
 
   function updateMobileLayout() {
     if (typeof window === 'undefined') return;
@@ -133,32 +202,20 @@
     mobileLayoutFrame = requestAnimationFrame(updateMobileLayout);
   }
 
-  // Initialize token validation on app startup
-  const userAgreementFiles: Record<string, string> = {
-    de: publicAssetPath("/downloads/ovis_userAgreement_de_template.pdf"),
-    en: publicAssetPath("/downloads/ovis_userAgreement_en_template.pdf"),
-    // weitere Sprachen einfach ergänzen:
-    // fr: publicAssetPath("/downloads/ovis_userAgreement_fr_template.pdf"),
-    // it: publicAssetPath("/downloads/ovis_userAgreement_it_template.pdf"),
-  };
-
-  // Helper mit Fallback-Logik (z. B. "en-US" -> "en")
-  function getUserAgreementPath(loc?: string): string {
-    const norm = (loc ?? "").toLowerCase();
-    if (userAgreementFiles[norm]) return userAgreementFiles[norm];
-
-    const base = norm.split("-")[0]; // "en-US" -> "en"
-    if (userAgreementFiles[base]) return userAgreementFiles[base];
-
-    // finaler Fallback
-    return userAgreementFiles["de"];
-  }
-  $: userAgreementFile = getUserAgreementPath($locale);
+  $: userAgreementFile = platformDocumentUrl(
+    $platformConfigStore,
+    'USER_AGREEMENT',
+    $locale
+  );
   onMount(async () => {
+    filterTrackingStartedAt = Date.now();
     updateMobileLayout();
     window.addEventListener('resize', scheduleMobileLayoutUpdate);
     window.addEventListener('orientationchange', scheduleMobileLayoutUpdate);
     window.visualViewport?.addEventListener('resize', scheduleMobileLayoutUpdate);
+    document.addEventListener('click', trackPointerInteraction, true);
+    document.addEventListener('visibilitychange', flushUsageWhenHidden);
+    window.addEventListener('lens-query-updated', trackFilterInteraction);
 
     // --- NEU: userStore abonnieren und Linkfarbe anwenden ---
     unsubscribeUserStore = userStore.subscribe((v: any) => {
@@ -167,9 +224,11 @@
       applyLinkColorToRoot();
     });
     applyLinkColorToRoot();
+    cleanupChartThemeSync = initChartThemeSync();
     // --------------------------------------------------------
 
     try {
+      await loadPlatformConfiguration();
       console.log('Initializing token validation...');
       await tokenService.initializeTokenValidation();
 
@@ -182,6 +241,10 @@
       cataloguePollingInterval = setInterval(async () => {
         await loadCatalogue();
       }, 30000); // Poll every 30 seconds
+
+      platformConfigPollingInterval = setInterval(() => {
+        void loadPlatformConfiguration(true);
+      }, 60000);
 
     } catch (error) {
       console.error('Failed to initialize token validation:', error);
@@ -258,12 +321,14 @@
     console.log("currentUserDB", currentUserDB);
 
     const chartPreferences = resolveChartDisplayPreferences(currentUserDB);
+    document.body.classList.toggle('dark-mode', currentUserDB.darkMode);
     applyChartDisplayPreferences(chartPreferences);
     userStore.update((user) => ({
       ...user,
       chartShowTop5: chartPreferences.showTop5,
       chartHideNullValues: chartPreferences.hideNullValues
     }));
+    applyUserAppearance(currentUserDB, get(platformConfigStore));
 
     const refreshedUser = get(userStore);
     localStorage.setItem('loggedInUser', JSON.stringify(refreshedUser));
@@ -275,8 +340,6 @@
       let input = { lastLogin: Date.now() };
       await updateUser(currentUser, input);
     }
-
-    locale.set(currentUserDB.language);
     document.body.classList.toggle('dark-mode', currentUserDB.darkMode);
     storeLoaded = true;
 
@@ -308,7 +371,7 @@ function startUpdateTimer() {
     if (isActive) {
       await updateSessionTime();
     }
-  }, sessionInterval * 5000);
+  }, sessionInterval * 1000);
 
   console.log('Update timer started.');
 }
@@ -317,11 +380,17 @@ function startUpdateTimer() {
     clearInterval(updateInterval);
     clearTimeout(inactivityTimer);
     if (cataloguePollingInterval) clearInterval(cataloguePollingInterval);
+    if (platformConfigPollingInterval) clearInterval(platformConfigPollingInterval);
+    if (filterChangeTimer) clearTimeout(filterChangeTimer);
 
     // --- NEU: userStore-Subscription aufräumen ---
     if (unsubscribeUserStore) {
       unsubscribeUserStore();
       unsubscribeUserStore = undefined;
+    }
+    if (cleanupChartThemeSync) {
+      cleanupChartThemeSync();
+      cleanupChartThemeSync = undefined;
     }
     // --------------------------------------------
 
@@ -333,12 +402,17 @@ function startUpdateTimer() {
       window.removeEventListener('resize', scheduleMobileLayoutUpdate);
       window.removeEventListener('orientationchange', scheduleMobileLayoutUpdate);
       window.visualViewport?.removeEventListener('resize', scheduleMobileLayoutUpdate);
+      document.removeEventListener('click', trackPointerInteraction, true);
+      document.removeEventListener('visibilitychange', flushUsageWhenHidden);
+      window.removeEventListener('lens-query-updated', trackFilterInteraction);
       if (mobileLayoutFrame != null) cancelAnimationFrame(mobileLayoutFrame);
       delete document.documentElement.dataset.ovisMobileLayout;
       const viewportMeta = document.querySelector<HTMLMetaElement>('meta[name="viewport"]');
       if (viewportMeta) viewportMeta.content = DEFAULT_VIEWPORT_CONTENT;
     }
     await updateSessionTime(true);
+    await flushUsageEvents(true);
+    stopUsageTracking();
   });
 
   async function updateSessionTime(isFinalUpdate = false) {
@@ -347,33 +421,13 @@ function startUpdateTimer() {
     return;
   }
 
-  try {
-    // Alle Benutzer abrufen
-    const users = await getUser(null, 1000);
-    if (!users || !Array.isArray(users)) {
-      console.error('Error: User list is not valid or empty.');
-      return;
-    }
+  const now = Date.now();
+  const elapsedSeconds = Math.min(300, Math.max(0, Math.floor((now - sessionStartTime) / 1000)));
+  sessionStartTime = now;
+  if (elapsedSeconds === 0) return;
 
-    // Benutzer mit der passenden ID finden
-    const user = users.find(u => u._id === currentUser);
-    if (!user) {
-      console.error(`User with ID ${currentUser} not found.`);
-      return;
-    }
-
-    const currentTimeOnline = user.timeOnline || 0;
-
-    // Neuen Wert berechnen
-    const updatedTimeOnline = currentTimeOnline + sessionInterval;
-
-    // Update an den Server senden
-    const input = { timeOnline: updatedTimeOnline };
-    const result = await updateUser(currentUser, input);
-    console.log('Session time updated successfully:', result);
-  } catch (error) {
-    console.error('Error updating session time:', error);
-  }
+  trackUsageEvent({ type: 'SESSION_TIME', durationSeconds: elapsedSeconds });
+  await flushUsageEvents(isFinalUpdate);
 }
 
 
@@ -384,6 +438,7 @@ function startUpdateTimer() {
   if (!isActive) {
     console.log('User became active again, resuming updates...');
     isActive = true;
+    sessionStartTime = Date.now();
 
     // Starte das Intervall neu, falls es gestoppt wurde
     updateInterval = setInterval(async () => {
@@ -395,6 +450,7 @@ function startUpdateTimer() {
 
   // Starte einen neuen Inaktivitäts-Timer
   inactivityTimer = setTimeout(() => {
+    void updateSessionTime();
     isActive = false; // Benutzer ist inaktiv
     clearInterval(updateInterval); // Stoppe das Intervall
     console.log('User is inactive, stopping updates...');

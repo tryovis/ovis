@@ -14,12 +14,14 @@ export interface UserRecord {
 	firstLogin: string | null;
 	lastLogin: string | null;
 	timeOnline: number | null;
+	filterClicks: number | null;
 	userFilter: string[];
 	pseudonymization: boolean;
 	status: string;
 	lastModifiedAt: string | null;
 	lastModifiedBy: string | null;
 	colorTheme: string;
+	colorPalette?: string[] | null;
 	darkMode: boolean;
 	chartShowTop5: boolean | null;
 	chartHideNullValues: boolean | null;
@@ -33,6 +35,7 @@ export interface UserInput {
 	role?: string;
 	pseudonymization?: boolean;
 	colorTheme?: string;
+	colorPalette?: string[];
 	darkMode?: boolean;
 	chartShowTop5?: boolean;
 	chartHideNullValues?: boolean;
@@ -40,6 +43,7 @@ export interface UserInput {
 	firstLogin?: number;
 	lastLogin?: number;
 	timeOnline?: number;
+	filterClicks?: number;
 }
 
 export const deleteUser = (userIds: string[]) => {
@@ -122,7 +126,8 @@ export const createUser = (
 	email: string | null,
 	firstName: string | null,
 	lastName: string | null,
-	createdBy: string | null
+	createdBy: string | null,
+	platformDefaults?: { colorTheme?: string; colorPalette?: string[]; language?: string }
 ) => {
 	const mutation = `
         mutation createUser($input: iuser!) {
@@ -148,8 +153,9 @@ export const createUser = (
 			darkMode: false,
 			chartShowTop5: true,
 			chartHideNullValues: true,
-			colorTheme: 'CCCMunich',
-			language: 'de'
+			colorTheme: platformDefaults?.colorTheme || 'CCCMunich',
+			colorPalette: platformDefaults?.colorPalette || [],
+			language: platformDefaults?.language || 'de'
 		}
 	};
 
@@ -195,12 +201,14 @@ export const getUser = (
                         firstLogin,
                         lastLogin,
                         timeOnline,
+                        filterClicks,
                         userFilter,
                         pseudonymization,
                         status,
                         lastModifiedAt,
                         lastModifiedBy,
                         colorTheme,
+                        colorPalette,
                         darkMode,
                         chartShowTop5,
                         chartHideNullValues,

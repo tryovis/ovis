@@ -1,0 +1,61 @@
+module.exports = `#graphql
+  enum PlatformDocumentType {
+    USER_AGREEMENT
+    DATA_ACCESS
+  }
+
+  input PlatformConfigurationInput {
+    colorTheme: String!
+    colorPalette: [String!]!
+    systemLanguage: String!
+    updatedBy: String
+  }
+
+  input PlatformDocumentInput {
+    type: PlatformDocumentType!
+    language: String!
+    filename: String!
+    contentType: String!
+    dataBase64: String!
+    updatedBy: String
+  }
+
+  type PlatformDocumentInfo {
+    type: PlatformDocumentType!
+    language: String!
+    filename: String!
+    contentType: String!
+    size: Int!
+    updatedAt: Float!
+    updatedBy: String
+  }
+
+  type PlatformDocument {
+    type: PlatformDocumentType!
+    language: String!
+    filename: String!
+    contentType: String!
+    size: Int!
+    dataBase64: String!
+  }
+
+  type PlatformConfiguration {
+    colorTheme: String!
+    colorPalette: [String!]!
+    systemLanguage: String!
+    source: String!
+    updatedAt: Float
+    updatedBy: String
+    documents: [PlatformDocumentInfo!]!
+  }
+
+  extend type Query {
+    getPlatformConfiguration: PlatformConfiguration!
+    getPlatformDocument(type: PlatformDocumentType!, language: String!): PlatformDocument
+  }
+
+  extend type Mutation {
+    updatePlatformConfiguration(input: PlatformConfigurationInput!): PlatformConfiguration!
+    uploadPlatformDocument(input: PlatformDocumentInput!): PlatformDocumentInfo!
+  }
+`;

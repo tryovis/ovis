@@ -176,24 +176,12 @@ module.exports = {
 			);
 
 			const hstl = genPatQuery(
-				context.db.collection(context.collections.diagnosis),
+				context.db.collection(context.collections.histology),
 				{ patID },
 				{
-					x: '$diagnosisDate',
+					x: '$ICDO_histologyDate',
 					y: 'Histology',
-					label: {
-						$reduce: {
-							input: '$ICDO',
-							initialValue: '',
-							in: {
-								$concat: [
-									'$$value',
-									{ $cond: { if: { $eq: ['$$value', ''] }, then: '', else: ';' } },
-									'$$this.histologyCode'
-								]
-							}
-						}
-					}
+					label: '$ICDO_histologyCode'
 				}
 			);
 
@@ -364,27 +352,10 @@ module.exports = {
 			);
 
 			const stdy = genPatQuery(
-				context.db.collection(context.collections.study),
-				{ 'studyPatients.patID': patID },
+				context.db.collection(context.collections.studyPatient),
+				{ patID },
 				{
-					x: {
-						$arrayElemAt: [
-							{
-								$map: {
-									input: {
-										$filter: {
-											input: '$studyPatients',
-											as: 'spat',
-											cond: { $eq: ['$$spat.patID', patID] }
-										}
-									},
-									as: 'it',
-									in: '$$it.recruitmentDate'
-								}
-							},
-							0
-						]
-					},
+					x: '$recruitmentDate',
 					y: 'Study',
 					label: '$shortname'
 				}
