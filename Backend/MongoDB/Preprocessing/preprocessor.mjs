@@ -19,7 +19,7 @@ import {
 	getHistologyCodes,
 	materializeHistologyDocuments
 } from './histologyModel.mjs';
-import { materializeStudyCollections } from './studyModel.mjs';
+import { materializeStudyCollections, shouldRebuildStudyCollections } from './studyModel.mjs';
 
 const timingEnabled = false;
 const profilingEnabled = false;
@@ -1056,6 +1056,50 @@ const deleteCollections = async (cols2delete) => {
 		return odb.collection(it).drop();
 	});
 	const res = await Promise.all(delitions);
+};
+
+const inspectMaterializedCollection = async (name, invalidDocumentFilter) => {
+	const exists = await odb.listCollections({ name }).hasNext();
+	if (!exists) return { exists: false, count: 0, schemaCurrent: false };
+
+	const collection = odb.collection(name);
+	const [count, invalidDocument] = await Promise.all([
+		collection.countDocuments({}),
+		collection.findOne(invalidDocumentFilter, { projection: { _id: 1 } })
+	]);
+	return { exists: true, count, schemaCurrent: invalidDocument == null };
+};
+
+const rebuildStudyCollectionsIfStale = async (studyDocuments, studyPatientDocuments) => {
+	if (studyDocuments.length === 0) return false;
+
+	const [studyState, studyPatientState] = await Promise.all([
+		inspectMaterializedCollection('study', {
+			$or: [{ studyKey: { $exists: false } }, { studyPatients: { $exists: true } }]
+		}),
+		inspectMaterializedCollection('studyPatient', { studyKey: { $exists: false } })
+	]);
+	const shouldRebuild = shouldRebuildStudyCollections({
+		hasStudyCollection: studyState.exists,
+		hasStudyPatientCollection: studyPatientState.exists,
+		studyCount: studyState.count,
+		studyPatientCount: studyPatientState.count,
+		expectedStudyCount: studyDocuments.length,
+		expectedStudyPatientCount: studyPatientDocuments.length,
+		studySchemaCurrent: studyState.schemaCurrent,
+		studyPatientSchemaCurrent: studyPatientState.schemaCurrent
+	});
+	if (!shouldRebuild) return false;
+
+	logSafe(
+		{
+			study: `${studyState.count}/${studyDocuments.length}`,
+			studyPatient: `${studyPatientState.count}/${studyPatientDocuments.length}`
+		},
+		'Rebuilding incomplete study collections'
+	);
+	await deleteCollections(['study']);
+	return true;
 };
 
 function genPat(it) {
@@ -2160,13 +2204,16 @@ const runPreprocessor = async () => {
 		normalizeRecruitmentDate: normalizeStudyDate,
 		normalizePhase: normalizeStudyPhase
 	});
+	await rebuildStudyCollectionsIfStale(studyDocuments, studyPatientDocuments);
 	await write2mon(null, studyDocuments, 'study');
 	await write2mon(null, studyPatientDocuments, 'studyPatient');
 	await Promise.all([
 		odb.collection('study').createIndex({ studyKey: 1 }, { unique: true }),
+		odb.collection('study').createIndex({ shortname: -1, _id: -1 }),
 		odb.collection('studyPatient').createIndex({ studyKey: 1 }),
 		odb.collection('studyPatient').createIndex({ patID: 1 }),
-		odb.collection('studyPatient').createIndex({ studyID: 1, patID: 1 })
+		odb.collection('studyPatient').createIndex({ studyID: 1, patID: 1 }),
+		odb.collection('studyPatient').createIndex({ recruitmentDate: -1, _id: -1 })
 	]);
 	studyDocuments.length = 0;
 	studyPatientDocuments.length = 0;

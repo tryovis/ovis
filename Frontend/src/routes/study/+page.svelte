@@ -12,9 +12,7 @@
       let maximizeStudyPatientChart: boolean
       let maximizeStudyPatientTable: boolean
    
-      maxStore.subscribe((value: any) => {
-          ({ maximizeStudyChart, maximizeStudyOverviewTable, maximizeStudyPatientChart,maximizeStudyPatientTable } = value);
-      });
+      $: ({ maximizeStudyChart, maximizeStudyOverviewTable, maximizeStudyPatientChart,maximizeStudyPatientTable } = $maxStore);
 
      //Bei betreten der Seite alle Maximierungen zurücksetzen
     onMount(async () => {

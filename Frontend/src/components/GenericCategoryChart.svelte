@@ -1,36 +1,25 @@
 <script lang="ts">
 	import { Chart, registerables } from 'chart.js';
-	import { userStore } from '../store/userStore';
-	import { createTable, changeRowCount } from '../tableBuilder';
-	import { createEventDispatcher, onMount, tick } from 'svelte';
-	import { getCategoryChart } from '../graphQl/gql-generic';
-	import Headline from './Headline.svelte';
-	import { get } from 'svelte/store';
-	import { t } from '../store/languageStore';
-	import type { LensDataPasser } from '@samply/lens';
-	import { reloadOnly } from '../store/reloadStore';
 	import type { ChartConfiguration } from 'chart.js';
-	import { filterActiveStore } from '../store/filterActiveStore.js';
-	import { addUserFilter } from '../components/UserFilter';
-	import { iconPath } from '$lib/path-utils';
-	import type { AggregatedValue } from '../types/query';
+	import type { LensDataPasser } from '@samply/lens';
+	import { createEventDispatcher, onDestroy, onMount, tick } from 'svelte';
+	import { get } from 'svelte/store';
+	import { createTable, changeRowCount } from '../tableBuilder';
+	import { addUserFilter } from './UserFilter';
 	import ChartStatusLine from './ChartStatusLine.svelte';
+	import Headline from './Headline.svelte';
+	import { prepareCategoryChart } from './categoryChartModel.js';
+	import { getCategoryChart } from '../graphQl/gql-generic';
+	import { createLatestRequest } from '../lib/latestRequest.js';
+	import { iconPath } from '$lib/path-utils';
+	import { filterActiveStore } from '../store/filterActiveStore.js';
+	import { t } from '../store/languageStore';
+	import { reloadOnly } from '../store/reloadStore';
+	import { userStore } from '../store/userStore';
 
 	const emptyIcon = iconPath('null-off.svg');
-	// Lokale Variable für filterActive
-	let filterActive = true;
-
-	// Abonnieren des filterActiveStore und den Wert aktualisieren
-	filterActiveStore.subscribe((value) => {
-		filterActive = value.filterActive; // Hier den Wert direkt zuweisen
-	});
-	let colorPalette: string[];
-
-	userStore.subscribe((value: { primaryColor: string; colorPalette: string[] }) => {
-		({ colorPalette } = value);
-	});
-
-	Chart.register(...registerables);
+	type LegendPosition = 'top' | 'left' | 'bottom' | 'right' | 'center' | 'chartArea';
+	type ChartType = { label: string[]; count: number[] };
 
 	export let aspectRatioMin: number;
 	export let collection: string;
@@ -38,7 +27,6 @@
 	export let headlineTitle: string;
 	export let headlineTooltip: string;
 	export let initialDropdownValue: string;
-	type LegendPosition = 'top' | 'left' | 'bottom' | 'right' | 'center' | 'chartArea';
 	export let legendPosition: LegendPosition;
 	export let tableShownRowsMin: number;
 	export let truncateLengthMin: number | null = null;
@@ -48,336 +36,228 @@
 	export let showNullStoreValue = false;
 	export let showLogarithmStoreValue = false;
 
-	let initialDropdownLabel: string;
-
+	let filterActive = true;
+	let colorPalette: string[] = [];
+	let initialDropdownLabel = '';
 	let chartTable: import('datatables.net').Api<unknown> | null = null;
 	let chartTableName = collection + 'Table';
-
-	let aspectRatioMax = 2.2;
-	let tableShownRowsMax = 20;
-
 	let aspectRatio = aspectRatioMin;
 	let tableShownRows = tableShownRowsMin;
-
-	let sortingIndex = 1;
-
-	type ChartType = { label: string[]; count: number[] };
-	let inputArray: ChartType;
+	let inputArray: ChartType = { label: [], count: [] };
+	let rawInputArray: ChartType = { label: [], count: [] };
 	let statusReady = false;
 	let statusShownCategories = 0;
 	let statusTotalCategories = 0;
 	let statusMissingValueCount = 0;
-
 	let pieChart: HTMLCanvasElement;
-	let chartInstance: Chart;
-
+	let chartInstance: Chart | null = null;
+	let chartResizeFrame: number | null = null;
 	let dataPasser: LensDataPasser;
-
-	function handleMaximized(event: { detail: { headlineMaximize: boolean } }) {
-		maxStoreValue = event.detail.headlineMaximize;
-		maximize();
-		setTimeout(() => {
-			if (maxStoreValue) {
-				aspectRatio = aspectRatioMax;
-				tableShownRows = tableShownRowsMax;
-				if (chartTable) changeRowCount(chartTable, tableShownRows);
-			} else {
-				aspectRatio = aspectRatioMin;
-				tableShownRows = tableShownRowsMin;
-				if (chartTable) changeRowCount(chartTable, tableShownRows);
-			}
-		}, 0);
-	}
-
 	let isMounted = false;
+	let destroyed = false;
+	let requestedDataKey: string | null = null;
+	let tableRenderKey: string | null = null;
+	let dataVersion = 0;
+	let tableData: Array<Record<string, string | number>> = [];
+	let reversedTableData: Array<Record<string, string | number>> = [];
+	let columns = [{ data: initialDropdownValue }, { data: 'count' }];
+	let headers: string[] = [];
+	let filter = JSON.stringify({ operand: 'OR', children: [] });
+	let showEmptyIcon = false;
+	let resizeTimer: ReturnType<typeof setTimeout> | null = null;
+	const aspectRatioMax = 2.2;
+	const tableShownRowsMax = 20;
+	const sortingIndex = 1;
+	const categoryRequest = createLatestRequest();
+	const dispatch = createEventDispatcher();
+
+	const unsubscribeFilterActive = filterActiveStore.subscribe((value) => {
+		filterActive = value.filterActive;
+	});
+	const unsubscribeUser = userStore.subscribe(
+		(value: { primaryColor: string; colorPalette: string[] }) => {
+			colorPalette = value.colorPalette;
+			if (isMounted) renderCategoryChart();
+		}
+	);
+
+	Chart.register(...registerables);
+
 	onMount(async () => {
 		await import('@samply/lens');
 		await customElements.whenDefined('lens-data-passer');
 		await tick();
+		if (destroyed) return;
 		isMounted = true;
 	});
 
-	$: {
-		initialDropdownValue;
-		showLogarithmStoreValue;
-		showTop5StoreValue;
-		showNullStoreValue;
-		aspectRatio;
-		truncateLengthMin;
-		dataPasser;
-		pieChart;
-		if (isMounted && dataPasser && pieChart) {
-			createPieChart();
-			getSelectedLabel();
+	$: if (isMounted && dataPasser && pieChart) {
+		const dataKey = `${collection}:${initialDropdownValue}`;
+		if (dataKey !== requestedDataKey) void loadCategoryData(dataKey);
+	}
+
+	async function loadCategoryData(dataKey: string) {
+		const request = categoryRequest.start();
+		const selectedValue = initialDropdownValue;
+		const selectedCollection = collection;
+		requestedDataKey = dataKey;
+		statusReady = false;
+		showEmptyIcon = false;
+
+		try {
+			filter = filterActive
+				? JSON.stringify(dataPasser.getAstAPI())
+				: JSON.stringify({ operand: 'OR', children: [] });
+			filter = JSON.stringify(await addUserFilter(JSON.parse(filter)));
+			const result = await getCategoryChart(selectedValue, selectedCollection, filter);
+			if (!categoryRequest.isCurrent(request)) return;
+
+			rawInputArray = {
+				label: Array.isArray(result?.label) ? [...result.label] : [],
+				count: Array.isArray(result?.count) ? [...result.count] : []
+			};
+			dataVersion += 1;
+			getSelectedLabel(selectedValue);
+			renderCategoryChart();
+		} catch (error) {
+			if (!categoryRequest.isCurrent(request)) return;
+			requestedDataKey = null;
+			showEmptyIcon = true;
+			statusReady = true;
+			console.error('Error while loading the category chart:', error);
 		}
 	}
 
-	let tableData: Array<Record<string, string | number>> = [];
-	let reversedTableData: Array<Record<string, string | number>> = [];
-	let columns = [{ data: initialDropdownValue }, { data: 'count' }];
-	let headers: string[];
+	function renderCategoryChart() {
+		if (!isMounted || destroyed || !pieChart || dataVersion === 0) return;
 
-	type QueryItem = {
-		id: string;
-		key: string;
-		name: string;
-		type: string;
-		system?: string;
-		values: QueryValue[];
-		description?: string;
-	};
-
-	type QueryValue = {
-		name: string;
-		value: string | { min: number; max: number } | AggregatedValue[][] | number | null;
-		queryBindId: string;
-		description?: string;
-	};
-
-	const addItem = (queryObject: QueryItem): void => {
-		dataPasser.addStratifierToQueryAPI({
-			label: String(queryObject.values[0]?.value ?? ''),
-			catalogueGroupCode: queryObject.key,
-			parentGroupCode: queryObject.system ?? ''
+		const prepared = prepareCategoryChart(rawInputArray, {
+			showNull: showNullStoreValue,
+			showTop5: showTop5StoreValue
 		});
-		console.log(dataPasser.getQueryAPI());
-	};
+		const fullInput = prepared.full;
+		inputArray = prepared.chart;
+		statusMissingValueCount = prepared.missingValueCount;
+		statusTotalCategories = fullInput.label.length;
+		statusShownCategories = Math.min(
+			showTop5StoreValue ? 5 : fullInput.label.length,
+			fullInput.label.length
+		);
+		statusReady = true;
+		showEmptyIcon = inputArray.label.length === 0;
+		tableData = fullInput.label.map((label, index) => ({
+			[initialDropdownValue]: label,
+			count: fullInput.count[index]
+		}));
+		reversedTableData = [...tableData];
+		columns = [{ data: initialDropdownValue }, { data: 'count' }];
+		renderCategoryTable();
 
-	let filter = JSON.stringify({ operand: 'OR', children: [] });
-	let showEmptyIcon = false;
-	async function createPieChart() {
-		if (!dataPasser || !pieChart) return;
+		chartInstance?.destroy();
+		chartInstance = null;
+		if (showEmptyIcon) return;
+		const ctx = pieChart.getContext('2d');
+		if (!ctx) return;
 
-		showEmptyIcon = false;
-		statusReady = false;
-		tableData = [];
-		if (filterActive) {
-			filter = JSON.stringify(dataPasser.getAstAPI());
-		}
-		filter = JSON.stringify(await addUserFilter(JSON.parse(filter)));
-		try {
-			// Daten abrufen
-			const result = await getCategoryChart(initialDropdownValue, collection, filter);
-			inputArray = result;
-
-			let missingValueCount = 0;
-
-			// Temporäre Arrays zur sicheren Verarbeitung
-			const validLabels: string[] = [];
-			const validCounts: number[] = [];
-
-			// Labels und Counts synchron filtern
-			inputArray.label.forEach((label, index) => {
-				if (!label?.trim()) {
-					// Zähle Missing Values
-					missingValueCount += inputArray.count[index];
-				} else {
-					// Füge gültige Werte hinzu
-					validLabels.push(label);
-					validCounts.push(inputArray.count[index]);
-				}
-			});
-
-			// "Missing Values" hinzufügen, falls erforderlich
-			if (showNullStoreValue && missingValueCount > 0) {
-				validLabels.push('-');
-				validCounts.push(missingValueCount);
-			}
-
-			// Aktualisiere inputArray mit validierten Daten
-			inputArray.label = validLabels;
-			inputArray.count = validCounts;
-
-			statusMissingValueCount = missingValueCount;
-			statusTotalCategories = inputArray.label.length;
-			const statusCategoryLimit = showTop5StoreValue ? 5 : inputArray.label.length;
-			statusShownCategories = Math.min(statusCategoryLimit, inputArray.label.length);
-			statusReady = true;
-
-			// tableData aufbauen
-			tableData = inputArray.label.map((label, index) => ({
-				[initialDropdownValue]: label,
-				count: inputArray.count[index]
-			}));
-
-			// Für CSV-Export
-			reversedTableData = [...tableData];
-
-			console.log('Processed inputArray:', inputArray);
-
-			if (!inputArray.label || inputArray.label.length === 0) {
-				showEmptyIcon = true; // Nur wenn wirklich keine Daten vorhanden sind
-			} else {
-				console.log('Final tableData:', tableData);
-
-				// Chart-Kontext abrufen
-				let ctx = pieChart.getContext('2d');
-
-				// Daten nach Top5 bearbeiten
-				if (showTop5StoreValue) {
-					inputArray = convertToTop5(inputArray);
-				}
-
-				// Logarithmische Transformation für das Chart
-				const transformedData = inputArray.label.map((label, index) => ({
-					label,
-					count: Math.log(inputArray.count[index]),
-					originalCount: inputArray.count[index]
-				}));
-
-				// Werte auf 2 Nachkommastellen runden
-				transformedData.forEach((item) => {
-					item.count = parseFloat(item.count.toFixed(2));
-				});
-
-				// Chart-Konfiguration erstellen
-				const chartConfig: ChartConfiguration = {
-					type: 'pie',
-					data: {
-						labels: transformedData.map((item) => item.label),
-						datasets: [
-							{
-								data: showLogarithmStoreValue
-									? transformedData.map((item) => item.count)
-									: inputArray.count,
-								backgroundColor: colorPalette
-							}
-						]
+		const transformedData = inputArray.label.map((label, index) => ({
+			label,
+			count: parseFloat(Math.log(inputArray.count[index]).toFixed(2)),
+			originalCount: inputArray.count[index]
+		}));
+		const chartConfig: ChartConfiguration = {
+			type: 'pie',
+			data: {
+				labels: transformedData.map((item) => item.label),
+				datasets: [
+					{
+						data: showLogarithmStoreValue
+							? transformedData.map((item) => item.count)
+							: inputArray.count,
+						backgroundColor: colorPalette
+					}
+				]
+			},
+			options: {
+				responsive: true,
+				maintainAspectRatio: false,
+				aspectRatio,
+				layout: { padding: { bottom: 8 } },
+				plugins: {
+					legend: {
+						display: true,
+						position: legendPosition,
+						labels: { boxWidth: 20, boxHeight: 8, padding: 8, font: { size: 10 } }
 					},
-					options: {
-						responsive: true,
-						maintainAspectRatio: false,
-						aspectRatio: aspectRatio,
-						layout: {
-							padding: { bottom: 8 }
-						},
-						plugins: {
-							legend: {
-								display: true,
-								position: legendPosition,
-								labels: {
-									boxWidth: 20,
-									boxHeight: 8,
-									padding: 8,
-									font: { size: 10 }
-								}
-							},
-							tooltip: {
-								callbacks: {
-									label: (context) => {
-										const dataItem = transformedData[context.dataIndex];
-										const logarithmTooltip = showLogarithmStoreValue
-											? ` (log: ${dataItem.count})`
-											: '';
-										return ` ${get(t)('count')}: ${dataItem.originalCount}${logarithmTooltip}`;
-									}
-								}
-							}
-						},
-						onClick: (event, elements) => {
-							if (elements.length > 0) {
-								const elementIndex = elements[0].index;
-
-								// Label des geklickten Kuchenstücks holen
-								const label = chartConfig.data.labels?.[elementIndex];
-
-								if (!label) {
-									return;
-								}
-
-								if (label !== 'Sonstige') {
-									// Einzelnes Label hinzufügen
-									addItem({
-										id: 'Random generierte UUID',
-										key: initialDropdownValue,
-										name: 'childCategorie.name',
-										type: 'EQUALS',
-										system: collection,
-										values: [
-											{
-												name: 'test',
-												value: String(label),
-												queryBindId: 'Auch eine random UUID'
-											}
-										]
-									});
-								} else {
-									// Wenn "Sonstige" geklickt wurde, die fünf häufigsten Labels hinzufügen
-									const top5 = inputArray.label
-										.map((label, index) => ({ label, count: inputArray.count[index] }))
-										.filter((item) => item.label !== 'Sonstige') // "Sonstige" ausschließen
-										.sort((a, b) => b.count - a.count) // Nach Anzahl sortieren
-										.slice(0, 5); // Die Top 5 auswählen
-
-									top5.forEach((item) => {
-										addItem({
-											id: 'Random generierte UUID',
-											key: '!' + initialDropdownValue,
-											name: 'childCategorie.name',
-											type: 'NEQUALS',
-											system: collection,
-											values: [
-												{
-													name: 'test',
-													value: item.label,
-													queryBindId: 'Auch eine random UUID'
-												}
-											]
-										});
-									});
-								}
-
-								reloadOnly();
+					tooltip: {
+						callbacks: {
+							label: (context) => {
+								const dataItem = transformedData[context.dataIndex];
+								const logarithmTooltip = showLogarithmStoreValue ? ` (log: ${dataItem.count})` : '';
+								return ` ${get(t)('count')}: ${dataItem.originalCount}${logarithmTooltip}`;
 							}
 						}
 					}
-				};
+				},
+				onClick: (_event, elements) => {
+					if (elements.length === 0) return;
+					const label = chartConfig.data.labels?.[elements[0].index];
+					if (typeof label !== 'string') return;
 
-				if (ctx) {
-					if (chartInstance) {
-						chartInstance.destroy();
+					if (label === 'Sonstige') {
+						fullInput.label
+							.map((entry, index) => ({ label: entry, count: fullInput.count[index] }))
+							.sort((left, right) => right.count - left.count)
+							.slice(0, 5)
+							.forEach((item) => addItem('!' + initialDropdownValue, 'NEQUALS', item.label));
+					} else {
+						addItem(initialDropdownValue, 'EQUALS', label === '-' ? null : label);
 					}
-					chartInstance = new Chart(ctx, chartConfig);
-					requestAnimationFrame(() => chartInstance?.resize());
+					reloadOnly();
 				}
-
-				columns = [{ data: initialDropdownValue }, { data: 'count' }];
-
-				// Tabelle erstellen, nachdem die Daten vollständig geladen wurden
-				chartTable = createTable(
-					collection,
-					dataPasser,
-					chartTableName,
-					tableData,
-					columns,
-					tableShownRows,
-					sortingIndex
-				);
 			}
-		} catch (error) {
-			console.error('Error while creating the pie chart:', error);
-		}
+		};
+		chartInstance = new Chart(ctx, chartConfig);
+		if (chartResizeFrame != null) cancelAnimationFrame(chartResizeFrame);
+		chartResizeFrame = requestAnimationFrame(() => chartInstance?.resize());
 	}
 
-	function convertToTop5(inputArray_tmp: ChartType): ChartType {
-		const sortedData = inputArray_tmp.label
-			.map((label, index) => ({ label, count: inputArray_tmp.count[index] }))
-			.sort((a, b) => b.count - a.count);
+	function renderCategoryTable() {
+		const nextTableRenderKey = `${dataVersion}:${initialDropdownValue}:${showNullStoreValue}:${truncateLengthMin ?? ''}`;
+		if (nextTableRenderKey === tableRenderKey) return;
+		tableRenderKey = nextTableRenderKey;
+		chartTable?.destroy();
+		chartTable = null;
+		if (tableData.length === 0) return;
+		chartTable = createTable(
+			collection,
+			dataPasser,
+			chartTableName,
+			tableData,
+			columns,
+			tableShownRows,
+			sortingIndex
+		);
+	}
 
-		const top5 = sortedData.slice(0, 5);
-		const otherCount = sortedData.slice(5).reduce((sum, item) => sum + item.count, 0);
+	function addItem(key: string, type: string, value: string | null): void {
+		dataPasser.addStratifierToQueryAPI({
+			label: String(value ?? ''),
+			catalogueGroupCode: key,
+			parentGroupCode: collection
+		});
+	}
 
-		const newLabelArray = top5.map((item) => item.label);
-		newLabelArray.push('Sonstige');
-		const newCountArray = top5.map((item) => item.count);
-		newCountArray.push(otherCount);
-
-		const newChartType: ChartType = {
-			label: newLabelArray,
-			count: newCountArray
-		};
-
-		return newChartType;
+	function handleMaximized(event: { detail: { headlineMaximize: boolean } }) {
+		maxStoreValue = event.detail.headlineMaximize;
+		maximize();
+		if (resizeTimer) clearTimeout(resizeTimer);
+		resizeTimer = setTimeout(() => {
+			if (destroyed) return;
+			aspectRatio = maxStoreValue ? aspectRatioMax : aspectRatioMin;
+			tableShownRows = maxStoreValue ? tableShownRowsMax : tableShownRowsMin;
+			if (chartTable) changeRowCount(chartTable, tableShownRows);
+			renderCategoryChart();
+		}, 0);
 	}
 
 	function handleChartToggled(event: { detail: { headlineShowChart: boolean } }) {
@@ -388,31 +268,46 @@
 	function handleLogarithmToggled(event: { detail: { headlineInitialLogarithm: boolean } }) {
 		showLogarithmStoreValue = event.detail.headlineInitialLogarithm;
 		dispatch('logarithmToggled', { showLogarithmStoreValue });
+		renderCategoryChart();
 	}
 
 	function handleTop5Toggled(event: { detail: { headlineInitialTop5: boolean } }) {
 		showTop5StoreValue = event.detail.headlineInitialTop5;
 		dispatch('top5Toggled', { showTop5StoreValue });
+		renderCategoryChart();
 	}
 
 	function handleNull(event: { detail: { headlineNull: boolean } }) {
 		showNullStoreValue = event.detail.headlineNull;
 		dispatch('nullToggled', { showNullStoreValue });
+		renderCategoryChart();
 	}
 
-	function getSelectedLabel() {
-		const selectedOption = dropdownObject.find((option) => option.value === initialDropdownValue);
-		initialDropdownLabel = selectedOption ? selectedOption.label : '';
-		initialDropdownValue = selectedOption ? selectedOption.value : '';
+	function getSelectedLabel(selectedValue: string) {
+		const selectedOption = dropdownObject.find((option) => option.value === selectedValue);
+		initialDropdownLabel = selectedOption?.label ?? '';
 		headers = [initialDropdownLabel, get(t)('count')];
-		dispatch('changedGenericChartDropdown', { initialDropdownValue });
+		dispatch('changedGenericChartDropdown', { initialDropdownValue: selectedValue });
 	}
 
-	const dispatch = createEventDispatcher();
 	function maximize() {
 		maxStoreValue = !maxStoreValue;
 		dispatch('maximized', { maxStoreValue });
 	}
+
+	onDestroy(() => {
+		destroyed = true;
+		isMounted = false;
+		categoryRequest.invalidate();
+		if (resizeTimer) clearTimeout(resizeTimer);
+		if (chartResizeFrame != null) cancelAnimationFrame(chartResizeFrame);
+		chartInstance?.destroy();
+		chartInstance = null;
+		chartTable?.destroy();
+		chartTable = null;
+		unsubscribeFilterActive();
+		unsubscribeUser();
+	});
 </script>
 
 <div class="generic-category-root" class:maximized={maxStoreValue}>
@@ -436,8 +331,7 @@
 		on:maximized={handleMaximized}
 		on:nullToggled={handleNull}
 	/>
-	<!-- prettier-ignore -->
-	<lens-data-passer bind:this={dataPasser}></lens-data-passer>
+	<lens-data-passer bind:this={dataPasser} />
 	<div class="category-chart-view" style={showChartStoreValue ? '' : 'display: none;'}>
 		<div class="dropdown-container">
 			<div class="dropdown straight-line-container">
@@ -458,8 +352,7 @@
 			missingValueCount={statusMissingValueCount}
 		/>
 		<div style={!showEmptyIcon ? '' : 'display: none;'} class="chart-container">
-			<!-- prettier-ignore -->
-			<canvas bind:this={pieChart}></canvas>
+			<canvas bind:this={pieChart} />
 		</div>
 	</div>
 	<div class="data">

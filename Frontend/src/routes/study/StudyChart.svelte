@@ -19,17 +19,15 @@
 	let StudyChartShowLogarithm: boolean;
 	let StudyChartInitialDropdown: string;
 
-	maxStore.subscribe((value: any) => {
-		({ maximizeStudyChart } = value);
-	});
+	$: ({ maximizeStudyChart } = $maxStore);
 
-	configStore.subscribe((value: any) => {
-		StudyChartShowChart = value.StudyChartShowChart;
-  		StudyChartShowTop5 = value.StudyChartShowTop5;
-		StudyChartShowNull = value.StudyChartShowNull;
-		StudyChartShowLogarithm = value.StudyChartShowLogarithm;
-		StudyChartInitialDropdown = value.StudyChartInitialDropdown;
-	});
+	$: {
+		StudyChartShowChart = $configStore.StudyChartShowChart;
+		StudyChartShowTop5 = $configStore.StudyChartShowTop5;
+		StudyChartShowNull = $configStore.StudyChartShowNull;
+		StudyChartShowLogarithm = $configStore.StudyChartShowLogarithm;
+		StudyChartInitialDropdown = $configStore.StudyChartInitialDropdown;
+	}
 
 	function handleMaximized(event: any) {
 		maximizeStudyChart = event.detail.headlineMaximize;

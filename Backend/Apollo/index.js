@@ -6,6 +6,7 @@ const http = require('http');
 const cors = require('cors');
 const { json } = require('body-parser');
 const { closeConnection, establishConnection, oncdb } = require('./monConnector.js');
+const { createRuntimeIndexes } = require('./runtimeIndexes.js');
 
 const resolver = require('./resolver/resolver');
 const tumorResolver = require('./resolver/tumor.js');
@@ -115,13 +116,7 @@ async function startApolloServer() {
 	const app = express();
 	const httpServer = http.createServer(app);
 	const database = await establishConnection(dbName);
-	await Promise.all([
-		database.collection(COLLECTIONS.usageEvent).createIndex({ type: 1, createdAt: 1 }),
-		database.collection(COLLECTIONS.usageEvent).createIndex({ type: 1, userId: 1 }),
-		database
-			.collection(COLLECTIONS.usageEvent)
-			.createIndex({ type: 1, targetType: 1, module: 1 })
-	]);
+	await createRuntimeIndexes(database, COLLECTIONS);
 
 	const server = new ApolloServer({
 		typeDefs,

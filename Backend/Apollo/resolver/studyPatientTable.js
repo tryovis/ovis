@@ -180,7 +180,7 @@ async function buildStudyPatientCountAggregation(input, collections, db) {
 	return agg;
 }
 
-async function studyOverviewRowStages(input, collections, db) {
+async function studyOverviewMembership(input, collections, db) {
 	const participationMatch = await globalParticipationMatch(input, collections, db);
 	const stages = [];
 	let emptyStudyKeys = [];
@@ -202,6 +202,15 @@ async function studyOverviewRowStages(input, collections, db) {
 			}
 		});
 	}
+	return { stages, participationMatch, emptyStudyKeys };
+}
+
+async function studyOverviewRowStages(input, collections, db) {
+	const { stages, participationMatch, emptyStudyKeys } = await studyOverviewMembership(
+		input,
+		collections,
+		db
+	);
 
 	const lookupPipeline = [{ $match: { $expr: { $eq: ['$studyKey', '$$studyKey'] } } }];
 	if (participationMatch) lookupPipeline.push({ $match: participationMatch });
@@ -228,8 +237,7 @@ async function buildStudyOverviewAggregation(input, collections, db) {
 	stages.push(...(input?.project ?? []));
 	stages.push(...columnFilterStages(input?.columnFilters));
 	const direction = tableSortOrder[input?.sortDirection] ?? sortOrder.newest;
-	const sortField =
-		input?.sortField === 'studyPatients' ? '__studyPatientCount' : input?.sortField;
+	const sortField = input?.sortField === 'studyPatients' ? '__studyPatientCount' : input?.sortField;
 	if (input?.sortField === 'studyPatients') {
 		stages.push({
 			$set: {
@@ -255,7 +263,14 @@ async function buildStudyOverviewAggregation(input, collections, db) {
 }
 
 async function buildStudyOverviewCountAggregation(input, collections, db) {
-	const stages = await studyOverviewRowStages(input, collections, db);
+	const needsParticipationData =
+		(input?.project ?? []).some((stage) => JSON.stringify(stage).includes('$studyPatients')) ||
+		normalizeColumnFilters(input?.columnFilters).some(({ field }) =>
+			field.startsWith('studyPatients')
+		);
+	const stages = needsParticipationData
+		? await studyOverviewRowStages(input, collections, db)
+		: (await studyOverviewMembership(input, collections, db)).stages;
 	stages.push(...(input?.project ?? []));
 	stages.push(...columnFilterStages(input?.columnFilters));
 	stages.push({ $count: 'count' });

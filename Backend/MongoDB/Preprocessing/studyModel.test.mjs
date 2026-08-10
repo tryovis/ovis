@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { materializeStudyCollections } from './studyModel.mjs';
+import { materializeStudyCollections, shouldRebuildStudyCollections } from './studyModel.mjs';
 
 test('materializes study participants without changing the importer input shape', () => {
 	const input = [
@@ -57,5 +57,64 @@ test('keeps repeated patient ids as distinct participation rows', () => {
 			{ patID: 'P-1', recruitmentDate: 1 },
 			{ patID: 'P-1', recruitmentDate: 2 }
 		]
+	);
+});
+
+const currentCollectionState = {
+	hasStudyCollection: true,
+	hasStudyPatientCollection: true,
+	studyCount: 590,
+	studyPatientCount: 144497,
+	expectedStudyCount: 590,
+	expectedStudyPatientCount: 144497,
+	studySchemaCurrent: true,
+	studyPatientSchemaCurrent: true
+};
+
+test('keeps complete materialized study collections', () => {
+	assert.equal(shouldRebuildStudyCollections(currentCollectionState), false);
+});
+
+test('rebuilds empty collections that were created before the import', () => {
+	assert.equal(
+		shouldRebuildStudyCollections({
+			...currentCollectionState,
+			studyCount: 0,
+			studyPatientCount: 0
+		}),
+		true
+	);
+});
+
+test('rebuilds a legacy nested study collection even when document counts match', () => {
+	assert.equal(
+		shouldRebuildStudyCollections({
+			...currentCollectionState,
+			studySchemaCurrent: false
+		}),
+		true
+	);
+});
+
+test('rebuilds both collections when only one materialized collection exists', () => {
+	assert.equal(
+		shouldRebuildStudyCollections({
+			...currentCollectionState,
+			hasStudyPatientCollection: false,
+			studyPatientCount: 0,
+			studyPatientSchemaCurrent: false
+		}),
+		true
+	);
+});
+
+test('never removes existing study data for an empty import', () => {
+	assert.equal(
+		shouldRebuildStudyCollections({
+			...currentCollectionState,
+			expectedStudyCount: 0,
+			expectedStudyPatientCount: 0
+		}),
+		false
 	);
 });

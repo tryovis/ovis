@@ -27,6 +27,27 @@ type FetchAllTableRowsOptions<Row> = {
 	readonly onProgress?: (loadedRows: number, expectedRows: number) => void;
 };
 
+type TablePageLoaders<Row> = {
+	readonly loadRows: () => Promise<Row[]>;
+	readonly loadTotal: () => Promise<number>;
+	readonly loadFiltered?: () => Promise<number>;
+};
+
+export async function loadTablePageInParallel<Row>({
+	loadRows,
+	loadTotal,
+	loadFiltered
+}: TablePageLoaders<Row>): Promise<TablePage<Row>> {
+	const totalPromise = loadTotal();
+	const [rows, total, filtered] = await Promise.all([
+		loadRows(),
+		totalPromise,
+		loadFiltered ? loadFiltered() : totalPromise
+	]);
+
+	return { rows, total, filtered };
+}
+
 export async function fetchAllTableRows<Row>({
 	baseRequest,
 	totalRows,

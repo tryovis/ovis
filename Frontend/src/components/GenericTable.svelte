@@ -13,19 +13,20 @@
 		fetchAllTableRows,
 		fetchTableRows,
 		getTableCount,
+		loadTablePageInParallel,
 		type TablePage,
 		type TablePageRequest
 	} from '../graphQl/table-page';
 
 	let filterActive = true;
 	// Abonnieren des filterActiveStore und den Wert aktualisieren
-	filterActiveStore.subscribe((value) => {
+	const unsubscribeFilterActive = filterActiveStore.subscribe((value) => {
 		filterActive = value.filterActive; // Hier den Wert direkt zuweisen
 	});
 	let filter = JSON.stringify({ operand: 'OR', children: [] });
 
 	let importMode: string | undefined;
-	variantStore.subscribe((value: any) => {
+	const unsubscribeVariant = variantStore.subscribe((value: any) => {
 		({ importMode } = value);
 	});
 
@@ -76,9 +77,7 @@
 		const availableWidth = tableContainer.clientWidth;
 		if (availableWidth <= 0) return;
 
-		const availableFontSizes = usesMobileLandscapeLayout()
-			? mobileTableFontSizes
-			: tableFontSizes;
+		const availableFontSizes = usesMobileLandscapeLayout() ? mobileTableFontSizes : tableFontSizes;
 		let selectedFontSize = availableFontSizes[availableFontSizes.length - 1];
 		for (const fontSize of availableFontSizes) {
 			tableContainer.style.setProperty('--generic-table-font-size', `${fontSize}px`);
@@ -89,7 +88,8 @@
 		}
 
 		tableContainer.style.setProperty('--generic-table-font-size', `${selectedFontSize}px`);
-		const stillOverflows = Math.max(table.scrollWidth, tableContainer.scrollWidth) > availableWidth + 1;
+		const stillOverflows =
+			Math.max(table.scrollWidth, tableContainer.scrollWidth) > availableWidth + 1;
 		tableContainer.classList.toggle('table-overflowing', stillOverflows);
 
 		const renderedRow = table.querySelector('tbody tr td:not([colspan])')?.closest('tr');
@@ -127,6 +127,8 @@
 	let activePageRequest: TablePageRequest | null = null;
 	const totalCountCache = new Map<string, number>();
 	const filteredCountCache = new Map<string, number>();
+	let destroyed = false;
+	let latestPageRequest = 0;
 
 	function calculateMobileShownRows(rowHeight: number): number | undefined {
 		if (!usesMobileLandscapeLayout() || rowHeight <= 0) return undefined;
@@ -145,7 +147,7 @@
 
 		const controlsHeight = controls.length
 			? Math.max(...controls.map((rect) => rect.bottom)) -
-				Math.min(...controls.map((rect) => rect.top))
+			  Math.min(...controls.map((rect) => rect.top))
 			: 0;
 		const panelPaddingBottom = Number.parseFloat(getComputedStyle(tablePanel).paddingBottom) || 0;
 		const horizontalScrollbarHeight = Math.max(
@@ -166,9 +168,7 @@
 	function calculateCurrentTableShownRows(rowHeight = 32): number {
 		const measuredMobileRows = calculateMobileShownRows(rowHeight);
 		const rowLimit =
-			maxStoreValue || usesMobileLandscapeLayout()
-				? tableShownRowsMax
-				: tableShownRowsNormalMax;
+			maxStoreValue || usesMobileLandscapeLayout() ? tableShownRowsMax : tableShownRowsNormalMax;
 		return Math.min(
 			rowLimit,
 			measuredMobileRows ?? calculateTableShownRowsForContainer(tableContainer, 10, rowHeight)
@@ -213,40 +213,47 @@
 	}
 
 	async function fetchServerPage(request: TablePageRequest): Promise<TablePage<any>> {
+		const pageRequest = ++latestPageRequest;
 		activePageRequest = request;
 		loading = loadingActive;
 		loadingComplete = false;
 		const activeFilter = await getActiveFilter();
-		const rows = prepareTableRows(await fetchTableRows(getTableData, request, activeFilter));
 		const countTarget = countCollection ?? collection;
 		const totalCacheKey = activeFilter;
-		let total = totalCountCache.get(totalCacheKey);
-		if (total == null) {
-			total = await getTableCount(countTarget, activeFilter, []);
-			totalCountCache.set(totalCacheKey, total);
+		const filteredCacheKey = `${activeFilter}:${JSON.stringify(request.columnFilters)}`;
+		const page = await loadTablePageInParallel({
+			loadRows: () => fetchTableRows(getTableData, request, activeFilter),
+			loadTotal: async () => {
+				const cachedTotal = totalCountCache.get(totalCacheKey);
+				if (cachedTotal != null) return cachedTotal;
+				const total = await getTableCount(countTarget, activeFilter, []);
+				totalCountCache.set(totalCacheKey, total);
+				return total;
+			},
+			loadFiltered:
+				request.columnFilters.length === 0
+					? undefined
+					: async () => {
+							const cachedFiltered = filteredCountCache.get(filteredCacheKey);
+							if (cachedFiltered != null) return cachedFiltered;
+							const filtered = await getTableCount(
+								countTarget,
+								activeFilter,
+								request.columnFilters
+							);
+							filteredCountCache.set(filteredCacheKey, filtered);
+							return filtered;
+					  }
+		});
+		const rows = prepareTableRows(page.rows);
+
+		if (!destroyed && pageRequest === latestPageRequest) {
+			tableData = rows;
+			loading = false;
+			loadingComplete = true;
 		}
 
-		let filtered = total;
-		if (request.columnFilters.length > 0) {
-			const filteredCacheKey = `${activeFilter}:${JSON.stringify(request.columnFilters)}`;
-			const cachedFiltered = filteredCountCache.get(filteredCacheKey);
-			if (cachedFiltered == null) {
-				filtered = await getTableCount(countTarget, activeFilter, request.columnFilters);
-				filteredCountCache.set(filteredCacheKey, filtered);
-			} else {
-				filtered = cachedFiltered;
-			}
-		}
-
-		tableData = rows;
-		loading = false;
-		loadingComplete = true;
-
-		return {
-			rows,
-			total,
-			filtered
-		};
+		return { ...page, rows };
 	}
 
 	async function getExportTableData(
@@ -274,8 +281,10 @@
 
 	onMount(async () => {
 		await import('@samply/lens');
+		if (destroyed) return;
 		tableIdName = 'generic_' + tableIdName;
 		await tick();
+		if (destroyed) return;
 		//console.log("table ID", tableIdName);
 
 		columns = filterColumnsForImportMode(columns, importMode);
@@ -309,9 +318,15 @@
 	});
 
 	onDestroy(() => {
+		destroyed = true;
+		latestPageRequest += 1;
 		resizeObserver?.disconnect();
 		if (tableFitFrame != null) cancelAnimationFrame(tableFitFrame);
 		genericTable?.off('draw.dt.genericTableFit', scheduleTableFit);
+		genericTable?.destroy();
+		genericTable = null;
+		unsubscribeFilterActive();
+		unsubscribeVariant();
 	});
 
 	function calculateTooltip() {

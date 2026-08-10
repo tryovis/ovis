@@ -20,9 +20,7 @@
 	];
 
 	let maximizeStudyOverviewTable: boolean;
-	maxStore.subscribe((value: any) => {
-		({ maximizeStudyOverviewTable } = value);
-	});
+	$: ({ maximizeStudyOverviewTable } = $maxStore);
 
 	function handleMaximized(event: any) {
 		maximizeStudyOverviewTable = event.detail.headlineMaximize;

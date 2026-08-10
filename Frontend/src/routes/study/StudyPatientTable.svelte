@@ -14,9 +14,7 @@
 	];
 
 	let maximizeStudyPatientTable: boolean;
-	maxStore.subscribe((value: any) => {
-		({ maximizeStudyPatientTable } = value);
-	});
+	$: ({ maximizeStudyPatientTable } = $maxStore);
 
 	function handleMaximized(event: any) {
 		maximizeStudyPatientTable = event.detail.headlineMaximize;

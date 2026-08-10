@@ -3,6 +3,7 @@ const test = require('node:test');
 
 const {
 	buildStudyOverviewAggregation,
+	buildStudyOverviewCountAggregation,
 	buildStudyPatientCountAggregation,
 	buildStudyPatientTableAggregation,
 	getStudyOverview,
@@ -314,6 +315,34 @@ test('buildStudyPatientCountAggregation counts materialized participation rows',
 	assert.ok(matchIndex < countIndex);
 });
 
+test('study overview count skips the participation lookup when no patient data is filtered', async () => {
+	const stages = await buildStudyOverviewCountAggregation(
+		{ filter: emptyFilter, columnFilters: [{ field: 'shortname', value: 'HOLO' }] },
+		{ study: 'study', studyPatient: 'studyPatient', patient: 'patient' },
+		makeDb()
+	);
+
+	assert.equal(
+		stages.some((stage) => stage.$lookup),
+		false
+	);
+	assert.ok(stages.some((stage) => stage.$match?.shortname));
+	assert.ok(stages.some((stage) => stage.$count === 'count'));
+});
+
+test('study overview count retains the lookup for participation column filters', async () => {
+	const stages = await buildStudyOverviewCountAggregation(
+		{ filter: emptyFilter, columnFilters: [{ field: 'studyPatients.patID', value: 'p1' }] },
+		{ study: 'study', studyPatient: 'studyPatient', patient: 'patient' },
+		makeDb()
+	);
+
+	assert.equal(
+		stages.some((stage) => stage.$lookup),
+		true
+	);
+});
+
 test('getStudyPatientTable pages materialized study-patient rows', async () => {
 	const rows = await getStudyPatientTable(
 		{
@@ -502,8 +531,14 @@ test('study overview sorts the patient column by participation count', async () 
 		)
 	]);
 
-	assert.deepEqual(ascending.map((row) => row.studyID), ['009999', '004595', '004902']);
-	assert.deepEqual(descending.map((row) => row.studyID), ['004902', '004595', '009999']);
+	assert.deepEqual(
+		ascending.map((row) => row.studyID),
+		['009999', '004595', '004902']
+	);
+	assert.deepEqual(
+		descending.map((row) => row.studyID),
+		['004902', '004595', '009999']
+	);
 	assert.ok(stages.some((stage) => stage.$set?.__studyPatientCount?.$size));
 	assert.ok(stages.some((stage) => stage.$sort?.__studyPatientCount === 1));
 });

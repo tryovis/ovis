@@ -50,4 +50,30 @@ export function materializeStudyCollections(
 	return { studyDocuments, studyPatientDocuments };
 }
 
+export function shouldRebuildStudyCollections({
+	hasStudyCollection,
+	hasStudyPatientCollection,
+	studyCount,
+	studyPatientCount,
+	expectedStudyCount,
+	expectedStudyPatientCount,
+	studySchemaCurrent,
+	studyPatientSchemaCurrent
+}) {
+	// An empty import must never remove existing site data.
+	if (expectedStudyCount === 0) return false;
+
+	// With neither collection present, the normal initial write can proceed.
+	if (!hasStudyCollection && !hasStudyPatientCollection) return false;
+
+	return (
+		!hasStudyCollection ||
+		!hasStudyPatientCollection ||
+		studyCount !== expectedStudyCount ||
+		studyPatientCount !== expectedStudyPatientCount ||
+		!studySchemaCurrent ||
+		!studyPatientSchemaCurrent
+	);
+}
+
 export const internal = { studyKeyFor };
