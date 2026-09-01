@@ -32,7 +32,14 @@ try {
 	let outputData = [];
 
 	const additionalFieldValuesPerCollection = {
-		diagnosis: { ICD_ICD10_3: Object.keys(ICD10) }
+		diagnosis: {
+			ICD_ICD10_3: Object.keys(ICD10),
+			enets_enetsGepNen: ['true', 'false'],
+			enets_gepNet: ['true', 'false'],
+			enets_gepNec: ['true', 'false'],
+			enets_minen: ['true', 'false'],
+			enets_enetsUnclear: ['true', 'false']
+		}
 	};
 	const catalogueOptions = {
 		excludedFieldsPerCollection,

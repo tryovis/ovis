@@ -6,12 +6,14 @@
 	import Headline from '../../components/Headline.svelte';
 	import {
 		getUsageByModule,
+		getUsageReport,
 		getUsageByUser,
 		getUsageTimeline,
 		type UsageByModule,
 		type UsageByUser,
 		type UsageInterval,
 		type UsageMetric,
+		type UsageReport,
 		type UsageTargetType,
 		type UsageTimelinePoint
 	} from '../../graphQl/gql-analytics';
@@ -22,6 +24,7 @@
 
 	type ChartId = 'users' | 'timeline' | 'modules';
 	type UserMetric = 'timeOnline' | 'filterClicks';
+	type ReportItem = { label: string; value: string };
 
 	let userCanvas: HTMLCanvasElement;
 	let timelineCanvas: HTMLCanvasElement;
@@ -32,6 +35,9 @@
 	let userData: UsageByUser[] = [];
 	let timelineData: UsageTimelinePoint[] = [];
 	let moduleData: UsageByModule[] = [];
+	let reportData: UsageReport | null = null;
+	let reportItems: ReportItem[] = [];
+	let reportExportRows: Record<string, unknown>[] = [];
 	let userMetric: UserMetric = 'timeOnline';
 	let timelineMetric: UsageMetric = 'ONLINE_TIME';
 	let timelineInterval: UsageInterval = 'DAY';
@@ -40,9 +46,11 @@
 	let userLoading = true;
 	let timelineLoading = true;
 	let moduleLoading = true;
+	let reportLoading = true;
 	let userError = false;
 	let timelineError = false;
 	let moduleError = false;
+	let reportError = false;
 
 	const palette = () => {
 		const colors = get(userStore).colorPalette ?? [];
@@ -57,10 +65,57 @@
 		metric === 'timeOnline' || metric === 'ONLINE_TIME'
 			? $t('analyticsHours')
 			: $t('analyticsActions');
+	const formatNumber = (value: number, maximumFractionDigits = 1) =>
+		value.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits });
+	const formatHours = (seconds: number) => `${formatNumber(seconds / 3600, 2)} ${$t('analyticsHours')}`;
+	const formatDate = (timestamp: number) => new Date(timestamp).toLocaleDateString();
+
+	$: reportItems = reportData
+		? [
+				{ label: $t('analyticsRegisteredUsers'), value: formatNumber(reportData.registeredUsers, 0) },
+				{ label: $t('analyticsActivatedUsers'), value: formatNumber(reportData.activatedUsers, 0) },
+				{ label: $t('analyticsActivationRate'), value: `${formatNumber(reportData.activationRate)} %` },
+				{
+					label: $t('analyticsAverageActivePerMonth'),
+					value: formatNumber(reportData.averageActiveUsersPerMonth)
+				},
+				{
+					label: $t('analyticsAverageActivePerQuarter'),
+					value: formatNumber(reportData.averageActiveUsersPerQuarter)
+				},
+				{
+					label: $t('analyticsAverageActivePerYear'),
+					value: formatNumber(reportData.averageActiveUsersPerYear)
+				},
+				{
+					label: $t('analyticsAverageActiveSinceStart'),
+					value: formatNumber(reportData.averageActiveUsersSinceStart)
+				},
+				{
+					label: $t('analyticsActiveSinceStart'),
+					value: formatNumber(reportData.activeUsersSinceStart, 0)
+				},
+				{ label: $t('analyticsTotalTimeOnline'), value: formatHours(reportData.totalTimeOnline) },
+				{
+					label: $t('analyticsAverageTimePerUser'),
+					value: formatHours(reportData.averageTimeOnlinePerUser)
+				},
+				{
+					label: $t('analyticsMedianTimePerUser'),
+					value: formatHours(reportData.medianTimeOnlinePerUser)
+				}
+			]
+		: [];
+	$: reportExportRows = [
+		...reportItems.map((item) => ({ metric: item.label, value: item.value })),
+		...(reportData?.trackingStart
+			? [{ metric: $t('analyticsTrackingStart'), value: formatDate(reportData.trackingStart) }]
+			: [])
+	];
 
 	onMount(async () => {
 		await tick();
-		await Promise.all([loadUserData(), loadTimelineData(), loadModuleData()]);
+		await Promise.all([loadUserData(), loadTimelineData(), loadModuleData(), loadReportData()]);
 	});
 
 	onDestroy(() => {
@@ -108,6 +163,19 @@
 			console.error('Could not load module analytics:', error);
 		} finally {
 			moduleLoading = false;
+		}
+	}
+
+	async function loadReportData() {
+		reportLoading = true;
+		reportError = false;
+		try {
+			reportData = await getUsageReport();
+		} catch (error) {
+			reportError = true;
+			console.error('Could not load usage report:', error);
+		} finally {
+			reportLoading = false;
 		}
 	}
 
@@ -336,6 +404,40 @@
 				{$t('analyticsNoData')}
 			</p>{/if}
 	</section>
+
+	<section
+		class="analytics-report box_style box_level2"
+		class:hidden={maximized !== null}
+	>
+		<Headline
+			headlineTitle={$t('analyticsReportTitle')}
+			headlineTooltip={$t('analyticsReportTooltip')}
+			headlineIsChart={false}
+			headlineInputTableData={reportExportRows}
+			headlineInputTableHeader={[$t('analyticsReportMetric'), $t('analyticsReportValue')]}
+			headlineInputTableFields={['metric', 'value']}
+			headlineLoading={reportLoading}
+		/>
+		{#if reportError}
+			<p class="report-empty">{$t('analyticsNoData')}</p>
+		{:else}
+			<div class="report-content">
+				<div class="report-metrics">
+					{#each reportItems as item}
+						<div class="report-metric box_style box_level3">
+							<span class="report-label">{item.label}</span>
+							<strong class="report-value">{item.value}</strong>
+						</div>
+					{/each}
+				</div>
+				{#if reportData?.trackingStart}
+					<p class="report-period">
+						{$t('analyticsTrackingStart')}: {formatDate(reportData.trackingStart)}
+					</p>
+				{/if}
+			</div>
+		{/if}
+	</section>
 </div>
 
 <style>
@@ -344,11 +446,11 @@
 		position: relative;
 		height: 100%;
 		min-height: 0;
-		grid-template-columns: 50% 50%;
+		grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(280px, 0.9fr);
 		grid-template-rows: 50% 50%;
 		grid-template-areas:
-			'users timeline'
-			'modules modules';
+			'users timeline report'
+			'modules modules report';
 	}
 
 	.analytics-grid.maximized {
@@ -363,6 +465,9 @@
 	}
 	.analytics-modules {
 		grid-area: modules;
+	}
+	.analytics-report {
+		grid-area: report;
 	}
 
 	.analytics-grid section {
@@ -416,6 +521,47 @@
 	.analytics-chart canvas {
 		width: 100% !important;
 		height: 100% !important;
+	}
+
+	.report-content {
+		flex: 1 1 auto;
+		min-height: 0;
+		overflow-y: auto;
+		padding: 4px 2px 2px;
+	}
+
+	.report-metrics {
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: 6px;
+	}
+
+	.report-metric {
+		display: flex;
+		flex-direction: column;
+		justify-content: space-between;
+		gap: 8px;
+		min-height: 58px;
+		margin: 0;
+		padding: 8px;
+		box-sizing: border-box;
+	}
+
+	.report-label {
+		color: var(--muted-font-color);
+		line-height: 1.25;
+	}
+
+	.report-value {
+		font-size: 1.15rem;
+		line-height: 1;
+		color: var(--primary-color);
+	}
+
+	.report-period,
+	.report-empty {
+		margin: 8px 4px 2px;
+		color: var(--muted-font-color);
 	}
 
 	.empty {

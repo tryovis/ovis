@@ -49,6 +49,21 @@ module.exports = `#graphql
     count: Int!
   }
 
+  type UsageReport {
+    registeredUsers: Int!
+    activatedUsers: Int!
+    activationRate: Float!
+    averageActiveUsersPerMonth: Float!
+    averageActiveUsersPerQuarter: Float!
+    averageActiveUsersPerYear: Float!
+    averageActiveUsersSinceStart: Float!
+    activeUsersSinceStart: Int!
+    totalTimeOnline: Float!
+    averageTimeOnlinePerUser: Float!
+    medianTimeOnlinePerUser: Float!
+    trackingStart: Float
+  }
+
   type UsageWriteResult {
     acknowledged: Boolean!
     insertedCount: Int!
@@ -58,6 +73,7 @@ module.exports = `#graphql
     getUsageByUser: [UsageByUser!]!
     getUsageTimeline(metric: UsageMetric!, interval: UsageInterval!): [UsageTimelinePoint!]!
     getUsageByModule(targetType: UsageTargetType = ALL): [UsageByModule!]!
+    getUsageReport: UsageReport!
   }
 
   extend type Mutation {

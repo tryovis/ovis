@@ -87,6 +87,8 @@ a:focus {
 .menubar {
 	grid-area: menubar;
 	min-width: 0;
+	position: relative;
+	z-index: 100;
 }
 
 .content-view {

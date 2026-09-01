@@ -22,6 +22,20 @@ export type UsageByUser = {
 
 export type UsageTimelinePoint = { timestamp: number; value: number };
 export type UsageByModule = { module: string; count: number };
+export type UsageReport = {
+	registeredUsers: number;
+	activatedUsers: number;
+	activationRate: number;
+	averageActiveUsersPerMonth: number;
+	averageActiveUsersPerQuarter: number;
+	averageActiveUsersPerYear: number;
+	averageActiveUsersSinceStart: number;
+	activeUsersSinceStart: number;
+	totalTimeOnline: number;
+	averageTimeOnlinePerUser: number;
+	medianTimeOnlinePerUser: number;
+	trackingStart: number | null;
+};
 
 async function analyticsQuery<T>(query: string, variables: Record<string, unknown>): Promise<T> {
 	const response = await graphqlFetch(dataUrl, {
@@ -84,4 +98,27 @@ export async function getUsageByModule(targetType: UsageTargetType): Promise<Usa
 		{ targetType }
 	);
 	return data.getUsageByModule;
+}
+
+export async function getUsageReport(): Promise<UsageReport> {
+	const data = await analyticsQuery<{ getUsageReport: UsageReport }>(
+		`query getUsageReport {
+			getUsageReport {
+				registeredUsers
+				activatedUsers
+				activationRate
+				averageActiveUsersPerMonth
+				averageActiveUsersPerQuarter
+				averageActiveUsersPerYear
+				averageActiveUsersSinceStart
+				activeUsersSinceStart
+				totalTimeOnline
+				averageTimeOnlinePerUser
+				medianTimeOnlinePerUser
+				trackingStart
+			}
+		}`,
+		{}
+	);
+	return data.getUsageReport;
 }

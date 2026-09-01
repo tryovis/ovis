@@ -1,10 +1,12 @@
 import assert from 'node:assert/strict';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import test from 'node:test';
 import { pathToFileURL } from 'node:url';
 
 import { build } from 'esbuild';
 
-const outfile = '/tmp/ovis-patient-import-test.mjs';
+const outfile = join(tmpdir(), 'ovis-patient-import-test.mjs');
 
 await build({
 	entryPoints: ['Frontend/src/components/quicktools/patientImport.ts'],

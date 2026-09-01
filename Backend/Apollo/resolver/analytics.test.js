@@ -33,6 +33,58 @@ test('builds timeline aggregation for the selected metric and interval', () => {
 	]);
 });
 
+test('summarizes filter-independent usage report metrics', () => {
+	const report = analytics.summarizeUsageReport(
+		[
+			{ _id: 'user-1', firstLogin: new Date('2026-01-02'), timeOnline: 3600 },
+			{ _id: 'user-2', firstLogin: new Date('2026-02-02'), timeOnline: 1800 },
+			{ _id: 'user-3', firstLogin: null, timeOnline: 0 }
+		],
+		{
+			daily: [{ activeUsers: 1 }, { activeUsers: 2 }],
+			monthly: [{ activeUsers: 2 }, { activeUsers: 1 }],
+			quarterly: [{ activeUsers: 2 }],
+			yearly: [{ activeUsers: 2 }],
+			tracking: [
+				{
+					trackingStart: new Date('2026-01-01T00:00:00.000Z'),
+					activeUsersSinceStart: 2
+				}
+			]
+		}
+	);
+
+	assert.equal(report.registeredUsers, 3);
+	assert.equal(report.activatedUsers, 2);
+	assert.ok(Math.abs(report.activationRate - 200 / 3) < Number.EPSILON * 100);
+	assert.equal(report.averageActiveUsersPerMonth, 1.5);
+	assert.equal(report.averageActiveUsersPerQuarter, 2);
+	assert.equal(report.averageActiveUsersPerYear, 2);
+	assert.equal(report.averageActiveUsersSinceStart, 1.5);
+	assert.equal(report.activeUsersSinceStart, 2);
+	assert.equal(report.totalTimeOnline, 5400);
+	assert.equal(report.averageTimeOnlinePerUser, 1800);
+	assert.equal(report.medianTimeOnlinePerUser, 1800);
+	assert.equal(report.trackingStart, Date.parse('2026-01-01T00:00:00.000Z'));
+});
+
+test('returns zero-safe usage report metrics without users or activity', () => {
+	assert.deepEqual(analytics.summarizeUsageReport([], {}), {
+		registeredUsers: 0,
+		activatedUsers: 0,
+		activationRate: 0,
+		averageActiveUsersPerMonth: 0,
+		averageActiveUsersPerQuarter: 0,
+		averageActiveUsersPerYear: 0,
+		averageActiveUsersSinceStart: 0,
+		activeUsersSinceStart: 0,
+		totalTimeOnline: 0,
+		averageTimeOnlinePerUser: 0,
+		medianTimeOnlinePerUser: 0,
+		trackingStart: null
+	});
+});
+
 test('records events and increments user totals per batch', async () => {
 	let insertedDocuments = [];
 	let userOperations = [];

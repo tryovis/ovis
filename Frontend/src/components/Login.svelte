@@ -290,17 +290,19 @@
 					</div>
 				{/if}
 
-				<input
-					type="text"
-					placeholder={language === 'en' ? 'Username' : 'Benutzername'}
-					bind:value={username}
-				/>
-				<input
-					type="password"
-					placeholder={language === 'en' ? 'Password' : 'Passwort'}
-					bind:value={password}
-				/>
-				<button on:click={handleLoginClick}>{language === 'en' ? 'Login' : 'Anmelden'}</button>
+				<form on:submit|preventDefault={handleLoginClick}>
+					<input
+						type="text"
+						placeholder={language === 'en' ? 'Username' : 'Benutzername'}
+						bind:value={username}
+					/>
+					<input
+						type="password"
+						placeholder={language === 'en' ? 'Password' : 'Passwort'}
+						bind:value={password}
+					/>
+					<button type="submit">{language === 'en' ? 'Login' : 'Anmelden'}</button>
+				</form>
 			{/if}
 
 			<div class="extra-info">

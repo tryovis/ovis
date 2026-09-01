@@ -139,13 +139,13 @@
         return { idsRaw, attemptedRows };
     };
 
-    const applyPatIdsToAst = async (idsRaw: string[], attemptedRows: number) => {
+    const applyPatIdsToAst = async (idsRaw: readonly string[], attemptedRows: number) => {
         if (!attemptedRows) return;
 
         // DB-Check (falls Index verfügbar): pro Zeile zählen
         const index = await ensurePatientIdIndex();
 
-        let validIdsRaw = idsRaw;
+        let validIdsRaw = [...idsRaw];
         let ignoredRows = 0;
         let importedRows = attemptedRows;
 

@@ -14,6 +14,7 @@ import { config, normalizeLower } from './env-config.mjs';
 import { performance } from 'node:perf_hooks';
 import { formatAgeAtDiagnosisGroup } from './ageAtDiagnosisGroup.mjs';
 import { parseSurgeon } from './therapyFieldParsers.mjs';
+import { classifyEnetsDiagnosis } from './enets.mjs';
 import {
 	deriveGradingFeatures,
 	getHistologyCodes,
@@ -1948,6 +1949,7 @@ const runPreprocessor = async () => {
 		const histologyProfileStartedAt = profilingEnabled ? performance.now() : 0;
 		const fhi = lookupIndexes.histologyByTumorID.get(it.tumorID) ?? [];
 		Object.assign(obj, deriveGradingFeatures(fhi));
+		obj.enets = classifyEnetsDiagnosis(obj, fhi);
 		addProfileTiming('diagnosis:histology', histologyProfileStartedAt, fhi.length);
 
 		const previousTherapyProfileStartedAt = profilingEnabled ? performance.now() : 0;

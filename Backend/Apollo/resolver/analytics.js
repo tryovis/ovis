@@ -61,6 +61,93 @@ const buildTimelinePipeline = (metric, interval) => {
 	];
 };
 
+const activeUsersByPeriod = (unit) => [
+	{
+		$group: {
+			_id: {
+				period: { $dateTrunc: { date: '$createdAt', unit } },
+				userId: '$userId'
+			}
+		}
+	},
+	{
+		$group: {
+			_id: '$_id.period',
+			activeUsers: { $sum: 1 }
+		}
+	},
+	{ $sort: { _id: 1 } }
+];
+
+const buildUsageReportPipeline = () => [
+	{ $match: { type: 'SESSION_TIME', durationSeconds: { $gt: 0 } } },
+	{
+		$facet: {
+			daily: activeUsersByPeriod('day'),
+			monthly: activeUsersByPeriod('month'),
+			quarterly: activeUsersByPeriod('quarter'),
+			yearly: activeUsersByPeriod('year'),
+			tracking: [
+				{
+					$group: {
+						_id: null,
+						trackingStart: { $min: '$createdAt' },
+						activeUsers: { $addToSet: '$userId' }
+					}
+				},
+				{
+					$project: {
+						_id: 0,
+						trackingStart: 1,
+						activeUsersSinceStart: { $size: '$activeUsers' }
+					}
+				}
+			]
+		}
+	}
+];
+
+const averageActiveUsers = (periods = []) => {
+	if (periods.length === 0) return 0;
+	return periods.reduce((sum, period) => sum + (Number(period.activeUsers) || 0), 0) / periods.length;
+};
+
+const median = (values) => {
+	if (values.length === 0) return 0;
+	const sorted = [...values].sort((left, right) => left - right);
+	const middle = Math.floor(sorted.length / 2);
+	return sorted.length % 2 === 0 ? (sorted[middle - 1] + sorted[middle]) / 2 : sorted[middle];
+};
+
+const summarizeUsageReport = (users = [], activity = {}) => {
+	const registeredUsers = users.length;
+	const activatedUsers = users.filter((user) => Boolean(user.firstLogin)).length;
+	const timeOnlineValues = users.map((user) => Math.max(0, Number(user.timeOnline) || 0));
+	const totalTimeOnline = timeOnlineValues.reduce((sum, value) => sum + value, 0);
+	const tracking = activity.tracking?.[0] ?? {};
+	const trackingStart = tracking.trackingStart;
+
+	return {
+		registeredUsers,
+		activatedUsers,
+		activationRate: registeredUsers > 0 ? (activatedUsers / registeredUsers) * 100 : 0,
+		averageActiveUsersPerMonth: averageActiveUsers(activity.monthly),
+		averageActiveUsersPerQuarter: averageActiveUsers(activity.quarterly),
+		averageActiveUsersPerYear: averageActiveUsers(activity.yearly),
+		averageActiveUsersSinceStart: averageActiveUsers(activity.daily),
+		activeUsersSinceStart: Number(tracking.activeUsersSinceStart) || 0,
+		totalTimeOnline,
+		averageTimeOnlinePerUser: registeredUsers > 0 ? totalTimeOnline / registeredUsers : 0,
+		medianTimeOnlinePerUser: median(timeOnlineValues),
+		trackingStart:
+			trackingStart instanceof Date
+				? trackingStart.getTime()
+				: trackingStart
+					? new Date(trackingStart).getTime()
+					: null
+	};
+};
+
 const resolvers = {
 	Query: {
 		getUsageByUser: async (_parent, _input, context) => {
@@ -104,6 +191,21 @@ const resolvers = {
 				.toArray();
 
 			return rows.map((row) => ({ module: row._id || 'unknown', count: row.count || 0 }));
+		},
+
+		getUsageReport: async (_parent, _input, context) => {
+			const [users, activityRows] = await Promise.all([
+				context.db
+					.collection(context.collections.usr)
+					.find({}, { projection: { _id: 1, firstLogin: 1, timeOnline: 1 } })
+					.toArray(),
+				context.db
+					.collection(context.collections.usageEvent)
+					.aggregate(buildUsageReportPipeline())
+					.toArray()
+			]);
+
+			return summarizeUsageReport(users, activityRows[0] ?? {});
 		}
 	},
 
@@ -152,6 +254,8 @@ const resolvers = {
 
 Object.defineProperties(resolvers, {
 	buildTimelinePipeline: { value: buildTimelinePipeline },
+	buildUsageReportPipeline: { value: buildUsageReportPipeline },
+	summarizeUsageReport: { value: summarizeUsageReport },
 	normalizeEvent: { value: normalizeEvent }
 });
 

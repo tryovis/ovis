@@ -1,4 +1,3 @@
-```js
 // enetsCancerCategories.js
 
 // ============================================================================
@@ -40,7 +39,7 @@ export const enetsGepTopographies = [
 	'C19', // Rektosigmoid
 	'C20', // Rektum
 	'C21', // Anus und Analkanal
-	'C25'  // Pankreas
+	'C25' // Pankreas
 ];
 
 // ============================================================================
@@ -239,22 +238,72 @@ export const enetsUnclearDefinition = {
 		'8249/3'
 	],
 
-	excludeMatchedCategories: [
-		'gepNet',
-		'gepNec',
-		'minen'
-	]
+	excludeMatchedCategories: ['gepNet', 'gepNec', 'minen']
 };
 
 // ============================================================================
 // Reihenfolge für die Anzeige
 // ============================================================================
 
-export const enetsCategoryOrder = [
-	'enetsGepNen',
-	'gepNet',
-	'gepNec',
-	'minen',
-	'enetsUnclear'
+export const enetsCategoryOrder = ['enetsGepNen', 'gepNet', 'gepNec', 'minen', 'enetsUnclear'];
+
+const normalizeCode = (value) =>
+	String(value ?? '')
+		.trim()
+		.toUpperCase();
+
+const enetsCategoryByCodePair = new Map(
+	enetsCancerCategories.map(({ category, topography, morphology }) => [
+		`${normalizeCode(topography)}|${normalizeCode(morphology)}`,
+		category
+	])
+);
+
+const potentialMorphologies = new Set(
+	enetsUnclearDefinition.potentialMorphologies.map(normalizeCode)
+);
+
+const createEmptyEnetsCategories = () =>
+	Object.fromEntries(enetsCategoryOrder.map((category) => [category, false]));
+
+const getHistologyEntries = (diagnosis, histologies) => [
+	{
+		topography: diagnosis?.ICDO_localizationCode,
+		morphology: diagnosis?.ICDO_histologyCode
+	},
+	...(histologies ?? []).map((histology) => ({
+		topography: histology?.ICDO_localizationCode ?? diagnosis?.ICDO_localizationCode,
+		morphology: histology?.ICDO_histologyCode
+	}))
 ];
-```
+
+/**
+ * Materialises the ENETS/GEP-NEN categories used by the filter catalogue.
+ * A pathology histology without its own topography inherits the diagnosis
+ * topography because both records belong to the same tumour.
+ */
+export function classifyEnetsDiagnosis(diagnosis, histologies = []) {
+	const categories = createEmptyEnetsCategories();
+	const matchedCategories = new Set();
+	let hasPotentialMorphology = false;
+
+	for (const { topography, morphology } of getHistologyEntries(diagnosis, histologies)) {
+		const normalizedMorphology = normalizeCode(morphology);
+		if (!normalizedMorphology) continue;
+
+		if (potentialMorphologies.has(normalizedMorphology)) hasPotentialMorphology = true;
+
+		const normalizedTopography = normalizeCode(topography).slice(0, 3);
+		const category = enetsCategoryByCodePair.get(`${normalizedTopography}|${normalizedMorphology}`);
+		if (category) matchedCategories.add(category);
+	}
+
+	for (const category of matchedCategories) categories[category] = true;
+	for (const [group, members] of Object.entries(enetsCategoryGroups)) {
+		categories[group] = members.some((category) => matchedCategories.has(category));
+	}
+	categories[enetsUnclearDefinition.category] =
+		hasPotentialMorphology && matchedCategories.size === 0;
+
+	return categories;
+}

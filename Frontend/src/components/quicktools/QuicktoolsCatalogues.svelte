@@ -10,6 +10,33 @@
 
 	let selectedCatalog = { value: 'none', label: '' };
 	let lensReady = false;
+	type EnetsCategory = {
+		key: string;
+		label: string;
+	};
+
+	const ENETS_CATEGORIES: EnetsCategory[] = [
+		{
+			key: 'enets_enetsGepNen',
+			label: 'ENETS / GEP-NEN gesamt'
+		},
+		{
+			key: 'enets_gepNet',
+			label: 'GEP-NET'
+		},
+		{
+			key: 'enets_gepNec',
+			label: 'GEP-NEC'
+		},
+		{
+			key: 'enets_minen',
+			label: 'MiNEN'
+		},
+		{
+			key: 'enets_enetsUnclear',
+			label: 'Unklar / prüfen'
+		}
+	];
 
 	// reaktiv – aktualisiert bei Sprachwechsel automatisch
 	$: selectedCatalog.label = $t('select') + ' ONKOZERT, DKH etc.';
@@ -59,6 +86,16 @@
 
 		// generisch: alle oz_* Keys
 		if (value && value.startsWith('oz_')) {
+			queryItem = {
+				id: 'Random generierte UUID',
+				key: value,
+				name: label,
+				type: 'EQUALS',
+				system: 'diagnosis',
+				values: [{ name: value, value: 'true', queryBindId: 'Auch eine random UUID' }]
+			};
+		}
+		if (value && value.startsWith('enets_')) {
 			queryItem = {
 				id: 'Random generierte UUID',
 				key: value,
@@ -230,12 +267,14 @@
 
 <div class="quicktool-label-container">
 	<b>{$t('QuicktoolsCatalogues.predefinedCatalogues')}:</b>
-	<button class="iconRoundButton tooltip">
-		<span class="tooltiptext" style="transform: translateY(-200px);"
-			>{@html $t('tooltip_QuicktoolsCatalogues')}</span
+	<span class="tooltip catalogue-info-tooltip">
+		<span class="tooltiptext"
+			>{@html $t('tooltip_QuicktoolsCatalogues') + $t('QuicktoolsCatalogues.enetsInfo')}</span
 		>
-		<img src={infoIcon} alt="info" class="iconRound" />
-	</button>
+		<button class="iconRoundButton" aria-label="Info" type="button">
+			<img src={infoIcon} alt="info" class="iconRound" />
+		</button>
+	</span>
 </div>
 
 <div class="dropdown-container">
@@ -243,7 +282,7 @@
 		<div class="menu catalogue">
 			<ul>
 				<li>
-					<font class="placeholder">{selectedCatalog.label}</font>
+					<span class="placeholder">{selectedCatalog.label}</span>
 					<!-- prettier-ignore -->
 					<select class="carret-decoration"></select>
 					<ul>
@@ -519,10 +558,17 @@
 								{$t('rareCancers')} (SEER, 2020)
 							</button>
 						</li>
-						<li class="link">
-							<button on:click={() => selectCatalog('enets', 'ENETS GEPNET')}>
-								<span class="muted-label">ENETS GEPNET (TODO)</span>
-							</button>
+						<li>
+							ENETS / GEP-NEN
+							<ul class="enets-list">
+								{#each ENETS_CATEGORIES as category}
+									<li class="link">
+										<button on:click={() => selectCatalog(category.key, category.label)}
+											>{category.label}</button
+										>
+									</li>
+								{/each}
+							</ul>
 						</li>
 
 						<li>
@@ -599,18 +645,26 @@
 	.muted-label {
 		color: var(--muted-font-color);
 	}
-	.dkh-list{
+	.dkh-list {
 		max-height: 180px; /* maximale Höhe */
 		overflow-y: auto; /* Scrollbar bei Bedarf */
 		padding: 0;
 		margin: 0;
 		list-style: none; /* optional, je nach gewünschtem Look */
 	}
-	.age-list{
+	.age-list,
+	.enets-list {
 		max-height: 120px; /* maximale Höhe */
 		overflow-y: auto; /* Scrollbar bei Bedarf */
 		padding: 0;
 		margin: 0;
 		list-style: none; /* optional, je nach gewünschtem Look */
+	}
+	.catalogue-info-tooltip .tooltiptext {
+		box-sizing: border-box;
+		max-height: calc(100dvh - 24px);
+		overflow-y: auto;
+		pointer-events: auto;
+		transform: translateY(-240px);
 	}
 </style>

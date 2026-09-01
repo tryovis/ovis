@@ -1,0 +1,187 @@
+{
+  "title": "ENETS / GEP-NEN classification rules",
+  "version": 1,
+  "description": "Transparent rules used by OVIS to classify GEP-NET, GEP-NEC, MiNEN and cases requiring review.",
+  "matching": {
+    "operator": "topographyPrefix AND completeMorphologyCode",
+    "topographyField": "ICDO_localizationCode",
+    "morphologyField": "ICDO_histologyCode",
+    "histologySources": [
+      "diagnosis",
+      "pathology"
+    ],
+    "pathologyTopographyFallback": "If a pathology record has no topography, the diagnosis topography of the same tumour is used."
+  },
+  "categoryOrder": [
+    "enetsGepNen",
+    "gepNet",
+    "gepNec",
+    "minen",
+    "enetsUnclear"
+  ],
+  "categoryLabels": {
+    "enetsGepNen": "ENETS / GEP-NEN gesamt",
+    "gepNet": "GEP-NET",
+    "gepNec": "GEP-NEC",
+    "minen": "MiNEN",
+    "enetsUnclear": "Unklar / prüfen"
+  },
+  "categoryGroups": {
+    "enetsGepNen": [
+      "gepNet",
+      "gepNec",
+      "minen"
+    ]
+  },
+  "categoryGroupNotes": {
+    "enetsGepNen": "Contains all confirmed GEP-NET, GEP-NEC and MiNEN cases. Cases in enetsUnclear are not included."
+  },
+  "gepTopographies": [
+    "C15",
+    "C16",
+    "C17",
+    "C18",
+    "C19",
+    "C20",
+    "C21",
+    "C25"
+  ],
+  "topographyLabels": {
+    "C15": "Ösophagus",
+    "C16": "Magen",
+    "C17": "Dünndarm",
+    "C18": "Kolon einschließlich Appendix",
+    "C19": "Rektosigmoid",
+    "C20": "Rektum",
+    "C21": "Anus und Analkanal",
+    "C25": "Pankreas"
+  },
+  "rules": [
+    {
+      "category": "gepNet",
+      "label": "GEP-NET – allgemeine NET-Morphologien",
+      "topographyPrefixes": [
+        "C15",
+        "C16",
+        "C17",
+        "C18",
+        "C19",
+        "C20",
+        "C21",
+        "C25"
+      ],
+      "morphologyCodes": [
+        "8240/3",
+        "8241/3",
+        "8242/3",
+        "8249/3"
+      ]
+    },
+    {
+      "category": "gepNet",
+      "label": "GEP-NET – pankreasspezifische NET-Morphologien",
+      "topographyPrefixes": [
+        "C25"
+      ],
+      "morphologyCodes": [
+        "8150/3",
+        "8151/3",
+        "8152/3",
+        "8153/3",
+        "8155/3",
+        "8156/3",
+        "8157/3"
+      ]
+    },
+    {
+      "category": "gepNec",
+      "label": "GEP-NEC",
+      "topographyPrefixes": [
+        "C15",
+        "C16",
+        "C17",
+        "C18",
+        "C19",
+        "C20",
+        "C21",
+        "C25"
+      ],
+      "morphologyCodes": [
+        "8013/3",
+        "8041/3",
+        "8246/3"
+      ]
+    },
+    {
+      "category": "minen",
+      "label": "MiNEN – historischer MANEC-/MiNEN-Code",
+      "topographyPrefixes": [
+        "C15",
+        "C16",
+        "C17",
+        "C18",
+        "C19",
+        "C20",
+        "C21",
+        "C25"
+      ],
+      "morphologyCodes": [
+        "8244/3"
+      ]
+    },
+    {
+      "category": "minen",
+      "label": "MiNEN – gemischte pankreatische Neoplasie",
+      "topographyPrefixes": [
+        "C25"
+      ],
+      "morphologyCodes": [
+        "8154/3"
+      ]
+    }
+  ],
+  "unclearDefinition": {
+    "category": "enetsUnclear",
+    "rule": "A potential neuroendocrine morphology is present, but none of the category rules above matches the topography/morphology combination.",
+    "potentialMorphologies": [
+      "8013/3",
+      "8041/3",
+      "8246/3",
+      "8150/3",
+      "8151/3",
+      "8152/3",
+      "8153/3",
+      "8155/3",
+      "8156/3",
+      "8157/3",
+      "8154/3",
+      "8244/3",
+      "8240/3",
+      "8241/3",
+      "8242/3",
+      "8249/3"
+    ],
+    "excludeMatchedCategories": [
+      "gepNet",
+      "gepNec",
+      "minen"
+    ],
+    "examples": [
+      {
+        "topography": "C34.9",
+        "morphology": "8240/3",
+        "reason": "Neuroendocrine lung tumour; not a GEP-NET."
+      },
+      {
+        "topography": "C18.9",
+        "morphology": "8151/3",
+        "reason": "Pancreas-specific morphology outside the pancreas."
+      },
+      {
+        "topography": "C26.9",
+        "morphology": "8240/3",
+        "reason": "Digestive organ without a valid GEP topography prefix."
+      }
+    ]
+  }
+}

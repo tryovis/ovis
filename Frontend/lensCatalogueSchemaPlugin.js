@@ -24,6 +24,7 @@ export function extendLensCatalogueOperatorSchema(code) {
 	return code.replace(ORIGINAL_OPERATOR_ENUM, EXTENDED_OPERATOR_ENUM);
 }
 
+/** @returns {import('vite').Plugin} */
 export function lensCatalogueSchemaCompatibility() {
 	return {
 		name: 'lens-catalogue-schema-compatibility',
