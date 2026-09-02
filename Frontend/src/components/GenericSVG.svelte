@@ -19,6 +19,7 @@
 	import { iconPath, publicAssetPath } from '$lib/path-utils';
 	import type { AggregatedValue } from '../types/query';
 	import { trackUsageEvent } from '$lib/usage-tracking';
+	import { createPointerTooltipStyle } from '$lib/tooltip-popover';
 
 	let filterActive = true;
 
@@ -556,18 +557,16 @@
 
 		applySvgTextTheme(activeRoot);
 
-		inputArray.forEach(({ label, count }) => {
+		inputArray.forEach(({ label, count, description }) => {
 			const color = calculateHeatmapColor(count, maxCount);
 			const pathElement = getSvgElementById(activeRoot, label);
-			let description: string | undefined;
 
 			if (pathElement) {
-				pathElement.addEventListener('mouseover', (event: MouseEvent) => {
-					description = inputArray.find((item) => item.label === label)?.description;
-					onMouseOver(label, count, event, description);
-				});
-
-				pathElement.addEventListener('mouseout', () => onMouseOut(label));
+				pathElement.addEventListener('mouseenter', (event: MouseEvent) =>
+					onMouseOver(label, count, event, description)
+				);
+				pathElement.addEventListener('mousemove', positionTooltip);
+				pathElement.addEventListener('mouseleave', () => onMouseOut(label));
 				pathElement.addEventListener('click', () => handleClick(label, description ?? ''));
 				changePathColor(label, color);
 			} else {
@@ -663,27 +662,33 @@
 					SVGType === 'therapy' ? `oBDS Zielgebietsschlüssel ${label}` : label
 			  } ➔ ${count} ${logText}`;
 
-		tooltip = document.getElementById('tooltip');
 		if (tooltip) {
-			const mouseX = event.pageX || event.clientX;
-			const mouseY = event.pageY || event.clientY;
-
-			tooltip.style.display = 'block';
 			tooltip.innerHTML = tooltipText;
-
-			tooltip.style.left = mouseX + (1600 - SVGWidth) + 'px';
-			tooltip.style.top = mouseY + 55 + 'px';
-
-			if (maxStoreValue) {
-				tooltip.style.left = mouseX + 350 + 'px';
-				tooltip.style.top = mouseY + 120 + 'px';
+			tooltip.style.cssText = 'display:block;visibility:hidden;left:0;top:0;';
+			if (typeof tooltip.showPopover === 'function' && !tooltip.matches(':popover-open')) {
+				tooltip.showPopover();
 			}
+			positionTooltip(event);
 		}
 	}
 
+	function positionTooltip(event: MouseEvent) {
+		if (!tooltip || typeof window === 'undefined') return;
+		const tooltipRect = tooltip.getBoundingClientRect();
+		tooltip.style.cssText = createPointerTooltipStyle(
+			event.clientX,
+			event.clientY,
+			tooltipRect,
+			window.innerWidth,
+			window.innerHeight
+		);
+	}
+
 	function onMouseOut(label: string) {
-		tooltip = document.getElementById('tooltip');
 		if (tooltip) {
+			if (typeof tooltip.hidePopover === 'function' && tooltip.matches(':popover-open')) {
+				tooltip.hidePopover();
+			}
 			tooltip.style.display = 'none';
 		}
 		if (currentColor !== '') {
@@ -1031,7 +1036,7 @@
 	/>
 
 	<lens-data-passer bind:this={dataPasser}></lens-data-passer>
-	<div class="km-tooltip" id="tooltip"></div>
+	<div bind:this={tooltip} class="km-tooltip" popover="manual" role="tooltip" />
 
 	{#if !mounted}
 		<div class="loading-view bigSpinnerContainer">
@@ -1052,7 +1057,6 @@
 
 				<div
 					bind:this={svgHost}
-					title="SVG"
 					id={SVGType}
 					class="bodymap"
 					role="img"
@@ -1154,17 +1158,27 @@
 	}
 
 	.km-tooltip {
-		overflow: visible;
-		position: absolute;
+		overflow: auto;
+		position: fixed;
 		background-color: rgba(0, 0, 0, 0.8);
 		color: white;
-		padding: 5px;
+		padding: 8px 10px;
 		border-radius: 5px;
+		border: 0;
 		font-size: 12px;
 		display: none;
-		white-space: nowrap;
-		z-index: 100;
-		transform: translateX(-80%);
+		max-width: min(38rem, calc(100vw - 24px));
+		max-height: calc(100dvh - 24px);
+		white-space: normal;
+		line-height: 1.35;
+		box-sizing: border-box;
+		pointer-events: none;
+		z-index: 10000;
+		transform: none;
+	}
+
+	.km-tooltip:popover-open {
+		display: block;
 	}
 
 	.iconRound {

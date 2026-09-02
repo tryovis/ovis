@@ -1,10 +1,12 @@
 import assert from 'node:assert/strict';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import test from 'node:test';
 import { pathToFileURL } from 'node:url';
 
 import { build } from 'esbuild';
 
-const outfile = '/tmp/ovis-tableFilterItems-test.mjs';
+const outfile = join(tmpdir(), 'ovis-tableFilterItems-test.mjs');
 
 await build({
 	entryPoints: ['Frontend/src/tableFilterItems.ts'],
@@ -71,4 +73,37 @@ test('appendQueryItemToFirstGroup replaces empty Lens catalogue misses and merge
 			]
 		}
 	]);
+});
+
+test('appendQueryItemToFirstGroup keeps same-named type fields scoped to their collections', () => {
+	const supplementaryType = {
+		id: 'supplementary-type',
+		key: 'type',
+		name: 'type',
+		type: 'EQUALS',
+		system: 'supplementary',
+		values: [{ name: 'ecog', value: 'ecog', queryBindId: 'supplementary-ecog' }]
+	};
+	const molecularMarkerType = {
+		id: 'molecular-marker-type',
+		key: 'type',
+		name: 'type',
+		type: 'EQUALS',
+		system: 'molecularMarker',
+		values: [{ name: 'her2', value: 'her2', queryBindId: 'molecular-marker-her2' }]
+	};
+
+	const result = appendQueryItemToFirstGroup([[supplementaryType]], molecularMarkerType);
+
+	assert.deepEqual(
+		result[0].map(({ key, system, values }) => ({
+			key,
+			system,
+			values: values.map(({ value }) => value)
+		})),
+		[
+			{ key: 'type', system: 'supplementary', values: ['ecog'] },
+			{ key: 'type', system: 'molecularMarker', values: ['her2'] }
+		]
+	);
 });

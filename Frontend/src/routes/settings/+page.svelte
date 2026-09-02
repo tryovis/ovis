@@ -48,10 +48,3 @@
 <div class="box_style box_level2 table-chart">
 	<UserSettingsFilterDisplay />
 </div>
-
-<style>
-	.custom-label {
-		width: 100px;
-		display: inline-block; /* Hinzugefügte Zeile, um die Breite zu berücksichtigen */
-	}
-</style>

@@ -210,6 +210,8 @@ services:
       - MONGO_HOST=ovis-backend-database-mongodb
       - MONGO_RESTORE_DBS=onc_test
       - MONGO_RESTORE_COLLECTIONS=${MONGO_RESTORE_COLLECTIONS:-user}
+      # Required independently of an older site's explicit collection list.
+      - MONGO_RESTORE_REQUIRED_COLLECTIONS=${MONGO_RESTORE_REQUIRED_COLLECTIONS:-usageEvent}
       - MONGO_RESTORE_IGNORE_IDS=${MONGO_RESTORE_IGNORE_IDS:-ovis-root}
       - OVIS_IMPORT_MODE=${OVIS_IMPORT_MODE:-demo}
     volumes:
@@ -229,6 +231,8 @@ services:
       - MONGO_HOST=ovis-backend-database-mongodb
       - MONGO_BACKUP_DBS=onc_test
       - MONGO_BACKUP_COLLECTIONS=${MONGO_BACKUP_COLLECTIONS:-user,platformConfiguration,platformDocument}
+      # Required independently of an older site's explicit collection list.
+      - MONGO_BACKUP_REQUIRED_COLLECTIONS=${MONGO_BACKUP_REQUIRED_COLLECTIONS:-usageEvent}
       - MONGO_BACKUP_RETENTION=${MONGO_BACKUP_RETENTION:-0}
       - BACKUP_INTERVAL_SECONDS=${MONGO_BACKUP_INTERVAL_SECONDS:-21600}
     volumes:
@@ -334,6 +338,7 @@ services:
       - KEYCLOAK_ADMIN_CLIENT_SECRET=${KEYCLOAK_ADMIN_CLIENT_SECRET}
       # For CORS configuration
       - APP_DOMAIN=${APP_DOMAIN}
+      - OVIS_PUBLIC_ORIGIN=${OVIS_PUBLIC_ORIGIN:-}
       - FRONTEND_PORT=${FRONTEND_PORT}
       - NGINX_PROXY_MODE=${NGINX_PROXY_MODE}
       - NGINX_SSL_ENABLED=${NGINX_SSL_ENABLED}

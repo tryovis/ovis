@@ -247,16 +247,22 @@
 
 <!-- Gender Buttons -->
 <div class="dropdown-container">
-    <label class="dropdown-label">{$t("gender")}:</label>
+    <span class="dropdown-label">{$t("gender")}:</span>
     <div class="gender-buttons">
         {#each genderButtonConfigs as button (button.value)}
-            <img
-                src={button.icon}
-                alt={button.label}
-                title={button.label}
-                class={`iconRound gender-button ${button.className}`}
-                on:click={() => handleGenderButton(button)}
-            />
+			<button
+				type="button"
+				class="gender-button-control"
+				aria-label={button.label}
+				title={button.label}
+				on:click={() => handleGenderButton(button)}
+			>
+				<img
+					src={button.icon}
+					alt=""
+					class={`iconRound gender-button ${button.className}`}
+				/>
+			</button>
         {/each}
     </div>
 </div>
@@ -308,7 +314,13 @@
         align-items: center;
     }
 
-    .gender-buttons > img {
+	.gender-button-control {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		padding: 0;
+		border: 0;
+		background: none;
         margin-left: 0.7em;
         margin-right: 0.5em;
         cursor: pointer;
@@ -344,7 +356,7 @@
 			justify-content: space-between;
 		}
 
-		.gender-buttons > img {
+		.gender-button-control {
 			margin-left: 0;
 			margin-right: 0;
 		}

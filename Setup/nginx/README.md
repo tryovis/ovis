@@ -30,6 +30,10 @@ NGINX_SSL_ENABLED=false         # true: HTTPS+HTTP, false: HTTP only
 NGINX_HTTP_PORT=80              # HTTP listen port
 NGINX_HTTPS_PORT=443            # HTTPS listen port (if SSL enabled)
 
+# Optional public origin when another reverse proxy fronts OVIS.
+# Do not include a path such as /demo.
+OVIS_PUBLIC_ORIGIN=https://ovis.example.org
+
 # Service upstream endpoints (container names)
 NGINX_KEYCLOAK_UPSTREAM=keycloak:8080
 NGINX_FRONTEND_UPSTREAM=ovis-frontend:5173
@@ -89,6 +93,10 @@ GraphQL is an internal API route used by the OVIS frontend/backend integration a
    - Nginx container exits immediately
    - Services are accessed directly on their configured ports
    - No SSL termination (unless configured in individual services)
+
+When an external reverse proxy exposes OVIS on a different port or protocol,
+set `OVIS_PUBLIC_ORIGIN` to the origin seen by the browser. The Express
+authentication service uses it for CORS independently of `NGINX_HTTP_PORT`.
 
 ## SSL Configuration
 

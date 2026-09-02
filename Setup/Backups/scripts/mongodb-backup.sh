@@ -6,6 +6,7 @@ LOG_TS_FORMAT="%Y-%m-%dT%H:%M:%S%z"
 MONGO_HOST=${MONGO_HOST:-ovis-backend-database-mongodb}
 MONGO_BACKUP_DBS=${MONGO_BACKUP_DBS:-onc_test}
 MONGO_BACKUP_COLLECTIONS=${MONGO_BACKUP_COLLECTIONS:-user}
+MONGO_BACKUP_REQUIRED_COLLECTIONS=${MONGO_BACKUP_REQUIRED_COLLECTIONS:-usageEvent}
 MONGO_BACKUP_RETENTION=${MONGO_BACKUP_RETENTION:-0}
 BACKUP_INTERVAL_SECONDS=${BACKUP_INTERVAL_SECONDS:-21600}
 BACKUP_ROOT=${BACKUP_ROOT:-/var/backups/mongodb}
@@ -23,6 +24,17 @@ trim() {
   var="${var#${var%%[![:space:]]*}}"
   var="${var%${var##*[![:space:]]}}"
   printf '%s' "$var"
+}
+
+append_collection_once() {
+  local value="$1"
+  local existing
+  for existing in "${COLLECTIONS[@]}"; do
+    if [[ "$existing" == "$value" ]]; then
+      return
+    fi
+  done
+  COLLECTIONS+=("$value")
 }
 
 if command -v mongosh >/dev/null 2>&1; then
@@ -127,13 +139,13 @@ main() {
     fi
   done
 
-  IFS=',' read -ra __raw_collections <<< "$MONGO_BACKUP_COLLECTIONS"
+  IFS=',' read -ra __raw_collections <<< "$MONGO_BACKUP_COLLECTIONS,$MONGO_BACKUP_REQUIRED_COLLECTIONS"
   COLLECTIONS=()
   for entry in "${__raw_collections[@]}"; do
     local cleaned
     cleaned=$(trim "$entry")
     if [[ -n "$cleaned" ]]; then
-      COLLECTIONS+=("$cleaned")
+      append_collection_once "$cleaned"
     fi
   done
 

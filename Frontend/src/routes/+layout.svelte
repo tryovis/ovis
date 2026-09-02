@@ -532,7 +532,7 @@ function startUpdateTimer() {
 
       </div>
 
-<footer class="site-footer" role="contentinfo">
+<footer class="site-footer">
   <div class="footer-outer footer-bar">
     <!-- Links -->
     <div class="footer-left">{$t("lastUpdate")}: {lastUpdate}</div>

@@ -522,14 +522,12 @@
 
 <style global>
 	/* Links in diesem Block (inkl. {@html}-Inhalt) einfärben */
-	.footer-content-box a,
-	.footer-content-box .translated-link {
+	.footer-content-box a {
 		color: var(--linkColor) !important;
 		text-decoration: none;
 	}
 
-	.footer-content-box a:hover,
-	.footer-content-box .translated-link:hover {
+	.footer-content-box a:hover {
 		text-decoration: underline;
 	}
 

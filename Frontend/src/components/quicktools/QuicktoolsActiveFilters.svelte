@@ -356,7 +356,7 @@
 
 <div class="quicktool-label-container">
     <button class="filter-toggle-button" on:click={toggleFilterAndIcon}>
-        <img src={filterActive ? filterOnIcon : filterOffIcon} class="menuebar-icon" />
+        <img src={filterActive ? filterOnIcon : filterOffIcon} alt="" class="menuebar-icon" />
         {#if filterActive}
             <b>Filter</b> &nbsp;<i><u style="color:{primaryColor}">{$t("active")}</u></i>
         {:else}
@@ -366,7 +366,7 @@
 
     <div class="right-section">
         <a href={appPath('/filter-edit')} style="color:{primaryColor}">
-            <i>(<u>{$t("edit")}</u> <img src={pencilIcon} class="pencil-icon" />)</i>
+            <i>(<u>{$t("edit")}</u> <img src={pencilIcon} alt="" class="pencil-icon" />)</i>
         </a>
         <button class="iconRoundButton tooltip">
             <span class="tooltiptext">{@html $t("tooltip_QuicktoolsActiveFilters")}</span>
@@ -580,9 +580,4 @@
         filter: brightness(0) invert(1);
     }
 
-    .more-values {
-        font-style: italic;
-        color: var(--muted-font-color);
-        margin-left: 8px;
-    }
 </style>

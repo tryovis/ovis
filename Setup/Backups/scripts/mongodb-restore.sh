@@ -7,6 +7,7 @@ LOG_TS_FORMAT="%Y-%m-%dT%H:%M:%S%z"
 MONGO_HOST=${MONGO_HOST:-ovis-backend-database-mongodb}
 MONGO_RESTORE_DBS=${MONGO_RESTORE_DBS:-onc_test}
 MONGO_RESTORE_COLLECTIONS=${MONGO_RESTORE_COLLECTIONS:-user}
+MONGO_RESTORE_REQUIRED_COLLECTIONS=${MONGO_RESTORE_REQUIRED_COLLECTIONS:-usageEvent}
 MONGO_RESTORE_IGNORE_IDS=${MONGO_RESTORE_IGNORE_IDS:-ovis-root}
 BACKUP_ROOT=${BACKUP_ROOT:-/backups}
 IMPORT_MODE=${OVIS_IMPORT_MODE:-}
@@ -26,7 +27,17 @@ split_csv() {
     trimmed=${entry##+([[:space:]])}
     trimmed=${trimmed%%+([[:space:]])}
     if [[ -n $trimmed ]]; then
-      out_ref+=("$trimmed")
+      local already_present=false
+      local current
+      for current in "${out_ref[@]}"; do
+        if [[ "$current" == "$trimmed" ]]; then
+          already_present=true
+          break
+        fi
+      done
+      if [[ $already_present == false ]]; then
+        out_ref+=("$trimmed")
+      fi
     fi
   done
 }
@@ -196,7 +207,7 @@ restore_snapshot() {
 
 main() {
   split_csv "$MONGO_RESTORE_DBS" DBS
-  split_csv "$MONGO_RESTORE_COLLECTIONS" COLLECTIONS
+  split_csv "$MONGO_RESTORE_COLLECTIONS,$MONGO_RESTORE_REQUIRED_COLLECTIONS" COLLECTIONS
   split_csv "$MONGO_RESTORE_IGNORE_IDS" IGNORE_IDS
 
   if [[ ${IMPORT_MODE^^} == DEMO ]]; then

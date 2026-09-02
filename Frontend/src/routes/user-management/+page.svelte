@@ -45,21 +45,4 @@
 		flex: 0 0 auto;
 	}
 
-	/* Helfer: Tabelle soll nicht breiter werden als der Container */
-	.um-table-area table {
-		width: 100%;
-		table-layout: fixed; /* erlaubt sauberes Umbrechen */
-		border-collapse: collapse;
-	}
-
-	/* Zellinhalte umbrechen statt horizontalen Scroll zu erzwingen */
-	.um-table-area th,
-	.um-table-area td {
-		white-space: normal;
-		overflow-wrap: anywhere; /* bricht auch lange Tokens/UUIDs */
-		word-break: break-word;
-	}
-
-	/* Falls du einzelne Spalten NICHT umbrechen willst, gib ihnen eine Klasse */
-	/* .no-wrap { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } */
 </style>

@@ -379,11 +379,11 @@
 								<img style="margin-left: 15px" src={unlockedIcon} alt="patient-single" class="menuebar-icon" />
 							</a>
 						{:else}
-							<a class="tooltip notallowed">
+							<span class="tooltip notallowed disabled-menu-item" aria-disabled="true">
 								<span class="tooltiptext">Einzelnen Patient auswählen um Seite zu betreten.</span>
 								<img src={item.icon} alt={item.id} class="menuebar-icon no-invert" />{$t(item.labelKey)}
 								<img style="margin-left: 15px" src={lockedIcon} alt="patient-single" class="menuebar-icon" />
-							</a>
+							</span>
 						{/if}
 					{:else}
 						<a href={item.route}>
@@ -551,7 +551,8 @@
 	}
 
 	/* Links inside the dropdown */
-	.dropdown-content a {
+	.dropdown-content a,
+	.dropdown-content .disabled-menu-item {
 		float: none;
 		color: var(--font-color);
 		padding: 12px 16px;
@@ -562,7 +563,8 @@
 	}
 
 	/* Add a grey background color to dropdown links on hover */
-	.dropdown-content a:hover {
+	.dropdown-content a:hover,
+	.dropdown-content .disabled-menu-item:hover {
 		background-color: var(--dropdown-hover);
 	}
 

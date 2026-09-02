@@ -13,6 +13,7 @@
 	import { responsiveChartFontSize, responsiveLegendLabels } from '$lib/responsiveChartSizing';
 	import type { AggregatedValue } from '../types/query';
 	import ChartStatusLine from './ChartStatusLine.svelte';
+	import { appendQueryItemToFirstGroup } from '../tableFilterItems';
 
 	type Complication = {
 		category: (string | null | undefined)[];
@@ -344,11 +345,14 @@
 		};
 
 		const addItem = (queryObject: QueryItem): void => {
-			dataPasser.addStratifierToQueryAPI({
-				label: queryObject.values[0].value,
-				catalogueGroupCode: queryObject.key,
-				parentGroupCode: queryObject.system
-			});
+			const system = queryObject.system ?? '';
+			dataPasser.setQueryStoreAPI(
+				appendQueryItemToFirstGroup(dataPasser.getQueryAPI(), {
+					...queryObject,
+					system,
+					name: `${system}:${queryObject.key}:${queryObject.type}`
+				})
+			);
 		};
 
 		const originalLabels = [...tmpInputArray.category];

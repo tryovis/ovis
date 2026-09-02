@@ -182,6 +182,12 @@
 		console.log('Confirm New Password:', confirmNewPassword);
 	}
 
+	function handleKeyboardAction(event: KeyboardEvent, action: () => void) {
+		if (event.key !== 'Enter' && event.key !== ' ') return;
+		event.preventDefault();
+		action();
+	}
+
 	$: authPath = platformDocumentUrl($platformConfigStore, 'DATA_ACCESS', language);
 	$: usagePath = platformDocumentUrl($platformConfigStore, 'USER_AGREEMENT', language);
 </script>
@@ -214,7 +220,14 @@
 					</h3>
 					<p>Dr. Daniel Nasseh (Entwicklung)</p>
 					<p>Email: daniel.nasseh@med.uni-muenchen.de</p>
-					<div class="change-password" on:click={() => (showContactInfo = false)}>
+					<div
+						class="change-password"
+						role="button"
+						tabindex="0"
+						on:click={() => (showContactInfo = false)}
+						on:keydown={(event) =>
+							handleKeyboardAction(event, () => (showContactInfo = false))}
+					>
 						{language === 'en' ? 'Back' : 'Zurück'}
 					</div>
 				</div>
@@ -244,7 +257,14 @@
 					>{language === 'en' ? 'Confirm' : 'Bestätigen'}</button
 				>
 				{#if !isCCP}
-					<div class="change-password" on:click={() => (showChangePassword = false)}>
+					<div
+						class="change-password"
+						role="button"
+						tabindex="0"
+						on:click={() => (showChangePassword = false)}
+						on:keydown={(event) =>
+							handleKeyboardAction(event, () => (showChangePassword = false))}
+					>
 						{language === 'en' ? 'Back' : 'Zurück'}
 					</div>
 				{/if}
@@ -269,11 +289,18 @@
 						? 'Technically, the requirements can then be implemented by your site admin.'
 						: 'Technisch können die Vorgaben dann von Ihrem Standort-Admin umgesetzt werden.'}
 				</p>
-				<a href="#" on:click|preventDefault={() => (showContactInfo = true)}
-					>{language === 'en' ? 'Contact Details' : 'Kontaktdaten'}</a
-				>
+				<button type="button" class="text-link" on:click={() => (showContactInfo = true)}>
+					{language === 'en' ? 'Contact Details' : 'Kontaktdaten'}
+				</button>
 				{#if !isCCP}
-					<div class="change-password" on:click={() => (showAccessInfo = false)}>
+					<div
+						class="change-password"
+						role="button"
+						tabindex="0"
+						on:click={() => (showAccessInfo = false)}
+						on:keydown={(event) =>
+							handleKeyboardAction(event, () => (showAccessInfo = false))}
+					>
 						{language === 'en' ? 'Back' : 'Zurück'}
 					</div>
 				{/if}
@@ -307,13 +334,13 @@
 
 			<div class="extra-info">
 				{#if !showAccessInfo && !showChangePassword && !showContactInfo && !isCCP}
-					<a href="#" on:click|preventDefault={() => (showAccessInfo = true)}
-						>{language === 'en' ? 'How to gain access?' : 'Zugang erhalten?'}</a
-					>
+					<button type="button" class="text-link" on:click={() => (showAccessInfo = true)}>
+						{language === 'en' ? 'How to gain access?' : 'Zugang erhalten?'}
+					</button>
 					|
-					<a href="#" on:click|preventDefault={() => (showContactInfo = true)}
-						>{language === 'en' ? 'Contact Details' : 'Kontaktdaten'}</a
-					>
+					<button type="button" class="text-link" on:click={() => (showContactInfo = true)}>
+						{language === 'en' ? 'Contact Details' : 'Kontaktdaten'}
+					</button>
 				{/if}
 			</div>
 		</div>
@@ -351,12 +378,26 @@
 	.extra-info {
 		margin-top: 1rem;
 	}
+	.text-link {
+		display: inline;
+		padding: 0;
+		border: 0;
+		background: none;
+		color: var(--link-color);
+		font: inherit;
+		text-decoration: underline;
+	}
 	.change-password,
-	.extra-info a {
+	.extra-info .text-link {
 		color: blue;
 		cursor: pointer;
 		text-decoration: none;
 		margin-top: 1rem;
+	}
+	.text-link:hover,
+	.text-link:focus {
+		color: color-mix(in srgb, var(--link-color), black 15%);
+		text-decoration: underline;
 	}
 	.demo-credentials {
 		margin: 0.75rem 0 1rem 0;

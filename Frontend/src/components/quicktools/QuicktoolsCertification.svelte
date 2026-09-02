@@ -73,10 +73,24 @@
 <div class="grid-container-case">
     {#each certificationCases as cert (cert.id)}
         <div class={cert.layoutClass}>
-            <label>{$t(cert.translationKey)}</label>
+            <span class="certification-label">{$t(cert.translationKey)}</span>
             <div class="buttons">
-                <img src={plusIcon} class="iconRound" alt="add" on:click={() => applyCertification(cert.positive)} />
-                <img src={minusIcon} class="iconRound" alt="remove" on:click={() => applyCertification(cert.negative)} />
+                <button
+					type="button"
+					class="icon-button"
+					aria-label="add"
+					on:click={() => applyCertification(cert.positive)}
+				>
+					<img src={plusIcon} class="iconRound" alt="" />
+				</button>
+                <button
+					type="button"
+					class="icon-button"
+					aria-label="remove"
+					on:click={() => applyCertification(cert.negative)}
+				>
+					<img src={minusIcon} class="iconRound" alt="" />
+				</button>
             </div>
         </div>
     {/each}
@@ -129,7 +143,19 @@
         object-fit: contain;
     }
 
-    label {
+	.icon-button {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 11px;
+		height: 11px;
+		padding: 0;
+		border: 0;
+		background: none;
+		cursor: pointer;
+	}
+
+    .certification-label {
         min-width: 0;
         line-height: 1.2;
         word-break: keep-all;
@@ -141,7 +167,7 @@
 			font-size: 11px;
 		}
 
-		label {
+		.certification-label {
 			white-space: nowrap;
 		}
 

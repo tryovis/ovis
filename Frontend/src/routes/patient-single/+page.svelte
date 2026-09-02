@@ -126,10 +126,6 @@
         grid-area: patient-single-event-chart;
     }
 
-    .patient-single-event-table {
-        grid-area: patient-single-event-table;
-    }
-
     .patient-single-diagnosis-image {
         grid-area: patient-single-diagnosis-image;
     }

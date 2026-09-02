@@ -303,6 +303,7 @@ The internal Basic Auth pair is fixed to `admin/admin`. It is embedded in browse
 The MongoDB database is fixed to `onc_test`.
 
 ### Nginx Proxy Configuration
+*   **`OVIS_PUBLIC_ORIGIN`**: Optional public browser origin (for example `https://ovis.example.org`) when an external reverse proxy uses a different public port or protocol than the internal OVIS nginx. Do not include a path such as `/demo`.
 *   **`NGINX_PROXY_MODE`**: Enable nginx reverse proxy - `true` (recommended) or `false`
 *   **`NGINX_SSL_ENABLED`**: Enable HTTPS - `true` or `false`
 *   **`NGINX_HTTP_PORT`**: HTTP port (default: `80`)

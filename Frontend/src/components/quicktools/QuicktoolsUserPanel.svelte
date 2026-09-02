@@ -39,6 +39,20 @@
                 <img src={settingsIcon} alt="user" class="menuebar-icon" />
                 {currentUser} </a>&nbsp;({currentRole})
         </div>
-        <img src={logoutIcon} alt="logout" class="menuebar-icon" on:click={handleLogout} style="cursor: pointer;" />
+		<button type="button" class="logout-button" aria-label="logout" on:click={handleLogout}>
+			<img src={logoutIcon} alt="" class="menuebar-icon" />
+		</button>
 
     </div>
+
+<style>
+	.logout-button {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		padding: 0;
+		border: 0;
+		background: none;
+		cursor: pointer;
+	}
+</style>

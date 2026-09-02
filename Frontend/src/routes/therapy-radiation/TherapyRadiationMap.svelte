@@ -69,24 +69,3 @@
     <div class="overlay"><span>Work in Progress</span></div>
  {/if}
 </div>-->
-
-<style>
-	.wip-wrapper {
-		position: relative; /* Referenz für das Overlay */
-	}
-
-	.overlay {
-		position: absolute;
-		inset: 0; /* top/right/bottom/left: 0 */
-		background: rgba(0, 0, 0, 0.6); /* halbtransparent schwarz */
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		font-size: 2rem;
-		font-weight: 700;
-		color: #fff;
-		pointer-events: all; /* blockiert Klicks */
-		z-index: 50; /* über dem Inhalt */
-		user-select: none;
-	}
-</style>

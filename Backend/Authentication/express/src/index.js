@@ -12,11 +12,35 @@ const app = express();
 const __dirname = fs.realpathSync('.');
 const landingDirectory = path.join(__dirname, '/src/landing');
 
+const getConfiguredPublicOrigin = () => {
+	const configuredOrigin = process.env.OVIS_PUBLIC_ORIGIN?.trim();
+	if (!configuredOrigin) return null;
+
+	try {
+		const publicUrl = new URL(configuredOrigin);
+		if (!['http:', 'https:'].includes(publicUrl.protocol)) {
+			throw new Error('only http and https origins are supported');
+		}
+
+		return publicUrl.origin;
+	} catch (error) {
+		throw new Error(
+			`Invalid OVIS_PUBLIC_ORIGIN "${configuredOrigin}": ${error.message}`
+		);
+	}
+};
+
+const configuredPublicOrigin = getConfiguredPublicOrigin();
+
 // Dynamically build allowed origins based on environment - NO HARDCODING
 const getAllowedOrigins = () => {
 	const origins = new Set();
 	const host = process.env.APP_DOMAIN || 'localhost';
 	const frontendPort = process.env.FRONTEND_PORT || '5173';
+
+	// Public browser origin when another reverse proxy terminates HTTP(S).
+	// This is intentionally independent of the internal OVIS nginx port.
+	if (configuredPublicOrigin) origins.add(configuredPublicOrigin);
 
 	// Always allow direct frontend access (for development)
 	origins.add(`http://${host}:${frontendPort}`);

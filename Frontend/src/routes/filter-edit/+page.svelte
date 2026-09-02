@@ -987,12 +987,6 @@
 		background-color: var(--dropdown-hover); /* Leicht grauer Hintergrund beim Hover */
 	}
 
-	.tooltip-container {
-		position: relative;
-		display: inline-block;
-		overflow: visible; /* Tooltips können über die Grenzen des Containers hinausgehen */
-	}
-
 	.infotooltip {
 		position: relative;
 	}

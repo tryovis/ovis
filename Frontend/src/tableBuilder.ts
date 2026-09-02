@@ -13,8 +13,7 @@ import { TNMPickerStore } from './store/TNMPickerStore'; // Importiere den Store
 import {
 	appendQueryItemToFirstGroup,
 	createArrayFilterItems,
-	isArrayFilterColumn,
-	queryContainsValue
+	isArrayFilterColumn
 } from './tableFilterItems';
 import type { QueryItem } from './tableFilterItems';
 
@@ -85,23 +84,16 @@ const addItem = (queryObject: QueryItem): void => {
 			: queryObject.system === 'histology'
 			? 'diagnosis'
 			: queryObject.system;
-	const normalizedQueryObject = { ...queryObject, system };
+	const normalizedQueryObject = {
+		...queryObject,
+		system,
+		name: `${system ?? ''}:${queryObject.key}:${queryObject.type}`
+	};
 	console.log('ADDED QUERY ITEM', queryObject);
 	const queryBeforeAdd = currentDataPasser.getQueryAPI();
-	currentDataPasser.addStratifierToQueryAPI({
-		label: String(queryObject.values[0]?.value ?? ''),
-		catalogueGroupCode: queryObject.key,
-		parentGroupCode: String(system ?? '')
-	});
-	const queryAfterAdd = currentDataPasser.getQueryAPI();
-	if (!queryContainsValue(queryAfterAdd, normalizedQueryObject)) {
-		currentDataPasser.setQueryStoreAPI(
-			appendQueryItemToFirstGroup(
-				queryAfterAdd.length > 0 ? queryAfterAdd : queryBeforeAdd,
-				normalizedQueryObject
-			)
-		);
-	}
+	currentDataPasser.setQueryStoreAPI(
+		appendQueryItemToFirstGroup(queryBeforeAdd, normalizedQueryObject)
+	);
 	console.log(currentDataPasser.getQueryAPI());
 };
 
@@ -637,22 +629,37 @@ function bindCellClickHandler(
 				) {
 					handleArray(columnName, processedCellData as string | string[]);
 				} else {
-					const queryItem = {
-						id: '-',
-						key: columnName,
-						name: '-',
-						type: 'EQUALS',
-						system: collection,
-						values: [
-							{
-								name: processedCellData + '',
-								value: processedCellData + '',
-								queryBindId: '-'
-							}
-						]
-					};
+					const filterValues: { key: string; value: string }[] = [];
 
-					addItem(queryItem);
+					if (columnName === 'status') {
+						const row = tableCell.closest('tr');
+						const rowData = row
+							? (getDataTable().row(row).data() as Record<string, unknown> | undefined)
+							: undefined;
+
+						if (rowData && Object.prototype.hasOwnProperty.call(rowData, 'type')) {
+							const typeValue = rowData.type;
+							filterValues.push({
+								key: 'type',
+								value:
+									typeValue === '' || typeValue === null || typeValue === undefined
+										? '-'
+										: String(typeValue)
+							});
+						}
+					}
+
+					filterValues.push({ key: columnName, value: String(processedCellData) });
+					filterValues.forEach(({ key, value }) =>
+						addItem({
+							id: '-',
+							key,
+							name: '-',
+							type: 'EQUALS',
+							system: collection,
+							values: [{ name: value, value, queryBindId: '-' }]
+						})
+					);
 					reloadOnly();
 				}
 			} else {
