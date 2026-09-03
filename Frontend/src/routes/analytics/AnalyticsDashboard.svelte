@@ -25,6 +25,7 @@
 	type ChartId = 'users' | 'timeline' | 'modules';
 	type UserMetric = 'timeOnline' | 'filterClicks';
 	type ReportItem = { label: string; value: string };
+	const USER_VISIBLE_ROW_LIMIT = 10;
 
 	let userCanvas: HTMLCanvasElement;
 	let timelineCanvas: HTMLCanvasElement;
@@ -129,7 +130,7 @@
 		userError = false;
 		try {
 			userData = await getUsageByUser();
-			renderUserChart();
+			await renderUserChart();
 		} catch (error) {
 			userError = true;
 			console.error('Could not load user analytics:', error);
@@ -179,12 +180,13 @@
 		}
 	}
 
-	function renderUserChart() {
+	async function renderUserChart() {
 		if (!userCanvas) return;
 		const sorted = [...userData].sort(
 			(a, b) =>
 				metricValue(b[userMetric] ?? 0, userMetric) - metricValue(a[userMetric] ?? 0, userMetric)
 		);
+		await tick();
 		userChart?.destroy();
 		userChart = new Chart(userCanvas, {
 			type: 'bar',
@@ -309,7 +311,17 @@
 				</div>
 			</div>
 		</div>
-		<div class="analytics-chart"><canvas bind:this={userCanvas} /></div>
+		<div
+			class="analytics-chart analytics-user-chart"
+			class:scrollable={userData.length > USER_VISIBLE_ROW_LIMIT}
+		>
+			<div
+				class="analytics-user-chart-content"
+				style:height={`${Math.max(1, userData.length / USER_VISIBLE_ROW_LIMIT) * 100}%`}
+			>
+				<canvas bind:this={userCanvas} />
+			</div>
+		</div>
 		{#if userError || (!userLoading && userData.length === 0)}<p class="empty">
 				{$t('analyticsNoData')}
 			</p>{/if}
@@ -521,6 +533,20 @@
 	.analytics-chart canvas {
 		width: 100% !important;
 		height: 100% !important;
+	}
+
+	.analytics-user-chart {
+		overflow: hidden;
+	}
+
+	.analytics-user-chart.scrollable {
+		overflow-y: auto;
+	}
+
+	.analytics-user-chart-content {
+		position: relative;
+		min-width: 0;
+		min-height: 100%;
 	}
 
 	.report-content {

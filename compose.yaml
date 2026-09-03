@@ -2,6 +2,7 @@ services:
 
   # Production Frontend (default - no profile required)  
   ovis-frontend:
+    restart: unless-stopped
     build:
       context: ./Frontend
       dockerfile: Dockerfile
@@ -194,6 +195,7 @@ services:
 
   ## Resolver: GraphQL
   ovis-backend-apollo:
+    restart: unless-stopped
     build:
       context: ./Backend/Apollo
       dockerfile: dockerfile
@@ -234,6 +236,7 @@ services:
       - node_modules:/app/node_modules
 
   ovis-backend-database-mongodb:
+    restart: unless-stopped
     image: docker.verbis.dkfz.de/ovis/ovis-backend-mongodb:latest
     environment:
       - OVIS_ROOT_USERNAME=${OVIS_ROOT_USERNAME:-ovis-root}
@@ -244,6 +247,7 @@ services:
       - mongo_conf:/data/configdb
 
   ovis-backend-mongodb-data-preprocessing:
+    restart: unless-stopped
     build:
       context: ./Backend/MongoDB
       args:
@@ -308,6 +312,7 @@ services:
     command: ["node", "./Preprocessing/catalogue-service.mjs"]
 
   ovis-backend-data-import:
+    restart: unless-stopped
     build: 
       context: ./Backend/Data-Import/${OVIS_IMPORT_MODE:-demo}
       dockerfile: Dockerfile
@@ -343,6 +348,7 @@ services:
       
   # Authentication Services
   postgres:
+    restart: unless-stopped
     image: ghcr.io/baosystems/postgis:13-3.5
     container_name: ovis-postgres
     volumes:
@@ -353,6 +359,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
 
   keycloak:
+    restart: unless-stopped
     build:
       context: ./Backend/Authentication/Keycloak
       dockerfile: Dockerfile
@@ -412,6 +419,7 @@ services:
     entrypoint: ["/opt/keycloak/bin/ovis-entrypoint.sh"]
 
   express-auth:
+    restart: unless-stopped
     build: 
       context: ./Backend/Authentication/express
       dockerfile: Dockerfile
@@ -481,6 +489,7 @@ services:
     entrypoint: ["bash", "/restore/mongodb-restore.sh"]
 
   mongodb-backup:
+    restart: unless-stopped
     image: docker.verbis.dkfz.de/ovis/ovis-backend-mongodb:latest
     container_name: mongodb-backup
     depends_on:
@@ -502,6 +511,7 @@ services:
     entrypoint: ["bash", "/backup/mongodb-backup.sh"]
 
   nginx:
+    restart: unless-stopped
     image: nginx:1
     container_name: nginx-ovis
     ports:
