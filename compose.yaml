@@ -237,7 +237,7 @@ services:
 
   ovis-backend-database-mongodb:
     restart: unless-stopped
-    image: docker.verbis.dkfz.de/ovis/ovis-backend-mongodb:latest
+    image: ${OVIS_MONGODB_IMAGE:-mongo:latest}
     environment:
       - OVIS_ROOT_USERNAME=${OVIS_ROOT_USERNAME:-ovis-root}
       - OVIS_IMPORT_MODE=${OVIS_IMPORT_MODE:-demo}
@@ -469,7 +469,7 @@ services:
       - keycloak
 
   mongodb-restore:
-    image: docker.verbis.dkfz.de/ovis/ovis-backend-mongodb:latest
+    image: ${OVIS_MONGODB_IMAGE:-mongo:latest}
     container_name: mongodb-restore
     restart: "no"
     depends_on:
@@ -490,7 +490,7 @@ services:
 
   mongodb-backup:
     restart: unless-stopped
-    image: docker.verbis.dkfz.de/ovis/ovis-backend-mongodb:latest
+    image: ${OVIS_MONGODB_IMAGE:-mongo:latest}
     container_name: mongodb-backup
     depends_on:
       ovis-backend-database-mongodb:

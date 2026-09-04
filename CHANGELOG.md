@@ -18,6 +18,7 @@ This GitHub repository is the public open-source distribution of OVIS. Developme
 - Public mirror commit titles now include the UTC snapshot date and sanitized top-level paths touched by each update, and commit bodies list created, modified, and deleted public files.
 - Public GitHub history is represented through this changelog and future GitHub releases rather than raw internal GitLab commits.
 - Simplified Docker configuration by fixing bundled service topology identifiers and internal Basic Auth credentials while retaining deployer-controlled secrets and external ports.
+- Made the standalone MongoDB image vendor-neutral and configurable through `OVIS_MONGODB_IMAGE`; the dedicated Bridgehead CCP image configuration remains unchanged.
 
 ### Notes for users
 

@@ -212,7 +212,7 @@ The `compose.yaml` file defines the following services:
 
 5.  **`ovis-backend-database-mongodb`**
     *   **Purpose:** Provides the MongoDB database instance.
-    *   **Image:** `docker.verbis.dkfz.de/ovis/ovis-backend-mongodb:latest` (or the registry/tag selected in the compose configuration).
+    *   **Image:** `mongo:latest` by default. Set `OVIS_MONGODB_IMAGE` to use another registry or pinned image. Bridgehead CCP deployments keep their dedicated image selection in `ccp/modules/ovis-compose.yml`.
     *   **Initialization:** Uses `./Backend/MongoDB/initdb.js` to initialize the database on first run.
 
 6.  **`ovis-backend-mongodb-data-preprocessing`**
