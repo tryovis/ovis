@@ -6,8 +6,10 @@ const {
 	buildStudyOverviewCountAggregation,
 	buildStudyPatientCountAggregation,
 	buildStudyPatientTableAggregation,
+	getStudyCategoryChart,
 	getStudyOverview,
 	getStudyOverviewCount,
+	getStudyPatientChart,
 	getStudyPatientCount,
 	getStudyPatientTable
 } = require('./studyPatientTable');
@@ -20,21 +22,24 @@ const studies = [
 		studyKey: 'study-1',
 		studyID: '004902',
 		shortname: 'HOLOSURGE',
-		status: 'open'
+		status: 'open',
+		phase: 'II'
 	},
 	{
 		_id: 's2',
 		studyKey: 'study-2',
 		studyID: '004595',
 		shortname: 'LIVER-R',
-		status: 'closed'
+		status: 'closed',
+		phase: 'III'
 	},
 	{
 		_id: 's3',
 		studyKey: 'study-3',
 		studyID: '009999',
 		shortname: 'EMPTY',
-		status: 'planned'
+		status: 'planned',
+		phase: 'II'
 	}
 ];
 
@@ -223,16 +228,33 @@ const runPipeline = (docs, pipeline, collections, variables = {}) =>
 			const field = stage.$group.ts.$addToSet.slice(1);
 			return [{ _id: null, ts: [...new Set(current.map((doc) => getValue(doc, field)).flat())] }];
 		}
+		if (stage.$group?.count?.$count) {
+			const counts = new Map();
+			for (const doc of current) {
+				const label = readExpr(doc, stage.$group._id.label, variables);
+				counts.set(label, (counts.get(label) ?? 0) + 1);
+			}
+			return [...counts].map(([label, count]) => ({ _id: { label }, count }));
+		}
+		if (stage.$group?.count?.$sum === 1) {
+			const counts = new Map();
+			for (const doc of current) {
+				const key = readExpr(doc, stage.$group._id, variables);
+				counts.set(key, (counts.get(key) ?? 0) + 1);
+			}
+			return [...counts].map(([_id, count]) => ({ _id, count }));
+		}
 		throw new Error(`Unsupported test pipeline stage: ${JSON.stringify(stage)}`);
 	}, docs);
 
-const makeDb = () => {
+const makeDb = (overrides = {}) => {
 	const collections = {
 		study: studies,
 		studyPatient: studyPatients,
 		patient: patients,
 		diagnosis,
-		therapy
+		therapy,
+		...overrides
 	};
 	return {
 		collection(name) {
@@ -620,4 +642,118 @@ test('mixed study and diagnosis OR filters preserve participation-level semantic
 			.sort(),
 		['004595:p4', '004902:p1', '004902:p3']
 	);
+});
+
+test('study metadata paging loads participations only for the visible studies', async () => {
+	const input = {
+		filter: emptyFilter,
+		sortField: 'shortname',
+		sortDirection: 'asc',
+		offset: 1,
+		limit: 1
+	};
+	const ctx = context();
+	const stages = await buildStudyOverviewAggregation(input, ctx.collections, ctx.db);
+	const rows = await getStudyOverview(input, ctx);
+	assert.ok(stages.findIndex((stage) => stage.$limit) < stages.findIndex((stage) => stage.$lookup));
+	assert.deepEqual(
+		rows.map((row) => row.studyID),
+		['004902']
+	);
+	assert.deepEqual(
+		rows[0].studyPatients.map((row) => row.patID),
+		['p1', 'p2', 'p3']
+	);
+});
+
+test('study participation counts are loaded before sorting and paging by patient count', async () => {
+	const input = {
+		filter: emptyFilter,
+		sortField: 'studyPatients',
+		sortDirection: 'desc',
+		limit: 1
+	};
+	const ctx = context();
+	const stages = await buildStudyOverviewAggregation(input, ctx.collections, ctx.db);
+	const rows = await getStudyOverview(input, ctx);
+	assert.ok(stages.findIndex((stage) => stage.$lookup) < stages.findIndex((stage) => stage.$limit));
+	assert.deepEqual(
+		rows.map((row) => row.studyID),
+		['004902']
+	);
+	assert.equal(rows[0].studyPatients.length, 3);
+});
+
+const studyChart = (filter) => getStudyCategoryChart({ selectedType: 'phase', filter }, context());
+
+test('study category chart counts studies through matching patients after participation materialization', async () => {
+	const result = await studyChart(
+		filterValue([{ key: 'ICD.ICD10', type: 'EQUALS', system: 'diagnosis', value: 'C25' }])
+	);
+	// Both p1 and p3 match, but their shared study contributes once.
+	assert.deepEqual(result, { label: ['II'], count: [1] });
+});
+
+test('study category chart includes empty studies when no cohort filter is selected', async () => {
+	assert.deepEqual(await studyChart(emptyFilter), { label: ['II', 'III'], count: [2, 1] });
+});
+
+test('study category chart preserves mixed metadata and patient filter branches', async () => {
+	const clauses = [
+		{ key: 'status', type: 'EQUALS', system: 'study', value: 'planned' },
+		{ key: 'ICD.ICD10', type: 'EQUALS', system: 'diagnosis', value: 'C25' }
+	];
+	assert.deepEqual(await studyChart(filterValue(clauses, 'OR')), { label: ['II'], count: [2] });
+	assert.deepEqual(await studyChart(filterValue(clauses, 'AND')), { label: [], count: [] });
+});
+
+test('study category chart handles participation filters and empty patient cohorts', async () => {
+	assert.deepEqual(
+		await studyChart(
+			filterValue([{ key: 'patID', type: 'EQUALS', system: 'studyPatient', value: 'p4' }])
+		),
+		{ label: ['III'], count: [1] }
+	);
+	assert.deepEqual(
+		await studyChart(
+			filterValue([{ key: 'ICD.ICD10', type: 'EQUALS', system: 'diagnosis', value: 'C99' }])
+		),
+		{ label: [], count: [] }
+	);
+});
+
+test('study participation chart matches overview counts for cohort and metadata filters', async () => {
+	const diagnosisClause = { key: 'ICD.ICD10', type: 'EQUALS', system: 'diagnosis', value: 'C25' };
+	const plannedClause = { key: 'status', type: 'EQUALS', system: 'study', value: 'planned' };
+	for (const filter of [
+		emptyFilter,
+		filterValue([diagnosisClause]),
+		filterValue([plannedClause]),
+		filterValue([diagnosisClause, plannedClause], 'OR'),
+		filterValue([diagnosisClause, plannedClause], 'AND'),
+		filterValue([{ key: 'patID', type: 'EQUALS', system: 'studyPatient', value: 'p4' }]),
+		filterValue([{ key: 'ICD.ICD10', type: 'EQUALS', system: 'diagnosis', value: 'C99' }])
+	]) {
+		const ctx = context();
+		const rows = await getStudyOverview({ filter }, ctx);
+		const chart = await getStudyPatientChart({ filter }, ctx);
+		assert.deepEqual(
+			chart,
+			rows.map(({ shortname, studyPatients }) => ({
+				shortname,
+				studyPatients: studyPatients.length
+			})),
+			filter
+		);
+	}
+});
+
+test('study participation chart keeps separate studies with identical short names and zero counts', async () => {
+	const ctx = context();
+	ctx.db = makeDb({ study: studies.map((study) => ({ ...study, shortname: 'SHARED' })) });
+	assert.deepEqual(await getStudyPatientChart({ filter: emptyFilter }, ctx), [
+		{ shortname: 'SHARED', studyPatients: 0 },
+		{ shortname: 'SHARED', studyPatients: 1 },
+		{ shortname: 'SHARED', studyPatients: 3 }
+	]);
 });

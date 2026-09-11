@@ -2,6 +2,10 @@ const TOOLTIP_GAP = 4;
 const POINTER_TOOLTIP_GAP = 12;
 const VIEWPORT_INSET = 12;
 const TOOLTIP_Z_INDEX = 10000;
+const INTERACTION_GRACE_MS = 200;
+
+const boundTriggers = new WeakSet();
+const hideTimeouts = new WeakMap();
 
 /**
  * Keep a tooltip inside the viewport while anchoring it to its trigger.
@@ -57,13 +61,14 @@ export function createPointerTooltipStyle(
 	)}px;right:auto;top:${Math.round(top)}px;bottom:auto;`;
 }
 
-/** @param {MouseEvent | FocusEvent} event */
+/** @param {MouseEvent | FocusEvent | HTMLElement} event */
 export function showViewportTooltip(event) {
 	if (typeof window === 'undefined' || typeof HTMLElement === 'undefined') return '';
-	const trigger = event.currentTarget;
+	const trigger = event instanceof HTMLElement ? event : event.currentTarget;
 	if (!(trigger instanceof HTMLElement)) return '';
 	const tooltip = trigger.querySelector('.tooltiptext');
 	if (!(tooltip instanceof HTMLElement)) return '';
+	clearScheduledHide(trigger);
 
 	const tooltipStyle = createViewportTooltipStyle(
 		trigger.getBoundingClientRect(),
@@ -76,9 +81,43 @@ export function showViewportTooltip(event) {
 		tooltip.setAttribute('popover', 'manual');
 		if (!tooltip.matches(':popover-open')) tooltip.showPopover();
 	}
-	trigger.addEventListener('mouseleave', () => hideTooltipForTrigger(trigger), { once: true });
+	bindInteractiveTooltip(trigger, tooltip);
 
 	return tooltipStyle;
+}
+
+/**
+ * Keep a tooltip open while the pointer crosses the small gap from its trigger
+ * and while the tooltip itself is being used (for example to follow a link).
+ *
+ * @param {HTMLElement} trigger
+ * @param {HTMLElement} tooltip
+ */
+function bindInteractiveTooltip(trigger, tooltip) {
+	if (boundTriggers.has(trigger)) return;
+	boundTriggers.add(trigger);
+
+	trigger.addEventListener('mouseleave', () => scheduleTooltipHide(trigger));
+	tooltip.addEventListener('mouseenter', () => clearScheduledHide(trigger));
+	tooltip.addEventListener('mouseleave', () => scheduleTooltipHide(trigger));
+}
+
+/** @param {HTMLElement} trigger */
+function scheduleTooltipHide(trigger) {
+	clearScheduledHide(trigger);
+	const timeout = window.setTimeout(() => {
+		hideTimeouts.delete(trigger);
+		hideTooltipForTrigger(trigger);
+	}, INTERACTION_GRACE_MS);
+	hideTimeouts.set(trigger, timeout);
+}
+
+/** @param {HTMLElement} trigger */
+function clearScheduledHide(trigger) {
+	const timeout = hideTimeouts.get(trigger);
+	if (timeout === undefined) return;
+	window.clearTimeout(timeout);
+	hideTimeouts.delete(trigger);
 }
 
 /** @param {HTMLElement} trigger */

@@ -205,13 +205,8 @@ async function studyOverviewMembership(input, collections, db) {
 	return { stages, participationMatch, emptyStudyKeys };
 }
 
-async function studyOverviewRowStages(input, collections, db) {
-	const { stages, participationMatch, emptyStudyKeys } = await studyOverviewMembership(
-		input,
-		collections,
-		db
-	);
-
+function studyParticipationStages(participationMatch, emptyStudyKeys, collections) {
+	const stages = [];
 	const lookupPipeline = [{ $match: { $expr: { $eq: ['$studyKey', '$$studyKey'] } } }];
 	if (participationMatch) lookupPipeline.push({ $match: participationMatch });
 	stages.push({
@@ -232,8 +227,38 @@ async function studyOverviewRowStages(input, collections, db) {
 	return stages;
 }
 
+async function studyOverviewRowStages(input, collections, db) {
+	const { stages, participationMatch, emptyStudyKeys } = await studyOverviewMembership(
+		input,
+		collections,
+		db
+	);
+	return [...stages, ...studyParticipationStages(participationMatch, emptyStudyKeys, collections)];
+}
+
 async function buildStudyOverviewAggregation(input, collections, db) {
-	const stages = await studyOverviewRowStages(input, collections, db);
+	// Metadata sorting/filtering can select the visible studies before loading
+	// their participations. Patient counts and derived columns still need the join first.
+	const pageBeforeParticipationLookup =
+		!(input?.project ?? []).length &&
+		input?.sortField !== 'studyPatients' &&
+		!input?.sortField?.startsWith('studyPatients.') &&
+		!normalizeColumnFilters(input?.columnFilters).some(({ field }) =>
+			field.startsWith('studyPatients')
+		);
+	let stages;
+	let participationStages = [];
+	if (pageBeforeParticipationLookup) {
+		const membership = await studyOverviewMembership(input, collections, db);
+		stages = membership.stages;
+		participationStages = studyParticipationStages(
+			membership.participationMatch,
+			membership.emptyStudyKeys,
+			collections
+		);
+	} else {
+		stages = await studyOverviewRowStages(input, collections, db);
+	}
 	stages.push(...(input?.project ?? []));
 	stages.push(...columnFilterStages(input?.columnFilters));
 	const direction = tableSortOrder[input?.sortDirection] ?? sortOrder.newest;
@@ -259,6 +284,7 @@ async function buildStudyOverviewAggregation(input, collections, db) {
 	}
 	if (input?.offset) stages.push({ $skip: input.offset });
 	if (input?.limit) stages.push({ $limit: input.limit });
+	stages.push(...participationStages);
 	return stages;
 }
 
@@ -302,14 +328,56 @@ async function getStudyOverviewCount(input, context) {
 	return result?.count ?? 0;
 }
 
+async function getStudyCategoryChart(input, context) {
+	// Study metadata no longer carries tumor IDs. Select studies through the
+	// participation collection, just as the overview and its count do.
+	const { stages } = await studyOverviewMembership(input, context.collections, context.db);
+	stages.push({
+		$group: { _id: { label: `$${input.selectedType}` }, count: { $count: {} } }
+	});
+	const rows = await context.db.collection(context.collections.study).aggregate(stages).toArray();
+	return {
+		label: rows.map((row) => row._id.label),
+		count: rows.map((row) => row.count)
+	};
+}
+
+async function getStudyPatientChart(input, context) {
+	const { stages, participationMatch } = await studyOverviewMembership(
+		input,
+		context.collections,
+		context.db
+	);
+	const countStages = participationMatch ? [{ $match: participationMatch }] : [];
+	countStages.push({ $group: { _id: '$studyKey', count: { $sum: 1 } } });
+	const [studies, participationCounts] = await Promise.all([
+		context.db
+			.collection(context.collections.study)
+			.aggregate([
+				...stages,
+				{ $sort: { _id: sortOrder.newest } },
+				{ $project: { _id: 0, studyKey: 1, shortname: 1 } }
+			])
+			.toArray(),
+		context.db.collection(context.collections.studyPatient).aggregate(countStages).toArray()
+	]);
+	const countsByStudy = new Map(participationCounts.map(({ _id, count }) => [_id, count]));
+	return studies.map(({ studyKey, shortname }) => ({
+		shortname,
+		studyPatients: countsByStudy.get(studyKey) ?? 0
+	}));
+}
+
 module.exports = {
 	buildStudyOverviewAggregation,
 	buildStudyOverviewCountAggregation,
 	buildStudyPatientCountAggregation,
 	buildStudyPatientTableAggregation,
 	filterAstToParticipationMatch,
+	getStudyCategoryChart,
 	getStudyOverview,
 	getStudyOverviewCount,
+	getStudyPatientChart,
 	getStudyPatientCount,
 	getStudyPatientTable,
 	matchingPatientIDs,

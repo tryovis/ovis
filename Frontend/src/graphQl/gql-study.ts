@@ -5,6 +5,30 @@ const localeOptions:Intl.DateTimeFormatOptions = {
     year: 'numeric'
 };
 
+export const getStudyPatientChart = async (filter: string | null) => {
+  const response = await graphqlFetch(dataUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      query: `
+        query getStudyPatientChart($filter: String) {
+          getStudyPatientChart(filter: $filter) {
+            shortname
+            studyPatients
+          }
+        }
+      `,
+      variables: { filter }
+    })
+  });
+  if (!response.ok) throw new Error(`Study chart request failed (${response.status})`);
+  const result = await response.json();
+  if (result.errors?.length || !Array.isArray(result.data?.getStudyPatientChart)) {
+    throw new Error('Study chart query failed');
+  }
+  return result.data.getStudyPatientChart;
+};
+
 export const getStudyOverviewTable = (continueFromID: string | undefined | null, limit: number, filter: String | null) => graphqlFetch(dataUrl, {
   method: 'POST',
   headers: {

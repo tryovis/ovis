@@ -193,6 +193,27 @@ services:
 
   # Backend
 
+  ## Statistical computation: R survival / Cox proportional hazards
+  ovis-backend-cox:
+    restart: unless-stopped
+    build:
+      context: ./Backend/CoxRegression
+      dockerfile: Dockerfile
+      args:
+        HTTP_PROXY: ${OVIS_HTTP_PROXY:-}
+        HTTPS_PROXY: ${OVIS_HTTPS_PROXY:-}
+        NO_PROXY: ${OVIS_NO_PROXY:-}
+        http_proxy: ${OVIS_HTTP_PROXY:-}
+        https_proxy: ${OVIS_HTTPS_PROXY:-}
+        no_proxy: ${OVIS_NO_PROXY:-}
+    environment:
+      - HTTP_PROXY=${OVIS_HTTP_PROXY:-}
+      - HTTPS_PROXY=${OVIS_HTTPS_PROXY:-}
+      - NO_PROXY=${OVIS_NO_PROXY:-}
+      - http_proxy=${OVIS_HTTP_PROXY:-}
+      - https_proxy=${OVIS_HTTPS_PROXY:-}
+      - no_proxy=${OVIS_NO_PROXY:-}
+
   ## Resolver: GraphQL
   ovis-backend-apollo:
     restart: unless-stopped
@@ -218,6 +239,9 @@ services:
       - DB=onc_test
       - PUBLIC_SYSTEM_START_LANGUAGE=${PUBLIC_SYSTEM_START_LANGUAGE:-en}
       - PUBLIC_SYSTEM_COLOR_THEME=${PUBLIC_SYSTEM_COLOR_THEME:-CCCMunich}
+      - COX_R_URL=http://ovis-backend-cox:8000
+      - COX_BASELINE_DAYS_BEFORE=${COX_BASELINE_DAYS_BEFORE:-90}
+      - COX_BASELINE_DAYS_AFTER=${COX_BASELINE_DAYS_AFTER:-90}
       # MongoDB address is always the same internally
       - ADDRESS=mongodb://ovis-backend-database-mongodb:27017
     healthcheck:
@@ -226,6 +250,8 @@ services:
       timeout: 5s
       retries: 5
     depends_on:
+      ovis-backend-cox:
+        condition: service_healthy
       ovis-backend-database-mongodb:
         condition: service_started
       mongodb-restore:

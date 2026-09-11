@@ -26,6 +26,35 @@ This GitHub repository is the public open-source distribution of OVIS. Developme
 - Accepted code changes are integrated through the internal development workflow and then mirrored back to GitHub.
 - User-facing changes should be added to this changelog before they are published.
 
+## 1.3.0 - 2026-09-04
+
+### Added
+
+- Added an exploratory Cox proportional-hazards model for overall survival to the Survival page, clearly marked as Testing.
+- Added automatic single-variable selection for age, gender, UICC stage, T stage, N stage, M stage, grading, ECOG, year of diagnosis, and metastasis at diagnosis.
+- Added a forest plot with hazard ratios, 95% confidence intervals, reference categories, and logarithmic or linear display.
+- Added a switch to the standard OVIS result table with hazard ratios, confidence intervals, and p-values.
+- Added visible summaries for complete cases, events, censored and omitted patients, and the concordance index, including exclusion details and proportional-hazards diagnostics.
+- Added a localized methodology page in German and English explaining the cohort, endpoint, grouping rules, result interpretation, and the R `survival` package used for calculation.
+
+### Changed
+
+- Grouped age into readable ten-year categories, aligned UICC and TNM categories with the Kaplan-Meier view, and displayed diagnosis years as individual values.
+- Cox results now recalculate automatically when the selected grouping variable or active cohort filter changes.
+- Cox regression now supports complete cohorts above 50,000 patients and processes large cohorts more efficiently.
+- Cox calculations that exceed 60 seconds show a translated timeout message with guidance to narrow the cohort or retry later.
+- Improved information tooltips so they stay within the viewport and their documentation links remain clickable.
+
+### Fixed
+
+- Fixed missing tumour, histology, TNM, status and survival data after a fresh import. Reprocessing now fills empty collections while retaining existing records without duplication.
+
+### Notes for users and administrators
+
+- The Cox analysis currently examines one grouping variable at a time and is intended for exploratory use; estimates are not adjusted for the other selectable variables.
+- Tumour entities can be restricted through the existing cohort filters.
+- Insufficient or unstable cohorts are reported instead of presenting a misleading model result.
+
 ## 1.2.0 - 2026-08-05
 
 ### Added

@@ -47,6 +47,8 @@
 	let inputArray: ChartType = { label: [], count: [] };
 	let rawInputArray: ChartType = { label: [], count: [] };
 	let statusReady = false;
+	let loading = true;
+	let loadError = false;
 	let statusShownCategories = 0;
 	let statusTotalCategories = 0;
 	let statusMissingValueCount = 0;
@@ -102,6 +104,8 @@
 		const selectedValue = initialDropdownValue;
 		const selectedCollection = collection;
 		requestedDataKey = dataKey;
+		loading = true;
+		loadError = false;
 		statusReady = false;
 		showEmptyIcon = false;
 
@@ -119,18 +123,33 @@
 			};
 			dataVersion += 1;
 			getSelectedLabel(selectedValue);
+			loading = false;
+			await tick();
+			if (!categoryRequest.isCurrent(request)) return;
 			renderCategoryChart();
 		} catch (error) {
 			if (!categoryRequest.isCurrent(request)) return;
-			requestedDataKey = null;
-			showEmptyIcon = true;
-			statusReady = true;
+			// Keep the failed key latched: clearing it triggers an immediate reactive retry loop.
+			loading = false;
+			loadError = true;
+			statusReady = false;
+			chartInstance?.destroy();
+			chartInstance = null;
+			chartTable?.destroy();
+			chartTable = null;
+			tableRenderKey = null;
+			tableData = [];
+			reversedTableData = [];
 			console.error('Error while loading the category chart:', error);
 		}
 	}
 
+	function retryCategoryData() {
+		void loadCategoryData(`${collection}:${initialDropdownValue}`);
+	}
+
 	function renderCategoryChart() {
-		if (!isMounted || destroyed || !pieChart || dataVersion === 0) return;
+		if (!isMounted || destroyed || loading || loadError || !pieChart || dataVersion === 0) return;
 
 		const prepared = prepareCategoryChart(rawInputArray, {
 			showNull: showNullStoreValue,
@@ -168,7 +187,11 @@
 		const chartConfig: ChartConfiguration = {
 			type: 'pie',
 			data: {
-				labels: transformedData.map((item) => item.label),
+				labels: transformedData.map((item, index) =>
+					showTop5StoreValue && fullInput.label.length > 5 && index === 5
+						? get(t)('other')
+						: item.label
+				),
 				datasets: [
 					{
 						data: showLogarithmStoreValue
@@ -201,15 +224,14 @@
 				},
 				onClick: (_event, elements) => {
 					if (elements.length === 0) return;
-					const label = chartConfig.data.labels?.[elements[0].index];
+					const selectedIndex = elements[0].index;
+					const label = inputArray.label[selectedIndex];
 					if (typeof label !== 'string') return;
 
-					if (label === 'Sonstige') {
-						fullInput.label
-							.map((entry, index) => ({ label: entry, count: fullInput.count[index] }))
-							.sort((left, right) => right.count - left.count)
+					if (showTop5StoreValue && fullInput.label.length > 5 && selectedIndex === 5) {
+						inputArray.label
 							.slice(0, 5)
-							.forEach((item) => addItem('!' + initialDropdownValue, 'NEQUALS', item.label));
+							.forEach((label) => addItem('!' + initialDropdownValue, 'NEQUALS', label));
 					} else {
 						addItem(initialDropdownValue, 'EQUALS', label === '-' ? null : label);
 					}
@@ -223,7 +245,11 @@
 	}
 
 	function renderCategoryTable() {
-		const nextTableRenderKey = `${dataVersion}:${initialDropdownValue}:${showNullStoreValue}:${truncateLengthMin ?? ''}`;
+		// Build the optional DataTable only when it is actually opened.
+		if (showChartStoreValue) return;
+		const nextTableRenderKey = `${dataVersion}:${initialDropdownValue}:${showNullStoreValue}:${
+			truncateLengthMin ?? ''
+		}`;
 		if (nextTableRenderKey === tableRenderKey) return;
 		tableRenderKey = nextTableRenderKey;
 		chartTable?.destroy();
@@ -265,9 +291,13 @@
 		}, 0);
 	}
 
-	function handleChartToggled(event: { detail: { headlineShowChart: boolean } }) {
+	async function handleChartToggled(event: { detail: { headlineShowChart: boolean } }) {
 		showChartStoreValue = event.detail.headlineShowChart;
 		dispatch('chartToggled', { showChartStoreValue });
+		await tick();
+		if (destroyed) return;
+		if (!loading && !loadError) renderCategoryTable();
+		chartInstance?.resize();
 	}
 
 	function handleLogarithmToggled(event: { detail: { headlineInitialLogarithm: boolean } }) {
@@ -326,10 +356,10 @@
 		headlineInitialLogarithm={showLogarithmStoreValue}
 		headlineInputTableData={reversedTableData}
 		headlineInputTableHeader={headers}
-		headlineChartJSElement={pieChart}
+		headlineChartJSElement={!loading && !loadError && !showEmptyIcon ? pieChart : null}
 		headlineD3Element={null}
 		headlineNull={showNullStoreValue}
-		headlineLoading={null}
+		headlineLoading={loading}
 		on:chartToggled={handleChartToggled}
 		on:logarithmToggled={handleLogarithmToggled}
 		on:top5Toggled={handleTop5Toggled}
@@ -337,7 +367,11 @@
 		on:nullToggled={handleNull}
 	/>
 	<lens-data-passer bind:this={dataPasser} />
-	<div class="category-chart-view" style={showChartStoreValue ? '' : 'display: none;'}>
+	<div
+		class="category-chart-view"
+		class:has-status={loading || loadError || showEmptyIcon}
+		style={showChartStoreValue ? '' : 'display: none;'}
+	>
 		<div class="dropdown-container">
 			<div class="dropdown straight-line-container">
 				<label for="dropdownObject" style="margin-right:5px">{$t('feature')}:</label><br />
@@ -356,12 +390,20 @@
 			missingValuesHidden={!showNullStoreValue}
 			missingValueCount={statusMissingValueCount}
 		/>
-		<div style={!showEmptyIcon ? '' : 'display: none;'} class="chart-container">
+		<div
+			style={!loading && !loadError && !showEmptyIcon ? '' : 'display: none;'}
+			class="chart-container"
+		>
 			<canvas bind:this={pieChart} />
 		</div>
 	</div>
 	<div class="data">
-		<div class="data-table" style={!showEmptyIcon && !showChartStoreValue ? '' : 'display: none;'}>
+		<div
+			class="data-table"
+			style={!loading && !loadError && !showEmptyIcon && !showChartStoreValue
+				? ''
+				: 'display: none;'}
+		>
 			<div class="data-table">
 				<table id={chartTableName} class="display" style="width:100%">
 					<thead>
@@ -374,12 +416,33 @@
 			</div>
 		</div>
 	</div>
-	<div style={showEmptyIcon ? '' : 'display: none;'} class="bigSpinnerContainer">
-		<img class="emptyIcon" src={emptyIcon} alt="Keine Daten verfügbar" />
-	</div>
+	{#if loading}
+		<div class="category-status" role="status">{$t('chartLoading')}</div>
+	{:else if loadError}
+		<div class="category-status" role="alert">
+			<span>{$t('chartLoadError')}</span>
+			<button type="button" on:click={retryCategoryData}>{$t('chartRetry')}</button>
+		</div>
+	{:else if showEmptyIcon}
+		<div class="category-status" role="status">
+			<img class="emptyIcon" src={emptyIcon} alt="" />
+			<span>{$t(statusMissingValueCount > 0 ? 'chartOnlyMissing' : 'chartNoData')}</span>
+		</div>
+	{/if}
 </div>
 
 <style>
+	.category-status {
+		display: flex;
+		flex: 1 1 auto;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		gap: 12px;
+		padding: 16px;
+		text-align: center;
+	}
+
 	.generic-category-root {
 		display: flex;
 		flex-direction: column;
@@ -402,6 +465,10 @@
 		flex-direction: column;
 		min-width: 0;
 		min-height: 0;
+	}
+
+	.category-chart-view.has-status {
+		flex: 0 0 auto;
 	}
 
 	.chart-container {

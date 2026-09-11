@@ -2,14 +2,14 @@
 	import GenericCategoryChart from '../../components/GenericCategoryChart.svelte';
 
 	import { maxStore } from '../../store/maxStore';
-	import { t, locale, locales } from "../../store/languageStore";
+	import { t } from '../../store/languageStore';
 	import { configStore } from '../../store/configStore';
 
-	let dropdownObject = [
-        {label:'Klinik (kurz)',value:'organisationShort'},
-		{label:'Klinik (voll)',value:'organisationFull'},
-        {label:'Status',value: 'status'},
-        {label:'Phase', value:'phase'},
+	$: dropdownObject = [
+		{ label: $t('studyClinicShort'), value: 'organisationShort' },
+		{ label: $t('studyClinicFull'), value: 'organisationFull' },
+		{ label: $t('status'), value: 'status' },
+		{ label: $t('studyPhase'), value: 'phase' }
 	];
 
 	let maximizeStudyChart: boolean;

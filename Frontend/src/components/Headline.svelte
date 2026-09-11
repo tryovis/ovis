@@ -25,6 +25,7 @@
 
 	export let headlineTitle: string;
 	export let headlineIcon: string | null = null;
+	export let headlineStatus: string | null = null;
 	export let headlineTooltip: string | null = null;
 	export let headlineMaximize: boolean | null = null;
 	export let headlineShowChart: boolean | null = null;
@@ -112,13 +113,23 @@
 	const handleMouseEnter = (event: MouseEvent) => {
 		tooltipPosition = showViewportTooltip(event);
 	};
+
+	const handleInfoMouseEnter = (event: MouseEvent) => {
+		const trigger = (event.currentTarget as HTMLElement).closest('.headline-info-tooltip');
+		if (trigger instanceof HTMLElement) tooltipPosition = showViewportTooltip(trigger);
+	};
 </script>
 
 <!-- prettier-ignore -->
 <div>
 	<div class="straight-line-container headline-row">
 		<div class="headline-title-container">
-			<b class="headline-title" title={headlineTitle}>{headlineTitle}</b>
+			<b class="headline-title" title={`${headlineTitle}${headlineStatus ? ` ${headlineStatus}` : ''}`}
+				>{headlineTitle}</b
+			>
+			{#if headlineStatus}
+				<span class="headline-status">{headlineStatus}</span>
+			{/if}
 			{#if headlineIcon}
 				<img src={headlineIcon} alt="" aria-hidden="true" class="headline-leading-icon" />
 			{/if}
@@ -230,15 +241,17 @@
 			{/if}
 
 			{#if headlineTooltip}
-				<button
-					on:mouseenter={handleMouseEnter}
-					class="iconRoundButton tooltip"
-					on:click={copyInfo}
-				>
+				<span class="tooltip headline-info-tooltip">
+					<button
+						on:mouseenter={handleInfoMouseEnter}
+						class="iconRoundButton"
+						on:click={copyInfo}
+					>
+						<img src={infoIcon} alt="info" class="iconRound" />
+					</button>
 					<!-- eslint-disable-next-line svelte/no-at-html-tags -->
 					<span class="tooltiptext" style={tooltipPosition}>{@html headlineTooltip}</span>
-					<img src={infoIcon} alt="info" class="iconRound" />
-				</button>
+				</span>
 			{/if}
 			{#if headlineMaximize != null}
 				<button
@@ -282,6 +295,12 @@
 		text-overflow: ellipsis;
 	}
 
+	.headline-status {
+		flex: 0 0 auto;
+		color: #c62828;
+		font-weight: 700;
+	}
+
 	.headline-leading-icon {
 		width: 20px;
 		height: 20px;
@@ -297,6 +316,11 @@
 	}
 
 	.icons-container :global(button) {
+		flex: 0 0 auto;
+	}
+
+	.headline-info-tooltip {
+		display: inline-flex;
 		flex: 0 0 auto;
 	}
 </style>

@@ -8,6 +8,7 @@
 		"test:ast": "node --test astUtils.test.js astTranslator.test.js resolver/studyPatientTable.test.js runtimeIndexes.test.js differential/referenceEvaluator.test.mjs",
 		"test:ast-reference": "node --test differential/referenceEvaluator.test.mjs",
 		"test:ast-differential": "node differential/omockAstDifferential.mjs",
+		"test:cox": "node --test resolver/cox.test.js resolver/coxData.test.js resolver/coxService.test.js",
 		"format": "prettier --config ../../.prettierrc.cjs --ignore-path ../../.prettierignore --write \"*.js\" \"*.mjs\" \"resolver/**/*.js\"",
 		"format:check": "prettier --config ../../.prettierrc.cjs --ignore-path ../../.prettierignore --check \"*.js\" \"*.mjs\" \"resolver/**/*.js\""
 	},

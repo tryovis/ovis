@@ -1,16 +1,16 @@
 <script lang="ts">
     import GenericTable from '../../components/GenericTable.svelte';
 	import { maxStore } from '../../store/maxStore';
-	import { t, locale, locales } from "../../store/languageStore";
+	import { t } from '../../store/languageStore';
 	import { getStudyPatientTable } from '../../graphQl/gql-study';
 
 	let sortingIndex = 3;
 
-	let columns = [
-		{ data: 'studyID', header: "Studien-ID", tooltip: "Studien-Identifikationsnummer" },
-		{ data: 'shortname', header: "Studie", tooltip: "Studienname" },
-		{ data: 'patID', header: $t("PID"), tooltip: "Patienten-Identifikationsnummer" },
-		{ data: 'recruitmentDate', header: "Rekrutierung", tooltip: "Datum", date: true }
+	$: columns = [
+		{ data: 'studyID', header: $t('studyID'), tooltip: $t('studyIDTooltip') },
+		{ data: 'shortname', header: $t('studyName'), tooltip: $t('studyShortnameTooltip') },
+		{ data: 'patID', header: $t('PID'), tooltip: $t('patientID') },
+		{ data: 'recruitmentDate', header: $t('studyRecruitment'), tooltip: $t('studyRecruitmentDate'), date: true }
 	];
 
 	let maximizeStudyPatientTable: boolean;

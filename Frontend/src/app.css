@@ -1026,6 +1026,7 @@ html[data-ovis-mobile-layout='landscape'] .outer-div {
 	display: block;
 	visibility: visible;
 	opacity: 1;
+	pointer-events: auto;
 	box-sizing: border-box;
 	max-height: calc(100dvh - 24px);
 	margin: 0;

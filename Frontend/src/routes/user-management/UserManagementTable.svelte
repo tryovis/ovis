@@ -44,7 +44,7 @@
 	const trashIcon = iconPath('trash-icon.svg');
 
 	let userManagementTable: unknown;
-	let tableShownRows = 5;
+	const tableShownRows = -1;
 	let sortingIndex = 0;
 	let tableState: { page: number; order: [number, SortDirection][]; search: string } = {
 		page: 0,

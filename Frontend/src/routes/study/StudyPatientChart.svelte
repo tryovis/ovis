@@ -5,11 +5,10 @@
 	import { onDestroy, onMount, tick } from 'svelte';
 	import annotationPlugin from 'chartjs-plugin-annotation';
 	import noUiSlider from 'nouislider';
-	import { get } from 'svelte/store';
 	import type { LensDataPasser } from '@samply/lens';
 	import Headline from '../../components/Headline.svelte';
 	import { addUserFilter } from '../../components/UserFilter';
-	import { getStudyOverviewTable } from '../../graphQl/gql-study';
+	import { getStudyPatientChart } from '../../graphQl/gql-study';
 	import { createLatestRequest } from '../../lib/latestRequest.js';
 	import { configStore } from '../../store/configStore';
 	import { filterActiveStore } from '../../store/filterActiveStore.js';
@@ -19,8 +18,6 @@
 	import { userStore } from '../../store/userStore';
 	import { buildStudyChartRows, createStudyShortnameQueryItem } from './studyPatientChartModel.js';
 	import '../../nouislider.css';
-
-	const translate = (key: string): string => get(t)(key);
 
 	type StudyChartRow = {
 		shortname: string;
@@ -71,6 +68,14 @@
 	);
 
 	Chart.register(...registerables, annotationPlugin);
+	$: updateChartAxisTitle($t('studyPatientsAxis'));
+
+	function updateChartAxisTitle(title: string) {
+		const axisTitle = chartInstance?.options.scales?.y?.title;
+		if (!axisTitle || axisTitle.text === title) return;
+		axisTitle.text = title;
+		chartInstance.update('none');
+	}
 
 	function usesMobileLandscapeLayout(): boolean {
 		return (
@@ -109,7 +114,7 @@
 				? JSON.stringify(dataPasser.getAstAPI())
 				: JSON.stringify({ operand: 'OR', children: [] });
 			filter = JSON.stringify(await addUserFilter(JSON.parse(filter)));
-			const studies = await getStudyOverviewTable(null, null, filter);
+			const studies = await getStudyPatientChart(filter);
 			if (!studyRequest.isCurrent(request)) return;
 
 			inputArray = buildStudyChartRows(studies);
@@ -152,7 +157,7 @@
 					x: { type: 'category' },
 					y: {
 						type: showLogarithm ? 'logarithmic' : 'linear',
-						title: { display: true, text: 'onkol. Studienpatienten' }
+						title: { display: true, text: $t('studyPatientsAxis') }
 					}
 				},
 				plugins: { legend: { display: false } },
@@ -244,8 +249,8 @@
 <div class="study-patient-chart-root">
 	<lens-data-passer bind:this={dataPasser} />
 	<Headline
-		headlineTitle={translate('studyPatientChartTitle')}
-		headlineTooltip={translate('tooltip_StudyPatientChart')}
+		headlineTitle={$t('studyPatientChartTitle')}
+		headlineTooltip={$t('tooltip_StudyPatientChart')}
 		headlineMaximize={maximizeStudyPatientChart}
 		headlineShowChart={null}
 		headlineIsChart={true}

@@ -25,8 +25,16 @@ export const getCategoryChart = (selectedType:string, collection:string, filter:
       }
     }` }),
   })
-  .then(resp => resp.json() )
-  .then(result => result.data.getCategoryChart)
+  .then(async (resp) => {
+    if (!resp.ok) throw new Error(`Category chart request failed (${resp.status})`);
+    const result = await resp.json();
+    if (result.errors?.length) throw new Error('Category chart query failed');
+    const chart = result.data?.getCategoryChart;
+    if (!Array.isArray(chart?.label) || !Array.isArray(chart?.count) || chart.label.length !== chart.count.length) {
+      throw new Error('Invalid category chart response');
+    }
+    return chart;
+  })
 }
   
   export const getTimeChart = (collection:string, group:string,datediff:boolean,eventsUsed:string,timePeriod:string, filter:String) => {

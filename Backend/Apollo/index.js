@@ -21,6 +21,7 @@ const followupResolver = require('./resolver/followUp.js');
 const splyResovler = require('./resolver/supplementary.js');
 const analyticsResolver = require('./resolver/analytics.js');
 const platformResolver = require('./resolver/platform.js');
+const coxResolver = require('./resolver/cox.js');
 
 const typedefs = require('./schema/schema.graphql');
 const diag = require('./schema/diagnostic.graphql');
@@ -38,6 +39,7 @@ const followup = require('./schema/followUp.graphql');
 const spplmntry = require('./schema/supplementary.graphql');
 const analytics = require('./schema/analytics.graphql');
 const platform = require('./schema/platform.graphql');
+const cox = require('./schema/cox.graphql');
 
 const PORT = process.env.PORT || 4001;
 const source = process.env.SOURCE;
@@ -84,7 +86,8 @@ const resolvers = [
 	followupResolver,
 	splyResovler,
 	analyticsResolver,
-	platformResolver
+	platformResolver,
+	coxResolver
 ];
 
 const typeDefs = [
@@ -103,7 +106,8 @@ const typeDefs = [
 	stdy,
 	spplmntry,
 	analytics,
-	platform
+	platform,
+	cox
 ];
 
 let apolloExpress;

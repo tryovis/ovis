@@ -86,9 +86,10 @@ OVIS follows a containerized microservices architecture with core application se
 1. **nginx** - Reverse proxy for unified access (optional)
 2. **ovis-frontend** (Port 5173) - SvelteKit UI application with production/development modes
 3. **ovis-backend-apollo** (Port 4001) - Apollo GraphQL API server
-4. **ovis-backend-database-mongodb** - MongoDB database
-5. **ovis-backend-mongodb-data-preprocessing** - Data processing pipeline and catalog generation
-6. **ovis-backend-data-import** - Data adapter (CCP/DEMO/ONKOSTAR/CREDOS)
+4. **ovis-backend-cox** (Port 8000, internal) - R `survival` service for Cox regression
+5. **ovis-backend-database-mongodb** - MongoDB database
+6. **ovis-backend-mongodb-data-preprocessing** - Data processing pipeline and catalog generation
+7. **ovis-backend-data-import** - Data adapter (CCP/DEMO/ONKOSTAR/CREDOS)
 
 ### Access Modes
 
@@ -108,8 +109,8 @@ OVIS follows a containerized microservices architecture with core application se
 Data Source → Data-Import → omock.json → Data-Preprocessing → ovis-catalogue.json
 (FHIR/DEMO/ONKOSTAR/CREDOS)                ↓
                         MongoDB ← GraphQL Resolvers ← Frontend Components
-                                         ↓
-                                      nginx (optional reverse proxy)
+                                      ↕          ↓
+                              R Cox service   nginx (optional reverse proxy)
 ```
 
 ### Key Components:
@@ -117,6 +118,7 @@ Data Source → Data-Import → omock.json → Data-Preprocessing → ovis-catal
 *   **Frontend:** A SvelteKit-based user interface for medical data visualization.
 *   **Backend:**
     *   **Apollo GraphQL:** Handles API requests and interacts with the database.
+    *   **R Cox service:** Fits exploratory overall-survival models for one selected grouping variable with the R `survival` package.
     *   **MongoDB Database:** Stores application data and serves as the data persistence layer.
     *   **Data Import Pipeline:** Services responsible for fetching, preprocessing, and cataloging medical data.
         *   **CCP Adapter:** Fetches data from FHIR servers and outputs omock.json.
@@ -129,6 +131,7 @@ The project is organized into the following main directories:
 ```
 ├── Backend/
 │   ├── Apollo/           # GraphQL API resolver service (Apollo Server)
+│   ├── CoxRegression/    # Internal R survival/Cox model service
 │   ├── Authentication/
 │   │   ├── express/      # Express-based authentication API
 │   │   ├── Keycloak/     # Keycloak realm configuration

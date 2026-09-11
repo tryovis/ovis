@@ -1742,15 +1742,12 @@ async function write2mon(genFun, ins, collection, nested) {
 	startProgressStep(`Saving ${collection}`, ins?.length ?? 0);
 	const collectionStartedAt = timingEnabled ? performance.now() : 0;
 	const existsCheckStartedAt = timingEnabled ? performance.now() : 0;
-	const collectionExists = await odb.listCollections({ name: collection }).hasNext();
+	const mongoCollection = odb.collection(collection);
+	// An index can leave a collection present but empty. Only existing documents
+	// justify skipping writes; recover empty collections from the source input.
+	const hasDocuments = (await mongoCollection.findOne({}, { projection: { _id: 1 } })) != null;
 	addTiming(`collection:${collection}:existsCheck`, existsCheckStartedAt);
-	logSafe(`col ${collection} exists-> ${collectionExists}`);
-	if (collectionExists) {
-		collectionMetrics.push({ collection, skipped: true, reason: 'exists', insertedCount: 0 });
-		addTiming(`collection:${collection}:total`, collectionStartedAt, { skipped: true });
-		finishProgressStep(`${collection} skipped`);
-		return;
-	}
+	logSafe(`col ${collection} has documents-> ${hasDocuments}`);
 
 	if (!ins?.length) {
 		logSafe(ins, 'write?');
@@ -1760,7 +1757,6 @@ async function write2mon(genFun, ins, collection, nested) {
 		return;
 	}
 
-	const mongoCollection = odb.collection(collection);
 	let insertedCount = 0;
 	let batch = [];
 	let batchBytes = 0;
@@ -1817,11 +1813,20 @@ async function write2mon(genFun, ins, collection, nested) {
 		const deserializeDateStartedAt = performance.now();
 		it = deserializeDate(it);
 		deserializeDateDurationMs += performance.now() - deserializeDateStartedAt;
-		await queueForInsert(it);
+		// Keep transforming the in-memory source even when writes are skipped:
+		// later collections need normalized dates, death dates and diagnosis fields
+		// when recovering from a partially populated database.
+		if (!hasDocuments) await queueForInsert(it);
 		ins[i] = it;
 		updateProgressStep(i + 1, len);
 	}
 	await flushBatch();
+	if (hasDocuments) {
+		collectionMetrics.push({ collection, skipped: true, reason: 'hasDocuments', insertedCount: 0 });
+		addTiming(`collection:${collection}:total`, collectionStartedAt, { skipped: true });
+		finishProgressStep(`${collection} retained; source normalized`);
+		return;
+	}
 
 	if (!timingEnabled) {
 		collectionMetrics.push({ collection, skipped: false, insertedCount });
@@ -2222,6 +2227,18 @@ const runPreprocessor = async () => {
 	clearDataCollection('study');
 	await write2mon(null, data.bioMaterial, 'bioMaterial');
 	clearDataCollection('bioMaterial');
+	// Recreate analysis indexes after imports that rebuild the materialized collections.
+	await Promise.all(
+		[
+			['diagnosis', { patID: 1, diagnosisDate: 1, tumorID: 1 }],
+			...['kaplanMeier', 'tnm', 'histology', 'status'].map((name) => [name, { tumorID: 1 }])
+		].map(async ([name, specification]) => {
+			const collection = odb.collection(name);
+			if (await collection.findOne({}, { projection: { _id: 1 } })) {
+				await collection.createIndex(specification);
+			}
+		})
+	);
 	startProgressStep('writing metaData', 1);
 	const metaDataStartedAt = performance.now();
 	await odb.collection('metaData').insertOne({ executedAt: new Date() });

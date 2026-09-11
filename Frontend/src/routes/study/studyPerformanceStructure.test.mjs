@@ -19,7 +19,8 @@ const genericTableSource = fs.readFileSync(
 const occurrences = (source, value) => source.split(value).length - 1;
 
 test('study patient chart contains one backend fetch and local redraw handlers', () => {
-	assert.equal(occurrences(studyChartSource, 'getStudyOverviewTable('), 1);
+	assert.equal(occurrences(studyChartSource, 'getStudyPatientChart('), 1);
+	assert.doesNotMatch(studyChartSource, /getStudyOverviewTable/);
 	assert.match(studyChartSource, /function renderBarChart\(\)/);
 	assert.match(studyChartSource, /handleLogarithmToggled[\s\S]*?renderBarChart\(\)/);
 	assert.match(studyChartSource, /noUiSlider[\s\S]*?renderBarChart\(\)/);

@@ -15,6 +15,28 @@
 
   let entries: Entry[] = [
           {
+            id: "v1.3.0",
+            version: "1.3.0",
+            date: "04.09.2026",
+            title: "Cox Regression Testing Release",
+            changes: [
+              "Added an exploratory Cox proportional-hazards model for overall survival to the Survival page, clearly marked as Testing",
+              "Added automatic single-variable selection for age, gender, UICC stage, T stage, N stage, M stage, grading, ECOG, year of diagnosis, and metastasis at diagnosis",
+              "Grouped age into readable ten-year categories, aligned UICC and TNM categories with the Kaplan-Meier view, and displayed diagnosis years as individual values",
+              "Added a forest plot with hazard ratios, 95% confidence intervals, reference categories, and logarithmic or linear display",
+              "Added a switch to the standard OVIS result table with hazard ratios, confidence intervals, and p-values",
+              "Added automatic recalculation when the selected grouping variable or active cohort filter changes",
+              "Removed the 50,000-patient limit for Cox regression and improved performance for large cohorts",
+              "Added a translated timeout message after 60 seconds, with guidance to narrow the cohort or retry later",
+              "Added visible summaries for complete cases, events, censored and omitted patients, and the concordance index, including explanations for omitted cases",
+              "Added proportional-hazards diagnostics, model notices, loading and insufficient-data states, and safeguards against presenting unstable results",
+              "Added a localized methodology page in German and English explaining the cohort, endpoint, grouping rules, result interpretation, and the R survival package used for calculation",
+              "Improved information tooltips so they stay within the viewport and their documentation links remain clickable",
+              "Fixed missing tumour, histology, TNM, status and survival data after a fresh import; reprocessing fills empty collections without duplicating existing records"
+            ],
+            expanded: true
+          },
+          {
             id: "v1.2.0",
             version: "1.2.0",
             date: "06.08.2026",
@@ -35,7 +57,7 @@
               "Expanded catalogue support for future ICD-10 tumor codes and added configurable ONKOSTAR patient master filters",
               "Improved study patient sorting by cohort count"
             ],
-            expanded: true
+            expanded: false
           },
               {
             id: "v1.1.0",

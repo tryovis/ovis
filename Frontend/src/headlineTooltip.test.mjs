@@ -14,7 +14,12 @@ test('all headline icon tooltips use the shared viewport popover', () => {
 	assert.match(headline, /import \{ showViewportTooltip \} from '\$lib\/tooltip-popover';/);
 	assert.match(headline, /tooltipPosition = showViewportTooltip\(event\);/);
 	assert.equal(headline.match(/class="tooltiptext"/g)?.length, 8);
-	assert.equal(headline.match(/on:mouseenter=\{handleMouseEnter\}/g)?.length, 8);
+	assert.equal(headline.match(/on:mouseenter=\{handleMouseEnter\}/g)?.length, 7);
+	assert.equal(headline.match(/on:mouseenter=\{handleInfoMouseEnter\}/g)?.length, 1);
+	assert.match(
+		headline,
+		/<span class="tooltip headline-info-tooltip">[\s\S]*?<button[\s\S]*?on:mouseenter=\{handleInfoMouseEnter\}[\s\S]*?on:click=\{copyInfo\}\s*>[\s\S]*?<span class="tooltiptext"/
+	);
 	assert.match(
 		headlineTableExport,
 		/import \{ showViewportTooltip \} from '\$lib\/tooltip-popover';/
@@ -24,7 +29,24 @@ test('all headline icon tooltips use the shared viewport popover', () => {
 	assert.equal(headlineTableExport.match(/on:mouseenter=\{handleMouseEnter\}/g)?.length, 1);
 	assert.match(
 		appCss,
-		/\.tooltip \.tooltiptext:popover-open\s*\{[^}]*display:\s*block;[^}]*max-height:\s*calc\(100dvh - 24px\);[^}]*overflow-y:\s*auto;/s
+		/\.tooltip \.tooltiptext:popover-open\s*\{[^}]*display:\s*block;[^}]*pointer-events:\s*auto;[^}]*max-height:\s*calc\(100dvh - 24px\);[^}]*overflow-y:\s*auto;/s
+	);
+});
+
+test('viewport popovers remain interactive while moving from trigger to tooltip', async () => {
+	const tooltipPopover = await readFile(
+		new URL('./lib/tooltip-popover.js', import.meta.url),
+		'utf8'
+	);
+
+	assert.match(tooltipPopover, /const INTERACTION_GRACE_MS = 200;/);
+	assert.match(
+		tooltipPopover,
+		/tooltip\.addEventListener\('mouseenter', \(\) => clearScheduledHide\(trigger\)\)/
+	);
+	assert.match(
+		tooltipPopover,
+		/tooltip\.addEventListener\('mouseleave', \(\) => scheduleTooltipHide\(trigger\)\)/
 	);
 });
 

@@ -342,7 +342,7 @@ export function createTable(
 		},
 		data: effectiveServerSideOptions ? undefined : tableData,
 		deferRender: true,
-		paging: true,
+		paging: rowCount !== -1,
 		pageLength: rowCount,
 		lengthChange: false,
 		columns: columns,

@@ -1,22 +1,22 @@
 <script lang="ts">
 	import GenericTable from '../../components/GenericTable.svelte';
 	import { maxStore } from '../../store/maxStore';
-	import { t, locale, locales } from "../../store/languageStore";
+	import { t } from '../../store/languageStore';
 	import { getStudyOverviewTable } from '../../graphQl/gql-study';
 
 	let sortingIndex = 1;
 
-	let columns = [
-		{ data: 'studyID', header: "Studien-ID", tooltip: "Studien-Identifikationsnummer" },
-		{ data: 'shortname', header: "Kurzname", tooltip: "Kurzname der Studie" },
-		{ data: 'status', header: "Status", tooltip: "Status der Studie" },
-		{ data: 'start', header: "S-start", tooltip: "Studienbeginn", date: true },
-		{ data: 'firstPatInPlanned', header: "Rek.(gepl.)", tooltip: "geplantes Datum der Rekrutierung für die Studie", date: true },
-		{ data: 'phase', header: "Phase", tooltip: "Studienphase" },
-		{ data: 'eudract', header: "EudraCT", tooltip: "EudraCT" },
-		{ data: 'organisationFull', header: "Klinik (lang)", tooltip: "Klinik an der die Studie durchgeführt wurde" },
-		{ data: 'organisationShort', header: "Klinik", tooltip: "Klinik Kurzname" },
-		{ data: 'studyPatients', header: "Patienten", tooltip: "Anzahl der Patienten", numOfObj: true }
+	$: columns = [
+		{ data: 'studyID', header: $t('studyID'), tooltip: $t('studyIDTooltip') },
+		{ data: 'shortname', header: $t('studyShortname'), tooltip: $t('studyShortnameTooltip') },
+		{ data: 'status', header: $t('status'), tooltip: $t('studyStatusTooltip') },
+		{ data: 'start', header: $t('studyStart'), tooltip: $t('studyStart'), date: true },
+		{ data: 'firstPatInPlanned', header: $t('studyPlannedRecruitment'), tooltip: $t('studyPlannedRecruitmentTooltip'), date: true },
+		{ data: 'phase', header: $t('studyPhase'), tooltip: $t('studyPhaseTooltip') },
+		{ data: 'eudract', header: 'EudraCT', tooltip: 'EudraCT' },
+		{ data: 'organisationFull', header: $t('studyClinicFull'), tooltip: $t('studyClinicFullTooltip') },
+		{ data: 'organisationShort', header: $t('clinic'), tooltip: $t('studyClinicShortTooltip') },
+		{ data: 'studyPatients', header: $t('studyPatients'), tooltip: $t('studyPatientsTooltip'), numOfObj: true }
 	];
 
 	let maximizeStudyOverviewTable: boolean;

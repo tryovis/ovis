@@ -1,0 +1,92 @@
+module.exports = `#graphql
+    extend type Query {
+        getSurvivalCoxRegression(
+            covariates: [CoxCovariate!]!
+            filter: String
+        ): CoxRegressionResult!
+    }
+
+    enum CoxCovariate {
+        age
+        gender
+        uicc
+        tStage
+        nStage
+        mStage
+        grading
+        ecog
+        diagnosisYear
+        synchronousMetastasis
+    }
+
+    enum CoxRegressionStatus {
+        OK
+        WARNING
+        INSUFFICIENT_DATA
+        ERROR
+    }
+
+    type CoxRegressionResult {
+        status: CoxRegressionStatus!
+        message: String
+        endpoint: String!
+        selectedCovariates: [CoxCovariate!]!
+        matchingDiagnoses: Int!
+        indexPatients: Int!
+        endpointEligible: Int!
+        completeCases: Int!
+        events: Int!
+        censored: Int!
+        omittedCases: Int!
+        degreesOfFreedom: Int!
+        concordance: Float
+        likelihoodRatioPValue: Float
+        modelFormula: String
+        stratifiedByEntity: Boolean!
+        coefficients: [CoxCoefficient!]!
+        phDiagnostics: [CoxPhDiagnostic!]!
+        availability: [CoxCovariateAvailability!]!
+        warnings: [String!]!
+        exclusions: CoxEndpointExclusions!
+    }
+
+    type CoxCoefficient {
+        covariate: CoxCovariate!
+        term: String!
+        level: String
+        reference: String
+        isReference: Boolean!
+        hazardRatio: Float
+        confidenceLow: Float
+        confidenceHigh: Float
+        standardError: Float
+        pValue: Float
+    }
+
+    type CoxPhDiagnostic {
+        term: String!
+        chiSquare: Float
+        degreesOfFreedom: Float
+        pValue: Float
+        global: Boolean!
+    }
+
+    type CoxCovariateAvailability {
+        covariate: CoxCovariate!
+        available: Int!
+        missing: Int!
+        percentage: Float!
+        levels: [CoxCovariateLevel!]!
+    }
+
+    type CoxCovariateLevel {
+        value: String!
+        count: Int!
+    }
+
+    type CoxEndpointExclusions {
+        missingSurvival: Int!
+        invalidTime: Int!
+        invalidEvent: Int!
+    }
+`;

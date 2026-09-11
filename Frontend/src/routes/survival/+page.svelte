@@ -1,7 +1,7 @@
 <script lang="ts">
   import { maxStore } from '../../store/maxStore';
   import SurvivalKaplanMeierChart from './SurvivalKaplanMeierChart.svelte'
-  import SurvivalKaplanMeierTable from './SurvivalCoxRegression.svelte'
+  import SurvivalCoxRegression from './SurvivalCoxRegression.svelte'
   import SurvivalFollowUpAssessment from './SurvivalFollowUpAssessment.svelte'
   import { onMount } from 'svelte';
       // Access the store variables
@@ -29,7 +29,7 @@
       <SurvivalKaplanMeierChart />
     </div>
     <div class="kaplan-meier-table box_style box_level2" style="display: {!maximizeSurvivalKaplanMeierChart &&  !maximizeSurvivalFollowUpAssessment  ? 'block' : 'none'}">
-      <SurvivalKaplanMeierTable />
+      <SurvivalCoxRegression />
     </div>
     <div class="follow-up box_style box_level2" style="display: {!maximizeSurvivalKaplanMeierChart && !maximizeSurvivalCoxRegression  ? 'block' : 'none'}">
       <SurvivalFollowUpAssessment />

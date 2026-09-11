@@ -1,8 +1,10 @@
 const { aggregationArry, countAggregationArry } = require('../utils');
 const { filter2match } = require('../astTranslator');
 const {
+	getStudyCategoryChart,
 	getStudyOverview,
 	getStudyOverviewCount,
+	getStudyPatientChart,
 	getStudyPatientCount,
 	getStudyPatientTable
 } = require('./studyPatientTable');
@@ -179,6 +181,9 @@ module.exports = {
 			genericGetAll(context.db, context.collections.tnm, input),
 
 		getCategoryChart: async (_parent, { selectedType, collection, filter }, context) => {
+			if (collection === 'study') {
+				return getStudyCategoryChart({ selectedType, filter }, context);
+			}
 			const ccol = context.collections[collection];
 			let flaten = false;
 			if (selectedType.startsWith('radiation')) {
@@ -190,6 +195,8 @@ module.exports = {
 		},
 
 		getAllStudies: (_parent, input, context) => getStudyOverview(input, context),
+
+		getStudyPatientChart: (_parent, input, context) => getStudyPatientChart(input, context),
 
 		getStudyPatientTable: (_parent, input, context) => getStudyPatientTable(input, context),
 
