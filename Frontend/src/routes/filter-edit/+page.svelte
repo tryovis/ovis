@@ -9,6 +9,7 @@
 	import { userStore } from '../../store/userStore';
 	import { t, locale, locales } from '../../store/languageStore';
 	import { appPath, iconPath, publicAssetPath } from '$lib/path-utils';
+	import { formatDateForInput, parseDateInput } from '$lib/filterDateInput';
 
 	let currentRole = '';
 
@@ -158,9 +159,16 @@
 						const hasMin = v.min !== null && v.min !== undefined && v.min !== '';
 						const hasMax = v.max !== null && v.max !== undefined && v.max !== '';
 						if (hasMin && hasMax) {
-							const minN = Number(v.min);
-							const maxN = Number(v.max);
-							if (Number.isNaN(minN) || Number.isNaN(maxN) || minN > maxN) {
+							// Compare the calendar days shown in date inputs, including older UTC bounds.
+							const minN = isDateField ? parseDateInput(formatDateForInput(v.min)) : Number(v.min);
+							const maxN = isDateField ? parseDateInput(formatDateForInput(v.max)) : Number(v.max);
+							if (
+								minN === null ||
+								maxN === null ||
+								Number.isNaN(minN) ||
+								Number.isNaN(maxN) ||
+								minN > maxN
+							) {
 								consistent = false;
 								inconsistents.push(child);
 							}
@@ -444,7 +452,7 @@
 		const isDateField = String(key).toLowerCase().includes('date');
 		console.log('IST ES EIN DATE FIELD?', isDateField);
 
-		const nowTimestamp = Date.now();
+		const nowTimestamp = parseDateInput(formatDateForInput(Date.now()));
 
 		let newField;
 		if (fieldType === 'BETWEEN' || fieldType === 'NBETWEEN') {
@@ -575,7 +583,7 @@
 		const fieldTypeEntry = get(keysAndTypes).find((k) => k.key === key && k.system === cleanSystem);
 		const fieldType = fieldTypeEntry ? fieldTypeEntry.type : 'EQUALS';
 		const isDateField = key.toLowerCase().includes('date');
-		const nowTimestamp = Date.now();
+		const nowTimestamp = parseDateInput(formatDateForInput(Date.now()));
 
 		console.log('IST ES EIN DATE FIELD?', isDateField);
 
@@ -613,32 +621,6 @@
 
 		currentAst.update((ast) => ({ ...ast }));
 		scheduleConsistencyCheck();
-	}
-	function roundToNextUTCMidnight(timestamp) {
-		let date = new Date(timestamp);
-		date.setUTCHours(0, 0, 0, 0);
-
-		if (timestamp % 86400000 !== 0) {
-			date.setUTCDate(date.getUTCDate() + 1); // 🔥 Falls kein exakter UTC-Tagesbeginn, auf den nächsten Tag runden
-		}
-		return date.getTime();
-	}
-
-	function formatDateForInput(timestamp) {
-		if (
-			timestamp === null ||
-			timestamp === undefined ||
-			(typeof timestamp === 'string' && timestamp.trim() === '')
-		) {
-			return '';
-		}
-		const n = Number(timestamp);
-		const d = new Date(Number.isNaN(n) ? timestamp : n);
-		if (Number.isNaN(d.getTime())) return '';
-		const yyyy = d.getUTCFullYear();
-		const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
-		const dd = String(d.getUTCDate()).padStart(2, '0');
-		return `${yyyy}-${mm}-${dd}`;
 	}
 </script>
 
@@ -753,12 +735,7 @@
 														on:input={(event) => {
 															const v = event.target.value;
 															if (!child.value) child.value = { min: null, max: null };
-															if (!v) {
-																child.value.min = null;
-															} else {
-																const d = new Date(`${v}T00:00:00.000Z`);
-																child.value.min = Number.isNaN(d.getTime()) ? null : d.getTime();
-															}
+															child.value.min = parseDateInput(v);
 															currentAst.update((ast) => ({ ...ast }));
 															scheduleConsistencyCheck();
 														}}
@@ -769,12 +746,7 @@
 														on:input={(event) => {
 															const v = event.target.value;
 															if (!child.value) child.value = { min: null, max: null };
-															if (!v) {
-																child.value.max = null;
-															} else {
-																const d = new Date(`${v}T23:59:59.999Z`);
-																child.value.max = Number.isNaN(d.getTime()) ? null : d.getTime();
-															}
+															child.value.max = parseDateInput(v);
 															currentAst.update((ast) => ({ ...ast }));
 															scheduleConsistencyCheck();
 														}}
