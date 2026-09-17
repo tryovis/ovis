@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import fs from 'node:fs';
 
 import {
 	extendLensCatalogueOperatorSchema,
+	extendLensQueryIdentity,
 	lensCatalogueSchemaCompatibility
 } from './lensCatalogueSchemaPlugin.js';
 
@@ -27,8 +29,31 @@ test('lensCatalogueSchemaCompatibility only transforms the Lens module', () => {
 
 	assert.equal(plugin.transform(originalSchema, '/app/src/example.js'), null);
 	assert.match(
-		plugin.transform(originalSchema, '/app/node_modules/@samply/lens/dist/lens.js').code,
+		plugin.transform(
+			fs.readFileSync(new URL('./node_modules/@samply/lens/dist/lens.js', import.meta.url), 'utf8'),
+			'/app/node_modules/@samply/lens/dist/lens.js?v=dev-hash'
+		).code,
+		/ovis-scoped-query-identity/
+	);
+	assert.match(
+		plugin.transform(
+			fs.readFileSync(new URL('./node_modules/@samply/lens/dist/lens.js', import.meta.url), 'utf8'),
+			'/app/node_modules/@samply/lens/dist/lens.js'
+		).code,
 		/"NEQUALS"/
+	);
+});
+
+test('query compatibility is idempotent and fails explicitly on an incompatible Lens update', () => {
+	const source = fs.readFileSync(
+		new URL('./node_modules/@samply/lens/dist/lens.js', import.meta.url),
+		'utf8'
+	);
+	const patched = extendLensQueryIdentity(source);
+	assert.equal(extendLensQueryIdentity(patched), patched);
+	assert.throws(
+		() => extendLensQueryIdentity('new upstream version'),
+		/Review the Lens query identity adapter/
 	);
 });
 

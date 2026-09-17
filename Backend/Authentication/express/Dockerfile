@@ -1,5 +1,5 @@
 # Use an official Node runtime as a parent image
-FROM node:latest
+FROM node:24
 
 # Set the working directory
 WORKDIR /usr/src/app
@@ -7,8 +7,8 @@ WORKDIR /usr/src/app
 # Copy package.json and package-lock.json
 COPY package*.json ./
 
-# Install all dependencies, including react-scripts
-RUN npm install
+# Install the exact dependency versions in the lockfile
+RUN npm ci
 
 # Bundle app source
 COPY . .

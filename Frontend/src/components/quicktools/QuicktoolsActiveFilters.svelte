@@ -6,9 +6,10 @@
 	import { userStore } from '../../store/userStore';
 	import { filterSaveStore } from '../../store/filterSaveStore.js';
 	import { get } from 'svelte/store';
-	import { onMount, tick } from 'svelte';
+	import { onDestroy, onMount, tick } from 'svelte';
 	import { reloadOnly } from '../../store/reloadStore.js';
 	import { appPath, iconPath } from '$lib/path-utils';
+	import { escapeHtml } from '$lib/escape-html';
 
 	let dataPasser: LensDataPasser;
 
@@ -16,57 +17,67 @@
 	let isNextDisabled = false;
 
 	$: {
-		const { currentIndex, filterSaveArray } = get(filterSaveStore);
+		const { currentIndex, filterSaveArray } = $filterSaveStore;
 		isPrevDisabled = currentIndex === 0;
 		isNextDisabled = currentIndex < filterSaveArray.length - 1 ? false : true;
 	}
 
 	const createNullFilter = () => ({
 		operand: 'OR',
-		children: [
-			{
-				operand: 'AND',
-				children: [
-					{
-						key: 'isTumor',
-						operand: 'OR',
-						children: [
-							{
-								key: 'isTumor',
-								type: 'EQUALS',
-								system: 'diagnosis',
-								value: 'true'
-							}
-						]
-					}
-				]
-			}
-		]
+		children: [{
+			operand: 'AND',
+			children: [{
+				key: 'isTumor', operand: 'OR',
+				children: [{ key: 'isTumor', type: 'EQUALS', system: 'diagnosis', value: 'true' }]
+			}]
+		}]
 	});
 
 	let currentAst: any = createNullFilter();
+	function isLensReady(): boolean {
+		return typeof dataPasser?.getAstAPI === 'function' &&
+			typeof dataPasser?.getQueryAPI === 'function' &&
+			typeof dataPasser?.setQueryStoreAPI === 'function' &&
+			typeof dataPasser?.setQueryStoreFromAstAPI === 'function';
+	}
 
-	onMount(async () => {
-		await import('@samply/lens');
-		await tick(); // Wait for component binding
-
-		if (dataPasser) {
-			currentAst = dataPasser.getAstAPI();
-			addNewAst(currentAst); // Initialen Wert hinzufügen
-
-			window.addEventListener('lens-query-updated', () => {
-				if (dataPasser) {
-					currentAst = dataPasser.getAstAPI();
-					addNewAst(currentAst);
-				}
+	onMount(() => {
+		let disposed = false;
+		let updateQueued = false;
+		const updateFromLens = () => {
+			if (!disposed && isLensReady()) {
+				currentAst = dataPasser.getAstAPI();
+				addNewAst(currentAst);
+			}
+		};
+		const onQueryUpdated = () => {
+			if (updateQueued) return;
+			updateQueued = true;
+			// Lens emits before its data-passer subscription receives the new query.
+			queueMicrotask(() => {
+				updateQueued = false;
+				updateFromLens();
 			});
-		}
+		};
+		window.addEventListener('lens-query-updated', onQueryUpdated);
+		void (async () => {
+			await import('@samply/lens');
+			await customElements.whenDefined('lens-data-passer');
+			await tick();
+			updateFromLens();
+		})();
+		return () => {
+			disposed = true;
+			window.removeEventListener('lens-query-updated', onQueryUpdated);
+		};
 	});
 
 	function addNewAst(newAst) {
-		filterSaveStore.update((currentValue) => {
+		filterSaveStore.update((currentValue: any) => {
 			const currentSerializedAst = JSON.stringify(newAst);
 			const currentSavedAst = currentValue.filterSaveArray[currentValue.currentIndex];
+			const savedQuery = JSON.stringify(dataPasser.getQueryAPI());
+			const querySaveArray = currentValue.filterSaveArray.map((_ast, index) => currentValue.querySaveArray?.[index]);
 
 			if (currentSerializedAst !== currentSavedAst) {
 				const updatedFilterSaveArray = [
@@ -77,18 +88,21 @@
 				return {
 					...currentValue,
 					currentIndex: currentValue.currentIndex + 1,
-					filterSaveArray: updatedFilterSaveArray
+					filterSaveArray: updatedFilterSaveArray,
+					querySaveArray: [...querySaveArray.slice(0, currentValue.currentIndex + 1), savedQuery]
 				};
 			}
 
-			return currentValue;
+			querySaveArray[currentValue.currentIndex] = savedQuery;
+			return { ...currentValue, querySaveArray };
 		});
 	}
 
 	let primaryColor = '';
-	userStore.subscribe((value: any) => {
+	const unsubscribeUser = userStore.subscribe((value: any) => {
 		({ primaryColor } = value);
 	});
+	onDestroy(unsubscribeUser);
 
 	const angleRightIcon = iconPath('angle-right-icon.svg');
 	const angleLeftIcon = iconPath('angle-left-icon.svg');
@@ -106,99 +120,65 @@
 	}
 
 	function truncateValue(value) {
-		return value.length > 10 ? value.slice(0, 10) + '...' : value; // Kürzen auf 10 Zeichen
+		const text = String(value ?? '-');
+		return text.length > 10 ? text.slice(0, 10) + '...' : text;
 	}
 
-	function handleRemoveInnerOr(keyToRemove, valueToRemove) {
-		function removeNode(node) {
-			if (node.operand === 'OR' && node.children) {
-				node.children = node.children.filter(
-					(child) => !(child.key === keyToRemove && child.value === valueToRemove)
-				);
-				if (node.children.length === 0) {
-					return null;
-				}
-			} else if (node.operand === 'AND' && node.children) {
-				node.children = node.children.map(removeNode).filter((child) => child !== null);
-				if (node.children.length === 0) {
-					return null;
-				}
-			}
-			return node;
-		}
-
-		currentAst.children = currentAst.children.map(removeNode).filter((child) => child !== null);
-
-		if (currentAst.children.length === 0) {
-			currentAst = createNullFilter(); // Setze den nullFilter, wenn alle Elemente entfernt wurden
-		}
-
-		if (dataPasser) {
-			dataPasser.setQueryStoreFromAstAPI(currentAst);
-			reloadOnly();
-		}
+	function sameValue(left: unknown, right: unknown): boolean {
+		if (Object.is(left, right)) return true;
+		if (!left || !right || typeof left !== 'object' || typeof right !== 'object') return false;
+		if (Array.isArray(left) !== Array.isArray(right)) return false;
+		const keys = Object.keys(left);
+		return keys.length === Object.keys(right).length && keys.every((key) =>
+			Object.prototype.hasOwnProperty.call(right, key) &&
+			sameValue((left as Record<string, unknown>)[key], (right as Record<string, unknown>)[key])
+		);
 	}
 
-	function handleRemoveChildrenByKey(keyToRemove: string) {
-		function stripByKey(node: any, depth = 0): any | null {
-			if (!node) return null;
-			const indent = '  '.repeat(depth);
+	function applyQuery(nextQuery) {
+		if (!isLensReady()) return;
+		const nonemptyGroups = nextQuery.filter((group) => group.length > 0);
+		if (nonemptyGroups.length > 0) dataPasser.setQueryStoreAPI(nonemptyGroups);
+		else dataPasser.setQueryStoreFromAstAPI(createNullFilter());
+		currentAst = dataPasser.getAstAPI();
+		addNewAst(currentAst);
+		reloadOnly();
+	}
 
-			console.log(
-				indent + '👉 visit:',
-				JSON.stringify({
-					operand: node.operand,
-					key: node.key,
-					children: node.children?.length ?? 0
-				})
-			);
+	function handleRemoveInnerOr(groupIndex: number, rowIndex: number, valueIndex: number, selectedNode) {
+		if (!isLensReady()) return;
+		const query = dataPasser.getQueryAPI();
+		const row = query[groupIndex]?.[rowIndex];
+		const selected = row?.values[valueIndex];
+		if (!row || !selected || row.key !== selectedNode.key || row.system !== selectedNode.system ||
+			row.type !== selectedNode.type || !sameValue(selected.value, selectedNode.value)) return;
+		const nextQuery = query.map((group, groupPosition) => groupPosition === groupIndex
+			? group.flatMap((item, itemPosition) => {
+				if (itemPosition !== rowIndex) return [item];
+				const values = item.values.filter((_value, valuePosition) => valuePosition !== valueIndex);
+				return values.length > 0 ? [{ ...item, values }] : [];
+			})
+			: [...group]);
+		applyQuery(nextQuery);
+	}
 
-			if (!Array.isArray(node.children)) {
-				// Blatt: bleibt, außer der ELTERN-Knoten filtert es weg
-				return node;
-			}
-
-			// 1) Zuerst alle direkten Kinder mit gesuchtem Key entfernen
-			const before = node.children.length;
-			let kept = node.children.filter((c: any) => c?.key !== keyToRemove);
-			const removed = before - kept.length;
-			if (removed > 0) {
-				console.log(indent + `❌ removed ${removed} direct children with key="${keyToRemove}"`);
-			}
-
-			// 2) Rekursiv weiter runter (falls in tieferen Ebenen auch Kinder mit dem Key existieren)
-			kept = kept.map((c: any) => stripByKey(c, depth + 1)).filter((c: any) => c !== null);
-
-			// 3) Aufräumen: wenn nach dem Entfernen/Prunen keine Kinder mehr → Knoten selbst entfernen
-			if (kept.length === 0) {
-				console.log(indent + `⚠️ pruned empty ${node.operand ?? 'node'}`);
-				return null;
-			}
-
-			node.children = kept;
-			console.log(indent + `✅ keep ${node.operand ?? 'node'} with ${kept.length} children`);
-			return node;
-		}
-
-		console.log('=== handleRemoveChildrenByKey START === key:', keyToRemove);
-		const newAst = stripByKey(currentAst);
-		console.log('=== handleRemoveChildrenByKey END ===', JSON.stringify(newAst, null, 2));
-
-		// Fallback: wenn alles weg ist → auf deinen definierten nullFilter zurück
-		currentAst = newAst ?? createNullFilter();
-
-		if (dataPasser) {
-			dataPasser.setQueryStoreFromAstAPI(currentAst);
-			reloadOnly();
-		}
+	function handleRemoveChildrenByKey(groupIndex: number, rowIndex: number, selectedNode) {
+		if (!isLensReady()) return;
+		const query = dataPasser.getQueryAPI();
+		const row = query[groupIndex]?.[rowIndex];
+		if (!row || row.key !== selectedNode.key || row.system !== selectedNode.system || row.type !== selectedNode.type) return;
+		applyQuery(query.map((group, groupPosition) => groupPosition === groupIndex
+			? group.filter((_row, rowPosition) => rowPosition !== rowIndex)
+			: [...group]));
 	}
 
 	let filterActive = true;
 	let toggleStatus = false;
 
-	filterActiveStore.subscribe((value) => {
+	const unsubscribeFilterActive = filterActiveStore.subscribe((value) => {
 		filterActive = value.filterActive; // Assuming filterActiveStore provides an object with a filterActive property
 	});
+	onDestroy(unsubscribeFilterActive);
 
 	function toggleFilterAndIcon() {
 		filterActive = !filterActive;
@@ -208,51 +188,34 @@
 		reloadOnly();
 	}
 
+	function restoreHistory(direction: number) {
+		if (!isLensReady()) return;
+		const history: any = get(filterSaveStore);
+		const nextIndex = history.currentIndex + direction;
+		if (nextIndex < 0 || nextIndex >= history.filterSaveArray.length) return;
+		const nextAst = JSON.parse(history.filterSaveArray[nextIndex]);
+		// Commit the history position before Lens emits its query event. Never update
+		// the query from inside filterSaveStore.update: that re-enters history writes.
+		filterSaveStore.set({ ...history, currentIndex: nextIndex });
+		const savedQuery = history.querySaveArray?.[nextIndex];
+		if (savedQuery) {
+			const query = JSON.parse(savedQuery);
+			dataPasser.setQueryStoreAPI(query.length > 0 ? query : [[]]);
+		} else if (nextAst.children?.length === 0) {
+			dataPasser.setQueryStoreAPI([[]]);
+		} else {
+			dataPasser.setQueryStoreFromAstAPI(nextAst);
+		}
+		currentAst = dataPasser.getAstAPI();
+		reloadOnly();
+	}
+
 	function handlePrev() {
-		filterSaveStore.update(({ currentIndex, filterSaveArray, ...rest }) => {
-			const previousIndex = currentIndex > 0 ? currentIndex - 1 : currentIndex;
-			let previousAst = filterSaveArray[previousIndex];
-			if (previousIndex === 0) {
-				currentAst = createNullFilter();
-				const nullSerialized = JSON.stringify(currentAst);
-				filterSaveArray[0] = nullSerialized;
-				if (dataPasser) {
-					dataPasser.setQueryStoreFromAstAPI(currentAst);
-					reloadOnly();
-				}
-				return { ...rest, currentIndex: 0, filterSaveArray };
-			}
-
-			if (JSON.stringify(currentAst) !== previousAst) {
-				currentAst = JSON.parse(previousAst); // Update `currentAst` mit dem neuen Wert
-				if (dataPasser) {
-					dataPasser.setQueryStoreFromAstAPI(currentAst);
-					reloadOnly();
-				}
-				return { ...rest, currentIndex: previousIndex, filterSaveArray };
-			}
-
-			return { currentIndex, filterSaveArray, ...rest };
-		});
+		restoreHistory(-1);
 	}
 
 	function handleNext() {
-		filterSaveStore.update(({ currentIndex, filterSaveArray, ...rest }) => {
-			const nextIndex = currentIndex < filterSaveArray.length - 1 ? currentIndex + 1 : currentIndex;
-			const nextSerialized = filterSaveArray[nextIndex];
-			const nextAst = JSON.parse(nextSerialized);
-
-			if (JSON.stringify(currentAst) !== nextSerialized) {
-				currentAst = nextAst;
-				if (dataPasser) {
-					dataPasser.setQueryStoreFromAstAPI(currentAst);
-					reloadOnly();
-				}
-				return { ...rest, currentIndex: nextIndex, filterSaveArray };
-			}
-
-			return { currentIndex, filterSaveArray, ...rest };
-		});
+		restoreHistory(1);
 	}
 
 	function parseNode(node) {
@@ -270,10 +233,10 @@
 			}
 
 			// Nicht-Date-Felder
-			if (min === max) return `${min}`;
-			return `${min}<br>${max}`;
+			if (min === max) return escapeHtml(min);
+			return `${escapeHtml(min)}<br>${escapeHtml(max)}`;
 		} else if (node.type === 'EQUALS' || node.type === 'NEQUALS') {
-			return truncateValue(node.value);
+			return escapeHtml(truncateValue(node.value));
 		}
 		return '';
 	}
@@ -290,8 +253,10 @@
 
 	function deleteAst() {
 		currentAst = createNullFilter();
-		if (dataPasser) {
+		if (isLensReady()) {
 			dataPasser.setQueryStoreFromAstAPI(currentAst);
+			currentAst = dataPasser.getAstAPI();
+			addNewAst(currentAst);
 			reloadOnly();
 		}
 	}
@@ -337,9 +302,11 @@
 			reader.onload = function (e) {
 				try {
 					currentAst = JSON.parse(e.target.result as string);
-					console.log('Uploaded AST:', currentAst);
-					if (dataPasser) {
-						dataPasser.setQueryStoreFromAstAPI(currentAst);
+					if (isLensReady()) {
+						if (currentAst.children?.length === 0) dataPasser.setQueryStoreAPI([[]]);
+						else dataPasser.setQueryStoreFromAstAPI(currentAst);
+						currentAst = dataPasser.getAstAPI();
+						addNewAst(currentAst);
 						reloadOnly();
 					}
 					// TODO: Trigger the redisplay of the component
@@ -379,10 +346,10 @@
     {#each currentAst.children as andNode, andIndex}
     <div class="or-block">
         <div class="and-block">
-            {#each andNode.children as orNode, orIndex}
+            {#each andNode?.children ?? [] as orNode, orIndex}
                 <div class="filter-entry-grid">
-                    {#if orNode.children[0].key !=="isTumor"}
-                    <button class="label-item" on:click={() => handleRemoveChildrenByKey(orNode.children[0].key)}>
+                    {#if orNode.children[0] && orNode.children[0].key !=="isTumor"}
+                    <button class="label-item" on:click={() => handleRemoveChildrenByKey(andIndex, orIndex, orNode.children[0])}>
                         <img src={removeIcon} alt="x" class="remove-icon-label" />
                         <strong>{truncateLabel(orNode.children[0].key)}</strong>
                     </button>
@@ -393,8 +360,8 @@
 
 
                     <div class="value" class:patient-values={orNode.children[0].key === "patID"}>
-                        {#each orNode.children as child}
-                        <button class="value-item" on:click={() => handleRemoveInnerOr(child.key, child.value)}>
+                        {#each orNode.children as child, childIndex}
+                        <button class="value-item" on:click={() => handleRemoveInnerOr(andIndex, orIndex, childIndex, child)}>
                             {@html parseNode(child)}
                             <img src={removeIcon} alt="x" class="remove-icon-value" />
                         </button>

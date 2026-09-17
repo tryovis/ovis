@@ -1,3 +1,6 @@
-node_modules;
+node_modules
 Dockerfile
-.git;
+.git
+.env
+.env.*
+npm-debug.log*

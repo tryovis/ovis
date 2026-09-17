@@ -14,6 +14,7 @@
 	import { variantStore } from '../../store/variantStore.js';
 	import { configStore } from '../../store/configStore'; // ConfigStore importieren
 	import { reloadOnly } from '../../store/reloadStore';
+	import { addChartQueryItem } from '../../tableFilterItems';
 	import { filterActiveStore } from '../../store/filterActiveStore.js';
 	import { addUserFilter } from '../../components/UserFilter';
 	import type { AggregatedValue } from '../../types/query';
@@ -178,14 +179,7 @@
 	};
 
 	const addItem = (queryObject: QueryItem): void => {
-		console.log('ADD ITEM', queryObject);
-		dataPasser.addStratifierToQueryAPI({
-			label: queryObject.values[0].value,
-			catalogueGroupCode: queryObject.key,
-			parentGroupCode: 'patient'
-		});
-		console.log(dataPasser.getQueryAPI());
-		console.log('AFTER ADD ITEM');
+		addChartQueryItem(dataPasser, queryObject, get(userStore).currentFilter);
 	};
 
 	function compactVitalStatusLegendLabel(label: unknown): string {
@@ -265,9 +259,9 @@
 						if (elements.length > 0) {
 							const elementIndex = elements[0].index;
 
-							// Label holen (Chart.js kann string | string[] liefern)
-							const raw = chartConfig.data.labels?.[elementIndex] as unknown;
-							const label = Array.isArray(raw) ? raw.join(' ') : (raw as string | null | undefined);
+							if (elementIndex < 0 || elementIndex >= inputArray.label.length) return;
+							// Preserve the source status instead of the compacted legend text.
+							const label = inputArray.label[elementIndex];
 
 							// Nur beim Klick normalisieren: null/undefined/"null" -> "-"
 							const normalizeForClick = (v: string | null | undefined) =>

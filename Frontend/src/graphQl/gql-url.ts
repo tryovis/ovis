@@ -4,6 +4,7 @@ import {
 	GRAPHQL_PROXY_REQUIRED_HEADER_VALUE
 } from '$lib/graphql-security';
 import type { TablePageRequest } from './table-page';
+import { authenticatedFetch } from '$lib/request-auth';
 
 export const dataUrl = appPath('graphql');
 
@@ -60,7 +61,7 @@ export function graphqlFetch(url: string, init: RequestInit): Promise<Response> 
 	const headers = new Headers(pagedInit.headers);
 	headers.set(GRAPHQL_PROXY_REQUIRED_HEADER, GRAPHQL_PROXY_REQUIRED_HEADER_VALUE);
 
-	return fetch(url, {
+	return authenticatedFetch(url, {
 		...pagedInit,
 		headers
 	});

@@ -1,633 +1,352 @@
 <script lang="ts">
 	// @ts-nocheck
 	import { writable, get } from 'svelte/store';
-	import { onMount } from 'svelte';
-	import { getValueOptions, getDBMeta } from '../../graphQl/gql-filter-edit';
+	import { onMount, onDestroy } from 'svelte';
+	import { getValueOptions } from '../../graphQl/gql-filter-edit';
 	import type { LensDataPasser } from '@samply/lens';
 	import { reloadOnly } from '../../store/reloadStore.js';
 	import { getUser, updateUser } from '../../graphQl/gql-userManagement';
 	import { userStore } from '../../store/userStore';
-	import { t, locale, locales } from '../../store/languageStore';
-	import { appPath, iconPath, publicAssetPath } from '$lib/path-utils';
+	import { t } from '../../store/languageStore';
+	import { appPath, iconPath, apiPath } from '$lib/path-utils';
+	import { authenticatedFetch } from '$lib/request-auth';
 	import { formatDateForInput, parseDateInput } from '$lib/filterDateInput';
+	import { createFilterEditorOptions } from '$lib/filterEditorOptions';
+	import {
+		createFieldIndex,
+		parseEditorField,
+		isDateField,
+		isEditableAst,
+		validateEditorAst,
+		serializeEditorAst,
+		createEditorValue
+	} from '$lib/filterEditorModel';
 
 	let currentRole = '';
-
-	userStore.subscribe((value: any) => {
-		({ currentRole } = value);
+	let currentUser = '';
+	const unsubscribeUser = userStore.subscribe((value: any) => {
+		({ currentRole, currentUser } = value);
 	});
-
 	let dataPasser: LensDataPasser;
-	// Reaktives AST-Objekt
-	let defaultAst = {
+	const emptyGroup = () => ({
 		operand: 'OR',
-		children: [
-			{
-				operand: 'AND',
-				children: [
-					{
-						key: 'isTumor',
-						operand: 'OR',
-						children: [
-							{
-								key: 'isTumor',
-								type: 'EQUALS',
-								system: 'diagnosis',
-								value: 'true'
-							}
-						]
-					}
-				]
-			}
-		]
-	};
-
-	let currentAst = writable(structuredClone(defaultAst));
-
-	// Dynamisches availableKeys-Array
-	let availableKeys = writable<string[]>([]);
-	let keysAndSystems = writable<{ key: string; system: string }[]>([]);
-	let keysAndTypes = writable<{ key: string; system: string; type: string }[]>([]);
-
-	// Funktion zur Erstellung von availableKeys und keysAndSystems aus dbMeta-Daten
-	async function buildKeysAndSystems() {
-		const response = await fetch(publicAssetPath('/ovis-catalogue.json')); // Pfad anpassen
-		const catalogueData = await response.json();
-
-		let keys = [];
-		let keysSystems = [];
-		let keysWithTypes = [];
-
-		catalogueData.forEach((category) => {
-			category.childCategories.forEach((field) => {
-				let keyFormat = `${field.key}(${field.system})`;
-				keys.push(keyFormat);
-				keysSystems.push({ key: field.key, system: field.system });
-				keysWithTypes.push({ key: field.key, system: field.system, type: field.type });
-			});
-		});
-		console.log(keys);
-		// console.log(keysSystems)
-		// console.log(keysWithTypes)
-		return { keys, keysSystems, keysWithTypes };
-	}
-
+		children: [{ key: '', system: '', type: 'EQUALS', value: '' }]
+	});
+	const defaultAst = () => ({
+		operand: 'OR',
+		children: [{ operand: 'AND', children: [emptyGroup()] }]
+	});
+	const currentAst = writable(defaultAst());
+	let availableKeys = [];
+	let fieldIndex = new Map();
+	let username = '';
+	let ready = false;
+	let destroyed = false;
+	let saving = false;
+	let editorError = '';
+	let saveError = '';
+	let editable = true;
+	let keyDrafts = new Map();
+	let invalidKeyGroups = new Set();
+	let invalidValueNodes = new Map();
+	let suggestionSearch = new Map();
+	const isConsistent = writable(false);
+	const inconsistentFields = writable([]);
+	const valueOptionsCache = writable({});
+	const options = createFilterEditorOptions(getValueOptions, {
+		onChange: (key, system, values) =>
+			valueOptionsCache.update((cache) => ({ ...cache, [`${key}(${system})`]: values }))
+	});
 	const removeIcon = iconPath('times-circle.svg');
 	const plusIcon = iconPath('plus.png');
 	const emptyIcon = iconPath('empty.svg');
-	const copyIcon = iconPath('copy.svg');
 	const filterIcon = iconPath('filter_on.svg');
 	const backIcon = iconPath('back.svg');
 	const saveIcon = iconPath('save.svg');
 	const infoIcon = iconPath('info-outlined.svg');
-
-	// Reaktive Variable zur Überprüfung der Konsistenz der Eingaben
-	let isConsistent = writable(true);
-	let inconsistentFields = writable([]); // Speichert die inkonsistenten Felder
-
-	// -------- Performance helpers (Pagination + debounced validation) --------
+	const loadingIcon = iconPath('spinner.svg');
 	const PAGE_SIZE = 10;
-
-	let consistencyTimer: any;
-	function scheduleConsistencyCheck() {
-		clearTimeout(consistencyTimer);
-		consistencyTimer = setTimeout(() => checkConsistency(), 150);
-	}
-
-	function getPage(innerOR: any): number {
-		return innerOR?._page ?? 0;
-	}
-
-	function setPage(innerOR: any, page: number) {
-		innerOR._page = Math.max(0, page);
-		currentAst.update((ast) => ({ ...ast }));
-	}
-
-	function clampPage(innerOR: any) {
-		const total = innerOR?.children?.length ?? 0;
-		const maxPage = Math.max(0, Math.floor((total - 1) / PAGE_SIZE));
-		if ((innerOR?._page ?? 0) > maxPage) innerOR._page = maxPage;
-		if ((innerOR?._page ?? 0) < 0) innerOR._page = 0;
-	}
-
-	function pageStart(innerOR: any): number {
-		return getPage(innerOR) * PAGE_SIZE;
-	}
-	function pageEnd(innerOR: any): number {
-		const start = pageStart(innerOR);
-		const total = innerOR?.children?.length ?? 0;
-		return Math.min(start + PAGE_SIZE, total);
-	}
-	function pageChildren(innerOR: any): any[] {
-		const start = pageStart(innerOR);
-		return (innerOR?.children ?? []).slice(start, start + PAGE_SIZE);
-	}
-
-	// Remove by index (stable + fast) instead of filtering by value (value can be duplicated)
-	function removeInnerORAt(innerOR: any, idx: number, parentAND: any, rootAST: any) {
-		innerOR.children.splice(idx, 1);
-
-		if (innerOR.children.length === 0) {
-			parentAND.children = parentAND.children.filter((child: any) => child !== innerOR);
-		}
-
-		if (parentAND.children.length === 0) {
-			rootAST.children = rootAST.children.filter((child: any) => child !== parentAND);
-		}
-
-		clampPage(innerOR);
-		currentAst.update((ast) => ({ ...ast }));
-		scheduleConsistencyCheck();
-	}
+	let consistencyTimer;
 
 	function checkConsistency() {
-		let consistent = true;
-		let inconsistents = [];
-
-		get(currentAst).children.forEach((innerAND) => {
-			innerAND.children.forEach((innerOR) => {
-				const childrenToCheck =
-					(innerOR?.children?.length ?? 0) > PAGE_SIZE
-						? pageChildren(innerOR)
-						: innerOR.children || [];
-				childrenToCheck.forEach((child) => {
-					const keyLower = String(child.key || '').toLowerCase();
-					const isDateField = keyLower.includes('date');
-
-					if (child.type === 'BETWEEN' || child.type === 'NBETWEEN') {
-						const v = child.value || {};
-						const hasMin = v.min !== null && v.min !== undefined && v.min !== '';
-						const hasMax = v.max !== null && v.max !== undefined && v.max !== '';
-						if (hasMin && hasMax) {
-							// Compare the calendar days shown in date inputs, including older UTC bounds.
-							const minN = isDateField ? parseDateInput(formatDateForInput(v.min)) : Number(v.min);
-							const maxN = isDateField ? parseDateInput(formatDateForInput(v.max)) : Number(v.max);
-							if (
-								minN === null ||
-								maxN === null ||
-								Number.isNaN(minN) ||
-								Number.isNaN(maxN) ||
-								minN > maxN
-							) {
-								consistent = false;
-								inconsistents.push(child);
-							}
-						}
-					} else {
-						const normalizedKey = (child.key || '').replace(/^!/, '');
-						const hasValue = getCachedValueHasFn(normalizedKey, child.system);
-						const validValues = getCachedValueOptions(normalizedKey, child.system) || [];
-						const val = child.value;
-						if (!child.key || !child.system) {
-							consistent = false;
-							inconsistents.push(child);
-						} else if (val === '-') {
-							// allowed sentinel
-						} else if (typeof val !== 'string' || val.trim() === '') {
-							consistent = false;
-							inconsistents.push(child);
-						} else if (validValues.length > 0 && !hasValue(val)) {
-							consistent = false;
-							inconsistents.push(child);
-						}
-					}
-				});
-			});
-		});
-
-		inconsistentFields.set(inconsistents);
-		isConsistent.set(consistent);
+		const ast = get(currentAst);
+		const liveNodes = new Set(
+			ast.children.flatMap((branch) => branch.children.flatMap((group) => group.children))
+		);
+		invalidValueNodes = new Map([...invalidValueNodes].filter(([node]) => liveNodes.has(node)));
+		const result = validateEditorAst(ast, fieldIndex);
+		inconsistentFields.set([...result.inconsistentFields, ...invalidValueNodes.keys()]);
+		const valid =
+			ready &&
+			editable &&
+			!editorError &&
+			invalidKeyGroups.size === 0 &&
+			invalidValueNodes.size === 0 &&
+			result.valid;
+		isConsistent.set(valid);
+		return valid;
 	}
-
-	let isDefaultAst;
-
-	function isDefaultAstLike(ast: any): boolean {
-		try {
-			return (
-				ast?.operand === 'OR' &&
-				Array.isArray(ast.children) &&
-				ast.children.length === 1 &&
-				ast.children[0]?.operand === 'AND' &&
-				Array.isArray(ast.children[0].children) &&
-				ast.children[0].children.length === 1 &&
-				ast.children[0].children[0]?.operand === 'OR' &&
-				Array.isArray(ast.children[0].children[0].children) &&
-				ast.children[0].children[0].children.length === 1 &&
-				ast.children[0].children[0].children[0]?.key === 'isTumor' &&
-				ast.children[0].children[0].children[0]?.system === 'diagnosis' &&
-				ast.children[0].children[0].children[0]?.type === 'EQUALS' &&
-				String(ast.children[0].children[0].children[0]?.value) === 'true'
-			);
-		} catch {
-			return false;
-		}
+	function scheduleConsistencyCheck() {
+		clearTimeout(consistencyTimer);
+		consistencyTimer = setTimeout(() => {
+			if (!destroyed) checkConsistency();
+		}, 150);
 	}
-
-	$: isDefaultAst = isDefaultAstLike($currentAst);
-
-	// Cache für ValueOptions pro Key-System-Kombination
-	let valueOptionsCache = writable({});
-	// Optional: beschleunigte Membership-Checks (Set) für "kleine" Optionslisten
-	const VALUESET_MAX = 50000; // darüber: keinen Set bauen (zu groß -> Membership-Check überspringen)
-	const valueOptionsSetCache: Record<string, Set<string> | null> = {};
-	let username = '';
-
-	onMount(async () => {
-		const params = new URLSearchParams(window.location.search);
-		username = params.get('user');
-
-		await import('@samply/lens');
-		let astData = dataPasser.getAstAPI();
-		if (username) {
-			try {
-				// Benutzer abrufen
-				let userData = await getUser();
-				console.log('UserData', userData);
-				let user = userData.find((u) => u._id === username);
-				console.log('user', user);
-				if (user) {
-					// Letzten gespeicherten Filter des Benutzers setzen
-					let astString =
-						user.userFilter && user.userFilter.length > 0
-							? user.userFilter[user.userFilter.length - 1]
-							: null;
-
-					console.log('Filter für Benutzer gefunden:', astData);
-					if (astString) {
-						try {
-							astData = JSON.parse(astString);
-						} catch (e) {
-							/* ignore parse */
-						}
-					}
-				} else {
-					//console.warn("Benutzer nicht gefunden:", username);
-				}
-			} catch (error) {
-				//console.error("Fehler beim Abrufen des Benutzers:", error);
-			}
-		}
-		console.log('astDATA', astData);
-
-		// *** einzig relevante Änderung: genauer Entscheidungsbaum
-		const isEqual = (a: any, b: any) => JSON.stringify(a) === JSON.stringify(b);
-		const emptyAst = { operand: 'OR', children: [] };
-
-		if (isEqual(astData, emptyAst)) {
-			// Empty-Case soll wie isTumor-Default aussehen (Screenshot 1)
-			astData = structuredClone(defaultAst);
-		} else if (!isEqual(astData, defaultAst)) {
-			// Alle anderen Fälle wie bisher bereinigen
-			astData = removeIsTumorNode(astData);
-		}
-
-		// immer setzen (auch in den Fällen oben, in denen nichts entfernt wurde)
-		currentAst.set(structuredClone(astData ?? defaultAst));
-
-		console.log('CURRENT AST', currentAst);
-		try {
-			//const dbMetaData = await getDBMeta();  // Hole die dbMeta-Daten
-			const { keys, keysSystems, keysWithTypes } = await buildKeysAndSystems(); // Verarbeite die Daten
-			availableKeys.set(keys); // Setze die dynamisch erstellten availableKeys
-			keysAndSystems.set(keysSystems); // Setze das dynamische keysAndSystems
-			keysAndTypes.set(keysWithTypes);
-			for (let { key, system } of keysSystems) {
-				//console.log(`Fetching options for key: ${key}, system: ${system}`);
-				const options = await getValueOptions(key, system); // Hole die Optionen
-
-				// Update den Cache mit den erhaltenen Optionen
-				valueOptionsCache.update((cache) => {
-					const updatedCache = { ...cache, [`${key}(${system})`]: options };
-					//console.log("Updated cache:", updatedCache);
-					return updatedCache;
-				});
-			}
-		} catch (error) {
-			// console.error("Fehler beim Laden der dbMeta-Daten oder ValueOptions:", error);
-		}
-	});
-
-	function removeIsTumorNode(ast) {
-		return {
-			...ast,
-			children: ast.children
-				.map((innerAND) => ({
-					...innerAND,
-					children: innerAND.children.filter(
-						(innerOR) => !innerOR.children.some((child) => child.key === 'isTumor')
-					)
-				}))
-				.filter((innerAND) => innerAND.children.length > 0) // Leere AND-Knoten entfernen
-		};
-	}
-
-	// Funktion zum Abrufen der Optionen aus dem Cache
-	function getCachedValueOptions(key: string, system: string): string[] {
-		const cache = get(valueOptionsCache);
-
-		// Normalisiere `!`-Präfix
-		const normalizedKey = key.replace(/^!/, '');
-
-		// Hole Werte aus dem Cache oder versuche den Normalized Key
-		return cache[`${key}(${system})`] || cache[`${normalizedKey}(${system})`] || [];
-	}
-
-	// Funktion zum Umschalten des Vergleichsoperators für alle Kinder eines OR-Knotens
-	function toggleOperatorForOR(innerOR: any) {
-		// Bestimme den aktuellen Typ des ersten Kindes
-		const newKey = innerOR.children[0].key.startsWith('!') ? '' : '!';
-		const newType = innerOR.children[0].type.startsWith('N') ? '' : 'N';
-		// Ändere den Vergleichsoperator für alle Kinder in diesem OR-Knoten
-		innerOR.children.forEach((child) => {
-			child.key = newKey + '' + child.key.replace('!', '');
-			child.type =
-				newType + '' + child.type.replace('NBETWEEN', 'BETWEEN').replace('NEQUALS', 'EQUALS');
-		});
-
-		// AST aktualisieren
+	function changed() {
+		saveError = '';
 		currentAst.update((ast) => ({ ...ast }));
-	}
-
-	// Funktion, um das richtige Symbol basierend auf dem Vergleichsoperator zu erhalten
-	// Funktion, um das richtige Symbol basierend auf dem Vergleichsoperator zu erhalten
-	function getComparisonSymbol(key) {
-		if (!key.startsWith('!')) {
-			return '=';
-		} else {
-			return '≠';
-		}
-	}
-
-	// Funktion zum Entfernen eines Knotens und Rekursion durch den gesamten Baum
-	function removeInnerOR(innerOR: any, value: string, parentAND: any, rootAST: any) {
-		//console.log(`Entferne Wert: ${value}`);
-
-		innerOR.children = innerOR.children.filter((child: any) => child.value !== value);
-
-		if (innerOR.children.length === 0) {
-			parentAND.children = parentAND.children.filter((child: any) => child !== innerOR);
-		}
-
-		if (parentAND.children.length === 0) {
-			rootAST.children = rootAST.children.filter((child: any) => child !== parentAND);
-		}
-
-		currentAst.update((ast) => {
-			return { ...ast };
-		});
-		scheduleConsistencyCheck(); // Konsistenz prüfen nach dem Entfernen
-	}
-
-	// Reset a given OR group to a single "missing" value
-	function resetInnerORToMissing(innerOR: any) {
-		currentAst.update((ast) => {
-			if (!innerOR || !Array.isArray(innerOR.children) || innerOR.children.length === 0) {
-				return { ...ast };
-			}
-			const first = innerOR.children[0];
-
-			const key = first?.key ?? '';
-			const system = first?.system ?? '';
-			const type = first?.type ?? 'EQUALS';
-			const keyLower = String(key).toLowerCase();
-			const isDateField = keyLower.includes('date');
-
-			let newChild: any;
-			if (isDateField) {
-				// Force BETWEEN with null bounds (interpreted as "missing")
-				newChild = {
-					key,
-					type: type.startsWith('N') ? 'NBETWEEN' : 'BETWEEN',
-					system,
-					value: { min: null, max: null }
-				};
-			} else {
-				if (String(type).includes('BETWEEN')) {
-					newChild = {
-						key,
-						type,
-						system,
-						value: { min: null, max: null }
-					};
-				} else {
-					newChild = {
-						key,
-						type: type.startsWith('N') ? 'NEQUALS' : 'EQUALS',
-						system,
-						value: '-'
-					};
-				}
-			}
-
-			innerOR.children = [newChild];
-			clampPage(innerOR);
-			return { ...ast };
-		});
 		scheduleConsistencyCheck();
 	}
-	function addAND(innerAND: any) {
-		currentAst.update((ast) => {
-			innerAND.children.push({
-				operand: 'OR',
-				children: [{ key: '', type: 'EQUALS', system: '', value: '' }]
-			});
-			return { ...ast };
-		});
-		scheduleConsistencyCheck(); // Konsistenz prüfen nach dem Hinzufügen
+	function updateRange(child, bound, event) {
+		const input = event.target;
+		if (!input.validity.valid) {
+			// Native inputs expose an incomplete number/date as an empty value too.
+			// Preserve its draft error instead of interpreting it as an open bound.
+			invalidValueNodes.set(child, (invalidValueNodes.get(child) ?? new Set()).add(bound));
+			checkConsistency();
+			return;
+		}
+		invalidValueNodes.get(child)?.delete(bound);
+		if (!invalidValueNodes.get(child)?.size) invalidValueNodes.delete(child);
+		if (!child.value || typeof child.value !== 'object') child.value = { min: null, max: null };
+		child.value[bound] =
+			input.value === ''
+				? null
+				: isDateField(child, fieldIndex)
+				? parseDateInput(input.value)
+				: Number(input.value);
+		changed();
+	}
+	function getPage(group) {
+		return group?._page ?? 0;
+	}
+	function clampPage(group) {
+		group._page = Math.min(
+			Math.max(0, getPage(group)),
+			Math.max(0, Math.ceil(group.children.length / PAGE_SIZE) - 1)
+		);
+	}
+	function setPage(group, page) {
+		group._page = page;
+		clampPage(group);
+		changed();
+	}
+	function pageStart(group) {
+		return getPage(group) * PAGE_SIZE;
+	}
+	function pageEnd(group) {
+		return Math.min(pageStart(group) + PAGE_SIZE, group.children.length);
+	}
+	function pageChildren(group) {
+		return group.children.slice(pageStart(group), pageStart(group) + PAGE_SIZE);
+	}
+	function keyText(group, drafts) {
+		const first = group.children[0];
+		return drafts.get(group) ?? (first.key ? `${first.key}(${first.system})` : '');
+	}
+	function valueOptionsId(group, andIndex, orIndex) {
+		const first = group.children[0];
+		return `valueOptions-${andIndex}-${orIndex}-${encodeURIComponent(
+			first.system
+		)}-${encodeURIComponent(first.key)}`;
+	}
+	function valueSuggestions(group, searches, _cache) {
+		const first = group.children[0];
+		return options.suggestions(first.key, first.system, searches.get(group) ?? '');
+	}
+	function showSuggestions(group, value = '') {
+		suggestionSearch = new Map(suggestionSearch).set(group, String(value ?? ''));
+		loadOptions(group);
+	}
+	function loadOptions(group) {
+		const first = group.children[0];
+		if (first?.key && ['EQUALS', 'NEQUALS'].includes(first.type))
+			options.load(first.key, first.system);
 	}
 
-	function addInnerOR(innerOR: any, keySystem: string) {
-		const [key, system] = keySystem.split('(');
-		const cleanSystem = system.replace(')', '');
-
-		console.log('Clicked + for:', key, cleanSystem);
-		console.log('keysAndTypes:', get(keysAndTypes));
-
-		const fieldTypeEntry = get(keysAndTypes).find((k) => k.key === key && k.system === cleanSystem);
-		console.log('Found fieldTypeEntry:', fieldTypeEntry);
-
-		const fieldType = fieldTypeEntry ? fieldTypeEntry.type : undefined;
-		console.log('Field type determined as:', fieldType);
-
-		const isDateField = String(key).toLowerCase().includes('date');
-		console.log('IST ES EIN DATE FIELD?', isDateField);
-
-		const nowTimestamp = parseDateInput(formatDateForInput(Date.now()));
-
-		let newField;
-		if (fieldType === 'BETWEEN' || fieldType === 'NBETWEEN') {
-			newField = {
-				key: key,
-				type: fieldType,
-				system: cleanSystem,
-				value: {
-					min: isDateField ? nowTimestamp : 1,
-					max: isDateField ? nowTimestamp : 999999
-				}
-			};
-		} else {
-			newField = {
-				key: key,
-				type: fieldType,
-				system: cleanSystem,
-				value: ''
-			};
-		}
-
-		console.log('New field to be added:', newField); // Prüfen, ob die Werte korrekt sind
-
-		innerOR.children.push(newField);
-		clampPage(innerOR);
-
-		currentAst.update((ast) => {
-			return { ...ast };
-		});
-
-		scheduleConsistencyCheck(); // Konsistenz prüfen nach dem Hinzufügen
-	}
-
-	// Schneller Membership-Check: nutzt Set, aber nur wenn die Optionsliste nicht riesig ist.
-	function getCachedValueHasFn(key: string, system: string): (v: string) => boolean {
-		const normalizedKey = (key || '').replace(/^!/, '');
-		const cacheKey = `${normalizedKey}(${system})`;
-
-		const values = getCachedValueOptions(normalizedKey, system) || [];
-		if (values.length === 0) {
-			// Kein Options-Set bekannt -> nicht blockieren
-			return () => true;
-		}
-		if (values.length > VALUESET_MAX) {
-			// Liste zu groß -> Membership-Check überspringen (sonst RAM/CPU-Killer)
-			return () => true;
-		}
-
-		const existing = valueOptionsSetCache[cacheKey];
-		if (existing) return (v: string) => existing.has(v);
-
-		// Set lazy bauen
-		const s = new Set(values);
-		valueOptionsSetCache[cacheKey] = s;
-		return (v: string) => s.has(v);
-	}
-
-	function removeAND(innerOR: any, innerAND: any, rootAST: any) {
-		currentAst.update((ast) => {
-			innerAND.children = innerAND.children.filter((orGroup: any) => orGroup !== innerOR);
-
-			if (innerAND.children.length === 0) {
-				ast.children = ast.children.filter((andGroup: any) => andGroup !== innerAND);
+	onMount(async () => {
+		username = new URLSearchParams(window.location.search).get('user') || '';
+		if (username && !['admin', 'super-admin'].includes(currentRole)) return;
+		try {
+			await import('@samply/lens');
+			if (destroyed) return;
+			const catalogueResponse = await authenticatedFetch(apiPath('catalogue'));
+			if (!catalogueResponse.ok) throw new Error('Catalogue unavailable');
+			const { data } = await catalogueResponse.json();
+			if (destroyed) return;
+			fieldIndex = createFieldIndex(data);
+			availableKeys = [...fieldIndex.values()]
+				.map((field) => `${field.key}(${field.system})`)
+				.filter((key) => !key.startsWith('!'));
+			let ast = dataPasser.getAstAPI();
+			if (username) {
+				const users = await getUser();
+				if (destroyed) return;
+				const target = users.find((user) => user._id === username);
+				if (!target) throw new Error('User not found');
+				const saved = target.userFilter?.at(-1);
+				ast = saved ? JSON.parse(saved) : { operand: 'OR', children: [] };
 			}
+			editable = isEditableAst(ast);
+			if (!editable) {
+				editorError =
+					'Dieser Filter enthält Gruppierungen, die hier nicht bearbeitet werden können.';
+				return;
+			}
+			currentAst.set(structuredClone(ast.children.length ? ast : defaultAst()));
+			ready = true;
+			for (const group of get(currentAst).children.flatMap((branch) => branch.children))
+				loadOptions(group);
+			checkConsistency();
+		} catch {
+			if (!destroyed)
+				editorError = 'Der Filter konnte nicht geladen werden. Bitte die Seite erneut öffnen.';
+		}
+	});
+	onDestroy(() => {
+		destroyed = true;
+		clearTimeout(consistencyTimer);
+		options.dispose();
+		unsubscribeUser();
+	});
 
-			return { ...ast };
-		});
-		scheduleConsistencyCheck(); // Konsistenz prüfen nach dem Entfernen
+	function updateKeySystem(group, text) {
+		keyDrafts = new Map(keyDrafts).set(group, text);
+		const field = parseEditorField(text, fieldIndex);
+		if (!field) {
+			invalidKeyGroups = new Set(invalidKeyGroups).add(group);
+			changed();
+			checkConsistency();
+			return;
+		}
+		invalidKeyGroups.delete(group);
+		invalidKeyGroups = new Set(invalidKeyGroups);
+		const first = group.children[0];
+		if (first.key !== field.key || first.system !== field.system) {
+			const now = parseDateInput(formatDateForInput(Date.now()));
+			group.children = [
+				{
+					key: field.key,
+					system: field.system,
+					type: field.type,
+					value: field.type.includes('BETWEEN')
+						? {
+								min: isDateField(field, fieldIndex) ? now : 1,
+								max: isDateField(field, fieldIndex) ? now : 999999
+						  }
+						: ''
+				}
+			];
+			group._page = 0;
+		}
+		loadOptions(group);
+		changed();
 	}
-
-	function removeOuterOR(innerAND: any) {
-		currentAst.update((ast) => {
-			ast.children = ast.children.filter((andGroup: any) => andGroup !== innerAND);
-			return { ...ast };
-		});
-		scheduleConsistencyCheck(); // Konsistenz prüfen nach dem Entfernen
+	function toggleOperatorForOR(group) {
+		if (invalidKeyGroups.has(group)) return;
+		for (const child of group.children) {
+			const negative = ['NEQUALS', 'NBETWEEN'].includes(child.type);
+			child.key = `${negative ? '' : '!'}${child.key.replace(/^!/, '')}`;
+			child.type = negative ? child.type.slice(1) : `N${child.type}`;
+		}
+		keyDrafts.delete(group);
+		keyDrafts = new Map(keyDrafts);
+		changed();
 	}
-
+	function getComparisonSymbol(child) {
+		return child.type.startsWith('N') ? '≠' : '=';
+	}
+	function addInnerOR(group) {
+		group.children.push(createEditorValue(group.children[0]));
+		group._page = Math.floor((group.children.length - 1) / PAGE_SIZE);
+		changed();
+	}
+	function resetInnerORToMissing(group) {
+		const first = group.children[0];
+		group.children = [
+			{ ...first, value: first.type.includes('BETWEEN') ? { min: null, max: null } : '-' }
+		];
+		group._page = 0;
+		changed();
+	}
+	function removeInnerORAt(group, index, branch, ast) {
+		group.children.splice(index, 1);
+		if (!group.children.length) removeAND(group, branch, ast);
+		else {
+			clampPage(group);
+			changed();
+		}
+	}
+	function removeAND(group, branch, ast) {
+		branch.children = branch.children.filter((candidate) => candidate !== group);
+		invalidKeyGroups.delete(group);
+		keyDrafts.delete(group);
+		suggestionSearch.delete(group);
+		if (!branch.children.length)
+			ast.children = ast.children.filter((candidate) => candidate !== branch);
+		changed();
+	}
+	function removeOuterOR(branch) {
+		for (const group of branch.children) {
+			invalidKeyGroups.delete(group);
+			keyDrafts.delete(group);
+			suggestionSearch.delete(group);
+		}
+		currentAst.update((ast) => ({
+			...ast,
+			children: ast.children.filter((candidate) => candidate !== branch)
+		}));
+		changed();
+	}
+	function addAND(branch) {
+		branch.children.push(emptyGroup());
+		changed();
+	}
 	function addOuterOR() {
-		currentAst.update((ast) => {
-			ast.children.push({
-				operand: 'AND',
-				children: [
-					{
-						operand: 'OR',
-						children: [{ key: '', type: 'EQUALS', system: '', value: '' }]
-					}
-				]
-			});
-			return { ...ast };
-		});
-		scheduleConsistencyCheck(); // Konsistenz prüfen nach dem Hinzufügen
+		currentAst.update((ast) => ({
+			...ast,
+			children: [...ast.children, { operand: 'AND', children: [emptyGroup()] }]
+		}));
+		changed();
 	}
-
 	function goBack() {
 		window.history.back();
 	}
-
 	async function saveChanges() {
-		if (!$isConsistent) {
-			console.warn('Speichern nicht möglich, da der Zustand inkonsistent ist.');
-			return;
-		}
-
-		const updatedAst = JSON.stringify(get(currentAst));
-
-		if (username) {
-			try {
-				let input = { userFilter: updatedAst, lastModifiedBy: 'daniel' };
-				updateUser(username, input);
-				window.location.href = appPath('/user-management');
-			} catch (error) {
-				console.error('Fehler beim Speichern des Benutzerfilters:', error);
+		clearTimeout(consistencyTimer);
+		if (saving || !checkConsistency()) return;
+		if (username && !['admin', 'super-admin'].includes(currentRole)) return;
+		saving = true;
+		saveError = '';
+		try {
+			const updatedAst = serializeEditorAst(get(currentAst));
+			if (username) {
+				const result = await updateUser(username, {
+					userFilter: updatedAst,
+					lastModifiedBy: currentUser
+				});
+				if (!result?.acknowledged || result.matchedCount !== 1)
+					throw new Error('User filter was not saved');
+				if (!destroyed) window.location.href = appPath('/user-management');
+			} else {
+				dataPasser.setQueryStoreFromAstAPI(JSON.parse(updatedAst));
+				reloadOnly();
+				goBack();
 			}
-		} else {
-			dataPasser.setQueryStoreFromAstAPI(get(currentAst));
-			reloadOnly();
-			goBack();
+		} catch {
+			if (!destroyed)
+				saveError =
+					'Der Filter konnte nicht gespeichert werden. Deine Eingaben bleiben erhalten; bitte erneut versuchen.';
+		} finally {
+			if (!destroyed) saving = false;
 		}
-	}
-
-	function updateKeySystem(innerOR: any, newKeySystem: string) {
-		const [key, system] = newKeySystem.split('(');
-		const cleanSystem = system.replace(')', '');
-
-		console.log(`Key-System geändert zu: ${newKeySystem}, Zurücksetzen der Werte.`);
-
-		const fieldTypeEntry = get(keysAndTypes).find((k) => k.key === key && k.system === cleanSystem);
-		const fieldType = fieldTypeEntry ? fieldTypeEntry.type : 'EQUALS';
-		const isDateField = key.toLowerCase().includes('date');
-		const nowTimestamp = parseDateInput(formatDateForInput(Date.now()));
-
-		console.log('IST ES EIN DATE FIELD?', isDateField);
-
-		let newField;
-		if (fieldType === 'BETWEEN' || fieldType === 'NBETWEEN') {
-			newField = {
-				key: key,
-				type: fieldType,
-				system: cleanSystem,
-				value: {
-					min: isDateField ? nowTimestamp : 1,
-					max: isDateField ? nowTimestamp : 999999
-				}
-			};
-		} else {
-			newField = {
-				key: key,
-				type: fieldType,
-				system: cleanSystem,
-				value: ''
-			};
-		}
-
-		// Ersetze den Inhalt der OR-Gruppe mit dem neuen Feld
-		innerOR.children = [newField];
-		clampPage(innerOR);
-
-		// Lade mögliche Werteoptionen für das neue Key-System
-		getValueOptions(key, cleanSystem).then((options) => {
-			valueOptionsCache.update((cache) => ({
-				...cache,
-				[`${key}(${cleanSystem})`]: options
-			}));
-		});
-
-		currentAst.update((ast) => ({ ...ast }));
-		scheduleConsistencyCheck();
 	}
 </script>
 
 <lens-data-passer bind:this={dataPasser} />
 <!-- Template -->
 
-{#if currentRole === 'user' && username}
+{#if username && !['admin', 'super-admin'].includes(currentRole)}
 	As a normal "user" you do not have permission to change specific user permissions.
 {:else}
 	<div class="box_style box_level1 table-chart">
@@ -649,249 +368,251 @@
 			</button>
 		</h1>
 	</div>
-	<div class="box_style box_level3" style="height: 600px; overflow: auto;">
-		{#if $currentAst}
-			{#each $currentAst.children as innerAND, innerANDindex}
-				{#if innerANDindex > 0}
-					<strong>OR</strong>
-				{/if}
-				<div class="box_style box_level2">
-					{#each innerAND.children as innerOR, innerORindex}
-						{#if innerORindex > 0}
-							<strong>AND</strong>
-						{/if}
-						<div class="box_style box_level3" style="margin-bottom: 10px;">
-							<div>
-								{#if innerOR.children.length > 0}
-									<div>
-										<!-- Key-Dropdown mit Event-Handler zum Ändern des Key-Systems -->
-										<input
-											list="keyOptions"
-											value={isDefaultAst
-												? ''
-												: `${innerOR.children[0].key}(${innerOR.children[0].system})`}
-											on:change={(event) => {
-												updateKeySystem(innerOR, event.target.value);
-											}}
-										/>
+	{#if editorError}
+		<p role="alert">{editorError}</p>
+	{:else if !ready}
+		<div class="bigSpinnerContainer editor-loading" role="status">
+			<img class="bigSpinner" id="spinner" src={loadingIcon} alt="" aria-hidden="true" />
+			<p>Filter wird geladen …</p>
+		</div>
+	{:else}
+		<datalist id="keyOptions">
+			{#each availableKeys as option}<option value={option} />{/each}
+		</datalist>
+		<fieldset
+			disabled={!ready || saving || !editable}
+			class="box_style box_level3 editor-fields"
+			style="height: 600px; overflow: auto;"
+		>
+			{#if $currentAst}
+				{#each $currentAst.children as innerAND, innerANDindex}
+					{#if innerANDindex > 0}
+						<strong>OR</strong>
+					{/if}
+					<div class="box_style box_level2">
+						{#each innerAND.children as innerOR, innerORindex}
+							{#if innerORindex > 0}
+								<strong>AND</strong>
+							{/if}
+							<div class="box_style box_level3" style="margin-bottom: 10px;">
+								<div>
+									{#if innerOR.children.length > 0}
+										<div>
+											<!-- Key-Dropdown mit Event-Handler zum Ändern des Key-Systems -->
+											<input
+												list="keyOptions"
+												value={keyText(innerOR, keyDrafts)}
+												class:inconsistent-field={invalidKeyGroups.has(innerOR)}
+												on:input={(event) => {
+													updateKeySystem(innerOR, event.target.value);
+												}}
+												on:change={(event) => {
+													updateKeySystem(innerOR, event.target.value);
+												}}
+											/>
 
-										{#if innerAND.children.length > 1}
-											<button
-												class="iconRoundButton tooltip"
-												on:click={() => removeAND(innerOR, innerAND, $currentAst)}
-											>
-												<img src={removeIcon} alt="remove" class="iconRound" />
-												<span class="tooltiptext">Kategorie entfernen</span>
-											</button>
-										{/if}
-
-										<datalist id="keyOptions">
-											{#each $availableKeys as option}
-												{#if !option.startsWith('!')}
-													<option value={option} />
-												{/if}
-											{/each}
-										</datalist>
-
-										<!-- Button zur Umschaltung des Vergleichsoperators für alle Kinder eines OR-Knotens -->
-										<button class="operator-button" on:click={() => toggleOperatorForOR(innerOR)}>
-											{getComparisonSymbol(innerOR.children[0].key)}
-										</button>
-
-										{#if innerOR.children.length > PAGE_SIZE}
-											<div class="inneror-pagination">
-												<small
-													>Zeige {pageStart(innerOR) + 1}-{pageEnd(innerOR)} von {innerOR.children
-														.length}</small
-												>
-												<button
-													class="iconRoundButton"
-													disabled={getPage(innerOR) === 0}
-													on:click={() => setPage(innerOR, getPage(innerOR) - 1)}>◀</button
-												>
-												<button
-													class="iconRoundButton"
-													disabled={pageEnd(innerOR) >= innerOR.children.length}
-													on:click={() => setPage(innerOR, getPage(innerOR) + 1)}>▶</button
-												>
-											</div>
-										{/if}
-
-										{#each pageChildren(innerOR) as child, idx (pageStart(innerOR) + idx)}
-											{#if child.type === 'BETWEEN' || child.type === 'NBETWEEN'}
-												<!-- Standardwerte setzen, falls nicht vorhanden -->
-												{#if !child.value}
-													{(child.value = {
-														min: null,
-														max: null
-													})}
-												{/if}
-
-												{#if child.key.toLowerCase().includes('date')}
-													<!-- Date inputs: allow nulls (empty field) -->
-													<input
-														type="date"
-														value={formatDateForInput(child?.value?.min)}
-														on:input={(event) => {
-															const v = event.target.value;
-															if (!child.value) child.value = { min: null, max: null };
-															child.value.min = parseDateInput(v);
-															currentAst.update((ast) => ({ ...ast }));
-															scheduleConsistencyCheck();
-														}}
-													/>
-													<input
-														type="date"
-														value={formatDateForInput(child?.value?.max)}
-														on:input={(event) => {
-															const v = event.target.value;
-															if (!child.value) child.value = { min: null, max: null };
-															child.value.max = parseDateInput(v);
-															currentAst.update((ast) => ({ ...ast }));
-															scheduleConsistencyCheck();
-														}}
-													/>
-												{:else}
-													<!-- Number inputs: allow nulls (empty field) -->
-													<input
-														type="number"
-														value={child?.value?.min ?? ''}
-														on:input={(event) => {
-															if (!child.value) child.value = { min: null, max: null };
-															const v = event.target.value;
-															child.value.min = v === '' ? null : Number(v);
-															currentAst.update((ast) => ({ ...ast }));
-															scheduleConsistencyCheck();
-														}}
-													/>
-													<input
-														type="number"
-														value={child?.value?.max ?? ''}
-														on:input={(event) => {
-															if (!child.value) child.value = { min: null, max: null };
-															const v = event.target.value;
-															child.value.max = v === '' ? null : Number(v);
-															currentAst.update((ast) => ({ ...ast }));
-															scheduleConsistencyCheck();
-														}}
-													/>
-												{/if}
-											{:else}
-												<!-- Standardwert für EQUALS -->
-												<input
-													list="valueOptions{child.key}"
-													value={isDefaultAst ? '' : child.value}
-													style="margin-right: 10px;"
-													class={$inconsistentFields.includes(child) ? 'inconsistent-field' : ''}
-													on:input={(event) => {
-														child.value = event.target.value; // ✅ Update child value dynamically
-														scheduleConsistencyCheck(); // ✅ Re-run consistency check
-													}}
-												/>
-											{/if}
-
-											<!-- Dynamisches Dropdown für die Werte basierend auf dem Key-System -->
-											<datalist id="valueOptions{child.key}">
-												{#each $valueOptionsCache[`${child.key.replace(/^!/, '')}(${child.system})`] || [] as option}
-													<option value={option} />
-												{/each}
-											</datalist>
-
-											{#if innerOR.children.length > 1}
+											{#if innerAND.children.length > 1}
 												<button
 													class="iconRoundButton tooltip"
-													on:click={() =>
-														removeInnerORAt(
-															innerOR,
-															pageStart(innerOR) + idx,
-															innerAND,
-															$currentAst
-														)}
+													on:click={() => removeAND(innerOR, innerAND, $currentAst)}
 												>
 													<img src={removeIcon} alt="remove" class="iconRound" />
-													<span class="tooltiptext">Wert entfernen</span>
+													<span class="tooltiptext">Kategorie entfernen</span>
 												</button>
 											{/if}
 
-											{#if idx < pageChildren(innerOR).length - 1}
-												<span style="margin-right: 10px;"><b>OR</b></span>
+											<!-- Button zur Umschaltung des Vergleichsoperators für alle Kinder eines OR-Knotens -->
+											<button class="operator-button" on:click={() => toggleOperatorForOR(innerOR)}>
+												{getComparisonSymbol(innerOR.children[0])}
+											</button>
+
+											{#if innerOR.children.length > PAGE_SIZE}
+												<div class="inneror-pagination">
+													<small
+														>Zeige {pageStart(innerOR) + 1}-{pageEnd(innerOR)} von {innerOR.children
+															.length}</small
+													>
+													<button
+														class="iconRoundButton"
+														disabled={getPage(innerOR) === 0}
+														on:click={() => setPage(innerOR, getPage(innerOR) - 1)}>◀</button
+													>
+													<button
+														class="iconRoundButton"
+														disabled={pageEnd(innerOR) >= innerOR.children.length}
+														on:click={() => setPage(innerOR, getPage(innerOR) + 1)}>▶</button
+													>
+												</div>
 											{/if}
-										{/each}
-										<button
-											class="iconRoundButton tooltip"
-											on:click={() => resetInnerORToMissing(innerOR)}
-										>
-											<img src={emptyIcon} alt="empty" class="iconRound" />
-											<span class="tooltiptext"
-												>Feld leeren (setzt Datum zu null/null, String zu "-")</span
+
+											{#each pageChildren(innerOR) as child, idx (pageStart(innerOR) + idx)}
+												{#if child.type === 'BETWEEN' || child.type === 'NBETWEEN'}
+													{#if isDateField(child, fieldIndex)}
+														<!-- Date inputs: allow nulls (empty field) -->
+														<input
+															type="date"
+															class:inconsistent-field={$inconsistentFields.includes(child)}
+															value={formatDateForInput(child?.value?.min)}
+															on:input={(event) => updateRange(child, 'min', event)}
+														/>
+														<input
+															type="date"
+															class:inconsistent-field={$inconsistentFields.includes(child)}
+															value={formatDateForInput(child?.value?.max)}
+															on:input={(event) => updateRange(child, 'max', event)}
+														/>
+													{:else}
+														<!-- Number inputs: allow nulls (empty field) -->
+														<input
+															type="number"
+															step="any"
+															class:inconsistent-field={$inconsistentFields.includes(child)}
+															value={child?.value?.min ?? ''}
+															on:input={(event) => updateRange(child, 'min', event)}
+														/>
+														<input
+															type="number"
+															step="any"
+															class:inconsistent-field={$inconsistentFields.includes(child)}
+															value={child?.value?.max ?? ''}
+															on:input={(event) => updateRange(child, 'max', event)}
+														/>
+													{/if}
+												{:else}
+													<!-- Standardwert für EQUALS -->
+													<input
+														list={valueOptionsId(innerOR, innerANDindex, innerORindex)}
+														value={child.value ?? ''}
+														on:focus={() => showSuggestions(innerOR, child.value)}
+														style="margin-right: 10px;"
+														class={$inconsistentFields.includes(child) ? 'inconsistent-field' : ''}
+														on:input={(event) => {
+															child.value = event.target.value; // ✅ Update child value dynamically
+															showSuggestions(innerOR, child.value);
+															scheduleConsistencyCheck(); // ✅ Re-run consistency check
+														}}
+													/>
+												{/if}
+
+												{#if innerOR.children.length > 1}
+													<button
+														class="iconRoundButton tooltip"
+														on:click={() =>
+															removeInnerORAt(
+																innerOR,
+																pageStart(innerOR) + idx,
+																innerAND,
+																$currentAst
+															)}
+													>
+														<img src={removeIcon} alt="remove" class="iconRound" />
+														<span class="tooltiptext">Wert entfernen</span>
+													</button>
+												{/if}
+
+												{#if idx < pageChildren(innerOR).length - 1}
+													<span style="margin-right: 10px;"><b>OR</b></span>
+												{/if}
+											{/each}
+											{#if ['EQUALS', 'NEQUALS'].includes(innerOR.children[0].type)}
+												<datalist id={valueOptionsId(innerOR, innerANDindex, innerORindex)}>
+													{#each valueSuggestions(innerOR, suggestionSearch, $valueOptionsCache) as option}<option
+															value={option}
+														/>{/each}
+												</datalist>
+											{/if}
+											<button
+												class="iconRoundButton tooltip"
+												on:click={() => resetInnerORToMissing(innerOR)}
 											>
-										</button>
-										<button
-											class="iconRoundButton tooltip"
-											on:click={() =>
-												addInnerOR(
-													innerOR,
-													`${innerOR.children[0].key}(${innerOR.children[0].system})`
-												)}
-										>
-											<img src={plusIcon} alt="add" class="iconRound" />
-											<span class="tooltiptext">Neuen Wert hinzufügen (Inner ORx)</span>
-										</button>
-									</div>
-								{/if}
+												<img src={emptyIcon} alt="empty" class="iconRound" />
+												<span class="tooltiptext"
+													>Feld leeren (setzt Datum zu null/null, String zu "-")</span
+												>
+											</button>
+											<button
+												class="iconRoundButton tooltip"
+												on:click={() =>
+													addInnerOR(
+														innerOR,
+														`${innerOR.children[0].key}(${innerOR.children[0].system})`
+													)}
+											>
+												<img src={plusIcon} alt="add" class="iconRound" />
+												<span class="tooltiptext">Neuen Wert hinzufügen (Inner ORx)</span>
+											</button>
+										</div>
+									{/if}
+								</div>
 							</div>
-						</div>
-					{/each}
-					{#if $currentAst.children.length > 1}
-						<button class="iconRoundButton tooltip" on:click={() => removeOuterOR(innerAND)}>
-							<img src={removeIcon} alt="remove" class="iconRound" />
-							<span class="tooltiptext">Komplette Gruppe entfernen (Outer OR)</span>
+						{/each}
+						{#if $currentAst.children.length > 1}
+							<button class="iconRoundButton tooltip" on:click={() => removeOuterOR(innerAND)}>
+								<img src={removeIcon} alt="remove" class="iconRound" />
+								<span class="tooltiptext">Komplette Gruppe entfernen (Outer OR)</span>
+							</button>
+						{/if}
+						<button class="iconRoundButton tooltip" on:click={() => addAND(innerAND)}>
+							<img src={plusIcon} alt="add" class="iconRound" />
+							<span class="tooltiptext">Neue Bedingung hinzufügen (AND)</span>
 						</button>
-					{/if}
-					<button class="iconRoundButton tooltip" on:click={() => addAND(innerAND)}>
-						<img src={plusIcon} alt="add" class="iconRound" />
-						<span class="tooltiptext">Neue Bedingung hinzufügen (AND)</span>
-					</button>
-				</div>
-			{/each}
-			<button class="iconRoundButton tooltip" on:click={() => addOuterOR()}>
-				<img src={plusIcon} alt="add" class="iconRound" />
-				<span class="tooltiptext">Neue Gruppe hinzufügen (OR)</span>
-			</button>
-		{/if}
-	</div>
-
-	<!-- Save-Button -->
-	<div class="box_style box_level2 table-chart" style="display: flex; align-items: center;">
-		<b>{$t('saveAndContinue')}:</b>
-		<div style="display: flex; align-items: center; margin-left: 10px;">
-			<button
-				style="background-color: {$isConsistent
-					? '#A8D5A5'
-					: '#D55A5A'}; font-weight: bold; padding: 2px; margin-right: 10px; border-radius: 20px; display: flex; align-items: center; justify-content: center;"
-				class="iconRoundButton"
-				disabled={!$isConsistent}
-				on:click={saveChanges}
-			>
-				<img
-					src={saveIcon}
-					alt="save"
-					style="height: 30px; padding: 2px; display: block; margin: auto;"
-					class="menuebar-icon"
-				/>
-			</button>
-
-			<!-- Bedingter Text bei inkonsistentem Zustand, auf derselben Linie -->
-			{#if !$isConsistent}
-				<p style="color: red; font-style: italic; margin-left: 10px;">
-					Zustand inkonsistent - speichern nicht möglich
-				</p>
+					</div>
+				{/each}
+				<button class="iconRoundButton tooltip" on:click={() => addOuterOR()}>
+					<img src={plusIcon} alt="add" class="iconRound" />
+					<span class="tooltiptext">Neue Gruppe hinzufügen (OR)</span>
+				</button>
 			{/if}
+		</fieldset>
+
+		<!-- Save-Button -->
+		<div class="box_style box_level2 table-chart" style="display: flex; align-items: center;">
+			<b>{$t('saveAndContinue')}:</b>
+			<div style="display: flex; align-items: center; margin-left: 10px;">
+				<button
+					style="background-color: {$isConsistent
+						? '#A8D5A5'
+						: '#D55A5A'}; font-weight: bold; padding: 2px; margin-right: 10px; border-radius: 20px; display: flex; align-items: center; justify-content: center;"
+					class="iconRoundButton"
+					disabled={!ready || saving || !$isConsistent}
+					on:click={saveChanges}
+				>
+					<img
+						src={saveIcon}
+						alt="save"
+						style="height: 30px; padding: 2px; display: block; margin: auto;"
+						class="menuebar-icon"
+					/>
+				</button>
+
+				<!-- Bedingter Text bei inkonsistentem Zustand, auf derselben Linie -->
+				{#if ready && !$isConsistent}
+					<p style="color: red; font-style: italic; margin-left: 10px;">
+						Zustand inkonsistent - speichern nicht möglich
+					</p>
+				{/if}
+			</div>
 		</div>
-	</div>
+		{#if saveError}<p role="alert">{saveError}</p>{/if}
+	{/if}
 {/if}
 
 <style>
+	.editor-loading {
+		height: 600px;
+		flex-direction: column;
+		gap: 1rem;
+	}
+	.editor-loading .bigSpinner {
+		max-width: 7rem;
+	}
+	.editor-loading p {
+		margin: 0;
+	}
+	.editor-fields {
+		min-width: 0;
+		margin-inline: 0;
+	}
 	.box_style {
 		border: 1px solid var(--border-color);
 		padding: 10px;

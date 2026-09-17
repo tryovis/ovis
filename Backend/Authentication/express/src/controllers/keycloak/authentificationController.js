@@ -1,337 +1,189 @@
-/**
- * @file Authentication API routes using Keycloak
- * @description Provides authentication functionalities such as login, token introspection, refresh, logout, user info retrieval, and user creation.
- */
+/** Keycloak verifies credentials and token validity. Never log request bodies or tokens. */
+const tokenEndpoint = () =>
+	`${process.env.KEYCLOAK_URL}/realms/${process.env.KEYCLOAK_REALM}/protocol/openid-connect`;
+const textField = (value, maxLength = 16384) =>
+	typeof value === 'string' && value.length > 0 && value.length <= maxLength;
+const clientCredentials = () => ({
+	client_id: process.env.KEYCLOAK_CLIENT_ID,
+	client_secret: process.env.KEYCLOAK_CLIENT_SECRET
+});
 
-/**
- * Extracts and validates Basic Authentication credentials from the request header.
- * @param {Object} req - Express request object
- * @returns {boolean} - Returns true if authentication is valid, false otherwise.
- */
-const isAuthenticated = (req) => {
-	const header_authorization = req.headers.authorization;
-	if (!header_authorization) return false;
-
-	const encoded = header_authorization.substring(6);
-	const decoded = Buffer.from(encoded, 'base64').toString('ascii');
-	const [basic_username, basic_password] = decoded.split(':');
-
-	return (
-		basic_username === process.env.BASIC_AUTH_USERNAME &&
-		basic_password === process.env.BASIC_AUTH_PASSWORD
-	);
+const keycloakPostRequest = async (url, body) => {
+	const response = await fetch(url, {
+		method: 'POST',
+		body: new URLSearchParams(body),
+		headers: { 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json' },
+		redirect: 'error',
+		signal: AbortSignal.timeout(10000)
+	});
+	if (!response.ok) {
+		const error = new Error('Keycloak request failed');
+		error.status = response.status;
+		throw error;
+	}
+	return response.status === 204 ? null : response.json();
 };
 
-/**
- * Gets token from user management account to be able to change userdata
- * @returns {json} - Returns user management token
- */
 export const getUserManagmentToken = async () => {
-	const url = `${process.env.KEYCLOAK_URL}/realms/${process.env.KEYCLOAK_REALM}/protocol/openid-connect/token`;
-	const body = new URLSearchParams({
+	const result = await keycloakPostRequest(`${tokenEndpoint()}/token`, {
 		client_id: process.env.KEYCLOAK_ADMIN_CLIENT_ID,
 		client_secret: process.env.KEYCLOAK_ADMIN_CLIENT_SECRET,
 		grant_type: 'client_credentials'
 	});
-
-	try {
-		const json = await keycloakPostRequest(url, body);
-		return json.access_token;
-	} catch (error) {
-		console.error('Error getting user management token:', error);
-		throw new Error('Failed to get management token');
-	}
+	if (!textField(result?.access_token)) throw new Error('Management authorization unavailable');
+	return result.access_token;
 };
 
-/**
- * Makes a POST request to Keycloak with given parameters.
- * @param {string} url - Keycloak endpoint
- * @param {URLSearchParams} body - Form-encoded request body
- * @returns {Promise<Object>} - Returns Keycloak response as JSON
- */
-const keycloakPostRequest = async (url, body) => {
-	try {
-		const header = {
-			'Content-Type': 'application/x-www-form-urlencoded',
-			Accepts: 'application/json'
-		};
-
-		console.log('--------------------------------');
-		console.log('Keycloak url:', url);
-		console.log('Keycloak body:', body);
-		console.log('Keycloak header:', header);
-		console.log('--------------------------------');
-
-		const response = await fetch(url, {
-			method: 'POST',
-			body,
-			headers: header
-		});
-
-		if (!response.ok) {
-			const errorText = await response.text();
-			console.error('Keycloak error response:', errorText);
-			throw new Error(`Keycloak request failed: ${response.status} ${response.statusText}`);
-		}
-
-		return response.json();
-	} catch (error) {
-		console.error('Keycloak request error:', error);
-		throw error;
-	}
+const tokenFailure = (res, error) => {
+	if (error.status === 400 || error.status === 401)
+		return res.status(401).json({ error: 'Credentials or token are invalid or expired' });
+	return res.status(503).json({ error: 'Authentication service unavailable' });
 };
 
-/**
- * Login: Authenticates a user with Keycloak using username and password.
- * @async
- * @function login
- */
 const login = async (req, res) => {
-	if (!isAuthenticated(req)) return res.status(403).send({ message: 'forbidden' });
-
-	console.log('Login attempt from:', req.body.username);
-
-	const url = `${process.env.KEYCLOAK_URL}/realms/${process.env.KEYCLOAK_REALM}/protocol/openid-connect/token`;
-	const body = new URLSearchParams({
-		client_id: process.env.KEYCLOAK_CLIENT_ID,
-		client_secret: process.env.KEYCLOAK_CLIENT_SECRET,
-		grant_type: 'password',
-		username: req.body.username,
-		password: req.body.password,
-		scope: 'openid profile email'
-	});
-
+	if (!textField(req.body?.username, 320) || !textField(req.body?.password, 4096))
+		return res.status(400).json({ error: 'Username and password are required' });
 	try {
-		const json = await keycloakPostRequest(url, body);
-
-		// Add custom expiry times for better tracking on the client
-		json.timestamp = Date.now();
-
-		res.status(200).json(json);
+		const result = await keycloakPostRequest(`${tokenEndpoint()}/token`, {
+			...clientCredentials(),
+			grant_type: 'password',
+			username: req.body.username,
+			password: req.body.password,
+			scope: 'openid profile email'
+		});
+		return res.status(200).json({ ...result, timestamp: Date.now() });
 	} catch (error) {
-		console.log('Login error:', error);
-
-		// Return appropriate status code based on the error
-		if (error.message.includes('401')) {
-			return res.status(401).json({ error: 'Invalid username or password' });
-		}
-
-		if (error.message.includes('500')) {
-			return res.status(500).json({ error: 'Authentication server error' });
-		}
-
-		res.status(400).json({ error: error.message });
+		return tokenFailure(res, error);
 	}
 };
 
-/**
- * Introspect: Checks the validity of an access token.
- * @async
- * @function introspect
- */
 const introspect = async (req, res) => {
-	if (!isAuthenticated(req)) return res.status(403).send({ message: 'forbidden' });
-
-	if (!req.body.token) {
-		return res.status(400).json({ error: 'Token is required' });
-	}
-
-	const url = `${process.env.KEYCLOAK_URL}/realms/${process.env.KEYCLOAK_REALM}/protocol/openid-connect/token/introspect`;
-	const body = new URLSearchParams({
-		client_id: process.env.KEYCLOAK_CLIENT_ID,
-		client_secret: process.env.KEYCLOAK_CLIENT_SECRET,
-		token: req.body.token
-	});
-
+	if (!textField(req.body?.token)) return res.status(400).json({ error: 'Token is required' });
 	try {
-		const json = await keycloakPostRequest(url, body);
-		res.status(200).json(json);
+		return res.status(200).json(
+			await keycloakPostRequest(`${tokenEndpoint()}/token/introspect`, {
+				...clientCredentials(),
+				token: req.body.token
+			})
+		);
 	} catch (error) {
-		console.error('Introspect error:', error);
-		res.status(400).json({ error: error.message });
+		return tokenFailure(res, error);
 	}
 };
 
-/**
- * Refresh: Refreshes an access token using a refresh token.
- * @async
- * @function refresh
- */
 const refresh = async (req, res) => {
-	if (!isAuthenticated(req)) return res.status(403).send({ message: 'forbidden' });
-
-	if (!req.body.refresh_token) {
+	if (!textField(req.body?.refresh_token))
 		return res.status(400).json({ error: 'Refresh token is required' });
-	}
-
-	console.log('Refresh attempt with token:', req.body.refresh_token.substring(0, 20) + '...');
-
-	const url = `${process.env.KEYCLOAK_URL}/realms/${process.env.KEYCLOAK_REALM}/protocol/openid-connect/token`;
-	const body = new URLSearchParams({
-		client_id: process.env.KEYCLOAK_CLIENT_ID,
-		client_secret: process.env.KEYCLOAK_CLIENT_SECRET,
-		grant_type: 'refresh_token',
-		refresh_token: req.body.refresh_token
-	});
-
 	try {
-		const json = await keycloakPostRequest(url, body);
-		console.log('Token refreshed successfully');
-
-		// Add timestamp for client-side expiry tracking
-		json.timestamp = Date.now();
-
-		res.status(200).json(json);
+		const result = await keycloakPostRequest(`${tokenEndpoint()}/token`, {
+			...clientCredentials(),
+			grant_type: 'refresh_token',
+			refresh_token: req.body.refresh_token
+		});
+		return res.status(200).json({ ...result, timestamp: Date.now() });
 	} catch (error) {
-		console.log('Token refresh failed:', error);
-
-		// Return appropriate status based on error
-		if (error.message.includes('400')) {
-			return res.status(400).json({ error: 'Invalid refresh token' });
-		}
-
-		if (error.message.includes('401')) {
-			return res.status(401).json({ error: 'Refresh token expired' });
-		}
-
-		res.status(500).json({ error: error.message });
+		return tokenFailure(res, error);
 	}
 };
 
-/**
- * Logout: Revokes a refresh token, logging the user out.
- * @async
- * @function logout
- */
 const logout = async (req, res) => {
-	if (!isAuthenticated(req)) return res.status(403).send({ message: 'forbidden' });
-
-	if (!req.body.refresh_token) {
+	if (!textField(req.body?.refresh_token))
 		return res.status(400).json({ error: 'Refresh token is required' });
-	}
-
-	console.log(
-		'Logout attempt with refresh token:',
-		req.body.refresh_token.substring(0, 20) + '...'
-	);
-
-	const url = `${process.env.KEYCLOAK_URL}/realms/${process.env.KEYCLOAK_REALM}/protocol/openid-connect/logout`;
-	const body = new URLSearchParams({
-		client_id: process.env.KEYCLOAK_CLIENT_ID,
-		client_secret: process.env.KEYCLOAK_CLIENT_SECRET,
-		refresh_token: req.body.refresh_token
-	});
-
 	try {
-		const response = await fetch(url, {
-			method: 'POST',
-			body,
-			headers: {
-				'Content-Type': 'application/x-www-form-urlencoded'
-			}
+		await keycloakPostRequest(`${tokenEndpoint()}/logout`, {
+			...clientCredentials(),
+			refresh_token: req.body.refresh_token
 		});
-
-		// Log the complete response
-		console.log('Logout Response:', {
-			status: response.status,
-			statusText: response.statusText,
-			headers: Object.fromEntries(response.headers.entries()),
-			url: response.url
-		});
-
-		// Also log the response body if possible
-		const responseText = await response.text();
-		console.log('Response body:', responseText);
-
-		if (!response.ok) {
-			throw new Error(`Logout failed with response: ${responseText}`);
-		}
-
-		res.status(200).json({ message: 'Logout successful' });
+		return res.status(200).json({ message: 'Logout successful' });
 	} catch (error) {
-		console.error('Logout error:', error);
-
-		// Even if logout fails, we want to notify the client that they can consider themselves logged out
-		// This is because the token might already be invalid
-		res.status(200).json({ message: 'Logout processed', warning: error.message });
+		return tokenFailure(res, error);
 	}
 };
 
-/**
- * Userinfo: Retrieves user information from Keycloak.
- * @async
- * @function userinfo
- */
 const userinfo = async (req, res) => {
-	if (!isAuthenticated(req)) return res.status(403).send({ message: 'forbidden' });
-
-	if (!req.body.token) {
+	if (!textField(req.body?.token))
 		return res.status(400).json({ error: 'Access token is required' });
-	}
-
-	const url = `${process.env.KEYCLOAK_URL}/realms/${process.env.KEYCLOAK_REALM}/protocol/openid-connect/userinfo`;
-	const header = { Authorization: `Bearer ${req.body.token}`, Accepts: 'application/json' };
-
 	try {
-		const response = await fetch(url, { method: 'GET', headers: header });
-
-		if (!response.ok) {
-			const errorText = await response.text();
-			throw new Error(
-				`Failed to get user info: ${response.status} ${response.statusText} - ${errorText}`
-			);
-		}
-
-		const json = await response.json();
-		res.status(200).json(json);
-	} catch (error) {
-		console.error('User info error:', error);
-
-		if (error.message.includes('401')) {
-			return res.status(401).json({ error: 'Unauthorized: Token is invalid or expired' });
-		}
-
-		res.status(400).json({ error: error.message });
+		const response = await fetch(`${tokenEndpoint()}/userinfo`, {
+			headers: { Authorization: `Bearer ${req.body.token}`, Accept: 'application/json' },
+			redirect: 'error',
+			signal: AbortSignal.timeout(10000)
+		});
+		if (!response.ok)
+			return res
+				.status(response.status === 401 ? 401 : 503)
+				.json({ error: 'User information unavailable' });
+		return res.status(200).json(await response.json());
+	} catch {
+		return res.status(503).json({ error: 'Authentication service unavailable' });
 	}
 };
 
-/**
- * CreateUser: Creates a new user in Keycloak.
- * @async
- * @function createUser
- */
 const createUser = async (req, res) => {
-	if (!isAuthenticated(req)) return res.status(403).send({ message: 'forbidden' });
-
+	const input = req.body;
+	const allowedFields = new Set([
+		'username',
+		'email',
+		'firstName',
+		'lastName',
+		'enabled',
+		'credentials'
+	]);
+	if (
+		!input ||
+		typeof input !== 'object' ||
+		Array.isArray(input) ||
+		Object.keys(input).some((key) => !allowedFields.has(key)) ||
+		!textField(input.username, 320) ||
+		['email', 'firstName', 'lastName'].some(
+			(key) => input[key] !== undefined && !textField(input[key], 320)
+		) ||
+		(input.enabled !== undefined && typeof input.enabled !== 'boolean')
+	) {
+		return res
+			.status(400)
+			.json({ error: 'Invalid user fields; roles and custom attributes cannot be assigned here' });
+	}
+	const payload = {
+		username: input.username,
+		email: input.email,
+		firstName: input.firstName,
+		lastName: input.lastName,
+		enabled: input.enabled ?? true,
+		emailVerified: false
+	};
+	if (input.credentials !== undefined) {
+		if (
+			!Array.isArray(input.credentials) ||
+			input.credentials.length !== 1 ||
+			input.credentials[0]?.type !== 'password' ||
+			!textField(input.credentials[0]?.value, 4096)
+		) {
+			return res.status(400).json({ error: 'A single password credential is supported' });
+		}
+		payload.credentials = [
+			{ type: 'password', value: input.credentials[0].value, temporary: true }
+		];
+	}
 	try {
 		const token = await getUserManagmentToken();
-
-		console.log('create user info', req.body);
-
-		const url = `${process.env.KEYCLOAK_URL}/admin/realms/${process.env.KEYCLOAK_REALM}/users`;
-		const header = {
-			'Content-Type': 'application/json',
-			Authorization: `Bearer ${token}`,
-			Accepts: 'application/json'
-		};
-
-		const response = await fetch(url, {
-			method: 'POST',
-			headers: header,
-			body: JSON.stringify(req.body)
-		});
-
-		if (!response.ok) {
-			const errorText = await response.text();
-			throw new Error(
-				`Failed to create user: ${response.status} ${response.statusText} - ${errorText}`
-			);
-		}
-
-		res.status(201).json({ message: 'User created successfully' });
-	} catch (error) {
-		console.error('Create user error:', error);
-		res.status(400).json({ error: error.message });
+		const response = await fetch(
+			`${process.env.KEYCLOAK_URL}/admin/realms/${process.env.KEYCLOAK_REALM}/users`,
+			{
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+				body: JSON.stringify(payload),
+				redirect: 'error',
+				signal: AbortSignal.timeout(10000)
+			}
+		);
+		if (!response.ok)
+			return res
+				.status(response.status === 409 ? 409 : 400)
+				.json({ error: 'User could not be created' });
+		return res.status(201).json({ message: 'User created successfully' });
+	} catch {
+		return res.status(503).json({ error: 'User management unavailable' });
 	}
 };
 

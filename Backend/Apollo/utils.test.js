@@ -81,7 +81,10 @@ test('histology table and count resolvers select the histology collection', asyn
 	);
 
 	assert.equal(count, 7);
-	assert.deepEqual(calls.map(({ name }) => name), ['histology', 'histology']);
+	assert.deepEqual(
+		calls.map(({ name }) => name),
+		['histology', 'histology']
+	);
 	assert.deepEqual(
 		calls[0].pipeline.map((stage) => Object.keys(stage)[0]),
 		['$sort', '$skip', '$limit']
@@ -137,7 +140,7 @@ test('histology cursor paging no longer appends unwind or projection stages', as
 test('study overview sorts the patient column by patient count before paging', async () => {
 	const pipelines = [];
 	const context = {
-		collections: { study: 'study', patient: 'patient' },
+		collections: { study: 'study', studyPatient: 'studyPatient', patient: 'patient' },
 		db: {
 			collection() {
 				return {
@@ -162,7 +165,9 @@ test('study overview sorts the patient column by patient count before paging', a
 		context
 	);
 
-	assert.deepEqual(pipelines[0], [
+	assert.equal(pipelines[0][0].$lookup.from, 'studyPatient');
+	assert.equal(pipelines[0][0].$lookup.as, 'studyPatients');
+	assert.deepEqual(pipelines[0].slice(1), [
 		{
 			$set: {
 				__studyPatientCount: { $size: { $ifNull: ['$studyPatients', []] } }
@@ -177,10 +182,13 @@ test('study overview sorts the patient column by patient count before paging', a
 test('study overview sorts by the patient count remaining after cohort filters', async () => {
 	const studyPipelines = [];
 	const context = {
-		collections: { study: 'study', patient: 'patient' },
+		collections: { study: 'study', studyPatient: 'studyPatient', patient: 'patient' },
 		db: {
 			collection(name) {
 				return {
+					async distinct(field) {
+						return name === 'studyPatient' && field === 'studyKey' ? ['study-1'] : [];
+					},
 					aggregate(pipeline) {
 						if (name === 'study') {
 							studyPipelines.push(pipeline);
@@ -219,12 +227,15 @@ test('study overview sorts by the patient count remaining after cohort filters',
 	);
 
 	const pipeline = studyPipelines[0];
-	const cohortIndex = pipeline.findIndex((stage) => stage.$set?.studyPatients);
+	const cohortIndex = pipeline.findIndex((stage) => stage.$lookup?.as === 'studyPatients');
 	const countIndex = pipeline.findIndex((stage) => stage.$set?.__studyPatientCount);
 	const sortIndex = pipeline.findIndex((stage) => stage.$sort?.__studyPatientCount === 1);
 	const limitIndex = pipeline.findIndex((stage) => stage.$limit === 7);
 
 	assert.notEqual(cohortIndex, -1);
+	assert.deepEqual(pipeline[cohortIndex].$lookup.pipeline.at(-1), {
+		$match: { patID: { $in: ['p1'] } }
+	});
 	assert.ok(cohortIndex < countIndex);
 	assert.ok(countIndex < sortIndex);
 	assert.ok(sortIndex < limitIndex);

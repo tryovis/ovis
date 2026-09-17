@@ -3,6 +3,7 @@
 	import { Chart, registerables } from 'chart.js';
 	import type { ChartConfiguration, ChartDataset } from 'chart.js';
 	import { onMount, tick } from 'svelte';
+	import { get } from 'svelte/store';
 	import noUiSlider from 'nouislider';
 	import '../../nouislider.css';
 	import { getDiagnosisBarChart } from '../../graphQl/gql-diagnosis';
@@ -26,7 +27,8 @@
 		isDiagnosisLegendItemHidden,
 		toggleDiagnosisLegendItemVisibility
 	} from './diagnosisBarChartLegendState';
-	import { appendQueryItemToFirstGroup, queryContainsValue } from '../../tableFilterItems';
+	import { addChartQueryItem } from '../../tableFilterItems';
+	import { getDiagnosisChartDateRange } from './diagnosisDateRange.js';
 	let filterActive = true;
 
 	// Abonnieren des filterActiveStore und den Wert aktualisieren
@@ -277,22 +279,7 @@
 	}
 
 	const addItem = (queryObject: QueryItem): void => {
-		const queryBeforeAdd = dataPasser.getQueryAPI();
-		dataPasser.addStratifierToQueryAPI({
-			label: queryObject.values[0].value,
-			catalogueGroupCode: queryObject.key,
-			parentGroupCode: queryObject.system
-		});
-		const queryAfterAdd = dataPasser.getQueryAPI();
-		if (!queryContainsValue(queryAfterAdd, queryObject)) {
-			dataPasser.setQueryStoreAPI(
-				appendQueryItemToFirstGroup(
-					queryAfterAdd.length > 0 ? queryAfterAdd : queryBeforeAdd,
-					queryObject
-				)
-			);
-		}
-		console.log(dataPasser.getQueryAPI());
+		addChartQueryItem(dataPasser, queryObject, get(userStore).currentFilter);
 	};
 
 	async function createBarChart() {
@@ -604,106 +591,15 @@
 							};
 
 							if (requestedAbscissaKey === 'diagnosisDate') {
-								console.log('📌 ENTER DIAGNOSISDATE CLICK');
-
-								let minDate: number | null = null;
-								let maxDate: number | null = null;
-
-								if (/^\d{4}$/.test(category)) {
-									// 🟢 Jahr (z. B. "2015")
-									minDate = new Date(parseInt(category), 0, 1, 0, 0, 0).getTime();
-									maxDate = new Date(parseInt(category), 11, 31, 23, 59, 59).getTime();
-								} else if (/^\d{4}-Q[1-4]$/.test(category)) {
-									// 🟢 Quartal erkannt, z. B. "2022-Q1"
-									const [year, quarter] = category.split('-Q');
-									const quarterMap = {
-										'1': { start: [0, 1], end: [2, 31] }, // Januar - März
-										'2': { start: [3, 1], end: [5, 30] }, // April - Juni
-										'3': { start: [6, 1], end: [8, 30] }, // Juli - September
-										'4': { start: [9, 1], end: [11, 31] } // Oktober - Dezember
-									};
-
-									if (quarterMap[quarter]) {
-										minDate = new Date(
-											parseInt(year),
-											quarterMap[quarter].start[0],
-											quarterMap[quarter].start[1],
-											0,
-											0,
-											0
-										).getTime();
-										maxDate = new Date(
-											parseInt(year),
-											quarterMap[quarter].end[0],
-											quarterMap[quarter].end[1],
-											23,
-											59,
-											59
-										).getTime();
-									}
-								} else if (/^\d{4}-\d{2}$/.test(category)) {
-									// 🟢 Monat erkannt, z. B. "2023-07"
-									const [year, month] = category.split('-');
-									const parsedMonth = parseInt(month) - 1; // JS-Monate sind 0-basiert (Januar = 0)
-
-									minDate = new Date(parseInt(year), parsedMonth, 1, 0, 0, 0).getTime();
-									maxDate = new Date(parseInt(year), parsedMonth + 1, 0, 23, 59, 59).getTime();
-								} else if (/^\d{4}-W\d{2}$/.test(category)) {
-									// ✅ Woche (z. B. "2023-W52")
-									console.log('🟢 Woche erkannt:', category);
-									const [year, week] = category.split('-W');
-									const firstThursday = new Date(parseInt(year), 0, 4); // 4. Januar als Anker für KW1
-									const firstWeekday = firstThursday.getDay(); // Wochentag ermitteln
-
-									// Montag der ersten KW berechnen
-									const firstMonday = new Date(firstThursday);
-									firstMonday.setDate(firstThursday.getDate() - firstWeekday + 1);
-
-									// Start der gewählten Woche berechnen
-									minDate = new Date(firstMonday);
-									minDate.setDate(minDate.getDate() + (parseInt(week) - 1) * 7);
-									minDate.setHours(0, 0, 0, 0);
-
-									// Ende der gewählten Woche berechnen (Sonntag)
-									maxDate = new Date(minDate);
-									maxDate.setDate(maxDate.getDate() + 6);
-									maxDate.setHours(23, 59, 59, 999);
-								}
-
-								// 🔥 DEBUGGING: Prüfen, ob beide Werte korrekt gesetzt sind
-								console.log(`✅ minDate: ${minDate}, maxDate: ${maxDate}`);
-
-								// ❌ Falls minDate oder maxDate nicht gesetzt sind → Fehler ausgeben
-								if (!minDate || isNaN(minDate) || !maxDate || isNaN(maxDate)) {
-									console.error('❌ FEHLER: minDate oder maxDate ist NaN!', {
-										category,
-										minDate,
-										maxDate
-									});
-									return;
-								}
-
-								// **🟢 Datum in MM.TT.YYYY formatieren**
-								const formatDate = (timestamp: number) => {
-									const date = new Date(timestamp);
-									return `${(date.getMonth() + 1).toString().padStart(2, '0')}.${date
-										.getDate()
-										.toString()
-										.padStart(2, '0')}.${date.getFullYear()}`;
-								};
-
-								const lowerDate = formatDate(minDate);
-								const upperDate = formatDate(maxDate);
-
-								console.log(`🟢 Diagnosis Date Query: VON ${lowerDate} BIS ${upperDate}`);
-
-								dataPasser.addStratifierToQueryAPI({
-									label: `${lowerDate} - ${upperDate}`,
-									catalogueGroupCode: 'diagnosisDate',
-									parentGroupCode: 'diagnosis'
+								const range = getDiagnosisChartDateRange(category);
+								if (!range) return;
+								addItem({
+									...queryItem3,
+									type: 'BETWEEN',
+									values: [{ name: category, value: range, queryBindId: '-' }]
 								});
-
-								console.log('🟢 DiagnosisDate erfolgreich hinzugefügt.');
+							} else {
+								addItem(queryItem3);
 							}
 						} else {
 							console.log('No bar clicked');

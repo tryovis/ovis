@@ -4,6 +4,7 @@
 	"description": "an graphQl server for mongo",
 	"main": "index.js",
 	"scripts": {
+		"test:security": "node --test accessControl.test.js",
 		"test": "echo \"Error: no test specified\" && exit 1",
 		"test:ast": "node --test astUtils.test.js astTranslator.test.js resolver/studyPatientTable.test.js runtimeIndexes.test.js differential/referenceEvaluator.test.mjs",
 		"test:ast-reference": "node --test differential/referenceEvaluator.test.mjs",
@@ -22,9 +23,14 @@
 		"prettier": "^2.8.8"
 	},
 	"dependencies": {
-		"@apollo/server": "^4.7.1",
-		"express": "^4.17.1",
-		"graphql": "^16.6.0",
+		"@apollo/server": "^5.5.1",
+		"@as-integrations/express4": "^1.1.2",
+		"cors": "^2.8.6",
+		"express": "^4.22.3",
+		"graphql": "^16.14.2",
 		"mongodb": "^6.2.0"
+	},
+	"engines": {
+		"node": ">=20"
 	}
 }

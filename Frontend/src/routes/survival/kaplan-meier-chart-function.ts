@@ -1,3 +1,4 @@
+import { escapeHtml } from '../../lib/escape-html';
 import * as d3 from 'd3';
 
 export type KmI18n = {
@@ -566,7 +567,7 @@ export function dsurv(
 			);
 		}
 
-		return lines.join('<br>');
+		return lines.map(escapeHtml).join('<br>');
 	};
 
 	// Zeichne das obere Konfidenzintervall

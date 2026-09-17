@@ -2,6 +2,7 @@
     import { userStore } from '../../store/userStore';
     import { updateUser } from '../../graphQl/gql-userManagement';
     import { onMount } from 'svelte';
+    import { escapeHtml } from '$lib/escape-html';
 
     let currentUser = "";
     let darkMode: boolean;
@@ -27,7 +28,7 @@
                             <div>
                                 <div style="display: flex; align-items: center; gap: 6px; font-size: 12px; white-space: nowrap;">
                                     <div style="width: 100px; font-weight: bold; overflow: hidden; text-overflow: ellipsis;">
-                                        ${orNode.children[0]?.key || "Unknown"}
+                                        ${escapeHtml(orNode.children[0]?.key || "Unknown")}
                                     </div>
                                     <div style="width: 20px; text-align: center;">→</div>
                                     <div style="width: 120px; overflow: hidden; text-overflow: ellipsis;">
@@ -65,7 +66,8 @@
     }
 
     function truncateValue(value) {
-        return value.length > 10 ? value.slice(0, 10) + "..." : value;
+        const text = String(value ?? '');
+        return escapeHtml(text.length > 10 ? text.slice(0, 10) + "..." : text);
     }
 </script>
 

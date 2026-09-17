@@ -20,6 +20,7 @@
 	import type { AggregatedValue } from '../types/query';
 	import { trackUsageEvent } from '$lib/usage-tracking';
 	import { createPointerTooltipStyle } from '$lib/tooltip-popover';
+	import { addChartQueryItem } from '../tableFilterItems';
 
 	let filterActive = true;
 
@@ -715,11 +716,7 @@
 	};
 
 	const addItem = (queryObject: QueryItem): void => {
-		dataPasser.addStratifierToQueryAPI({
-			label: queryObject.values[0].value,
-			catalogueGroupCode: queryObject.key,
-			parentGroupCode: queryObject.system
-		});
+		addChartQueryItem(dataPasser, queryObject, get(userStore).currentFilter);
 	};
 
 	async function handleClick(label: string, description: string) {

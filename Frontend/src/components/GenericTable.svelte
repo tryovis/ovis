@@ -8,7 +8,11 @@
 	import { addUserFilter } from '../components/UserFilter';
 	import { t, locale, locales } from '../store/languageStore';
 	import { buildTableHeaders, filterColumnsForImportMode } from '../tableColumnVariants';
-	import { calculateTableShownRowsForContainer, getTablePanel } from '../tableRows';
+	import {
+		calculateTableShownRowsForContainer,
+		getTablePanel,
+		getTablePanelBottom
+	} from '../tableRows';
 	import {
 		fetchAllTableRows,
 		fetchTableRows,
@@ -69,7 +73,7 @@
 	}
 
 	function fitTableToContainer() {
-		if (!tableContainer) return;
+		if (destroyed || !tableContainer?.isConnected) return;
 
 		const table = tableContainer.querySelector('table');
 		if (!table) return;
@@ -100,6 +104,7 @@
 	}
 
 	function scheduleTableFit() {
+		if (destroyed) return;
 		if (tableFitFrame != null) cancelAnimationFrame(tableFitFrame);
 		tableFitFrame = requestAnimationFrame(() => {
 			tableFitFrame = requestAnimationFrame(fitTableToContainer);
@@ -108,15 +113,11 @@
 
 	function handleMaximized(event: any) {
 		maxStoreValue = event.detail.headlineMaximize;
-		maximize();
-		setTimeout(scheduleTableFit, 0);
+		dispatch('maximized', { maxStoreValue, headlineMaximize: maxStoreValue });
+		tick().then(scheduleTableFit);
 	}
 
 	const dispatch = createEventDispatcher();
-	function maximize() {
-		maxStoreValue = !maxStoreValue;
-		dispatch('maximized', { maxStoreValue });
-	}
 
 	$: headers = buildTableHeaders(columns);
 	$: exportFields = ['_id', ...columns.map((column: { data?: string }) => column.data ?? '')];
@@ -137,7 +138,8 @@
 		const tableBody = tableContainer.querySelector('tbody');
 		if (!tablePanel || !tableBody) return undefined;
 
-		const panelRect = tablePanel.getBoundingClientRect();
+		const panelBottom = getTablePanelBottom(tableContainer, maxStoreValue);
+		if (panelBottom == null) return undefined;
 		const bodyRect = tableBody.getBoundingClientRect();
 		const controls = Array.from(
 			tableContainer.querySelectorAll<HTMLElement>('.dataTables_info, .dataTables_paginate')
@@ -155,7 +157,7 @@
 			tableContainer.offsetHeight - tableContainer.clientHeight
 		);
 		const availableRowsHeight =
-			panelRect.bottom -
+			panelBottom -
 			panelPaddingBottom -
 			bodyRect.top -
 			controlsHeight -
@@ -166,12 +168,16 @@
 	}
 
 	function calculateCurrentTableShownRows(rowHeight = 32): number {
+		// A hidden sibling panel has no capacity to measure. Keep its existing
+		// page size until it is visible again instead of loading a one-row page.
+		if (!tableContainer?.clientWidth) return tableShownRows || 10;
 		const measuredMobileRows = calculateMobileShownRows(rowHeight);
 		const rowLimit =
 			maxStoreValue || usesMobileLandscapeLayout() ? tableShownRowsMax : tableShownRowsNormalMax;
 		return Math.min(
 			rowLimit,
-			measuredMobileRows ?? calculateTableShownRowsForContainer(tableContainer, 10, rowHeight)
+			measuredMobileRows ??
+				calculateTableShownRowsForContainer(tableContainer, 10, rowHeight, maxStoreValue)
 		);
 	}
 
@@ -314,6 +320,8 @@
 		if (tablePanel && typeof ResizeObserver !== 'undefined') {
 			resizeObserver = new ResizeObserver(scheduleTableFit);
 			resizeObserver.observe(tablePanel);
+			const content = tablePanel.closest('.content-view');
+			if (content) resizeObserver.observe(content);
 		}
 	});
 

@@ -1,11 +1,15 @@
 import { json } from '@sveltejs/kit';
+import type { RequestHandler } from '@sveltejs/kit';
+import { requireBackendSession } from '$lib/server/backend-auth';
 
 const UPSTREAM =
 	process.env.OVIS_CATALOGUE_UPSTREAM_URL ||
 	process.env.CATALOGUE_UPSTREAM_URL ||
 	'http://ovis-backend-mongodb-data-preprocessing:9000';
 
-export async function GET() {
+export const GET: RequestHandler = async ({ request }) => {
+	const denied = await requireBackendSession(request);
+	if (denied) return denied;
 	try {
 		const response = await fetch(`${UPSTREAM}/health`, {
 			headers: { accept: 'application/json' }
@@ -30,4 +34,4 @@ export async function GET() {
 			{ status: 503 }
 		);
 	}
-}
+};

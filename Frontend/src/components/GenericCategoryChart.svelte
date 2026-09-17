@@ -16,7 +16,7 @@
 	import { t } from '../store/languageStore';
 	import { reloadOnly } from '../store/reloadStore';
 	import { userStore } from '../store/userStore';
-	import { appendQueryItemToFirstGroup } from '../tableFilterItems';
+	import { addChartQueryItem } from '../tableFilterItems';
 
 	const emptyIcon = iconPath('null-off.svg');
 	type LegendPosition = 'top' | 'left' | 'bottom' | 'right' | 'center' | 'chartArea';
@@ -267,15 +267,18 @@
 	}
 
 	function addItem(key: string, type: string, value: string | null): void {
-		const nextQuery = appendQueryItemToFirstGroup(dataPasser.getQueryAPI(), {
-			id: '-',
-			key,
-			name: `${collection}:${key}:${type}`,
-			type,
-			system: collection,
-			values: [{ name: String(value ?? ''), value, queryBindId: '-' }]
-		});
-		dataPasser.setQueryStoreAPI(nextQuery as Parameters<LensDataPasser['setQueryStoreAPI']>[0]);
+		addChartQueryItem(
+			dataPasser,
+			{
+				id: '-',
+				key,
+				name: `${collection}:${key}:${type}`,
+				type,
+				system: collection,
+				values: [{ name: String(value ?? ''), value, queryBindId: '-' }]
+			},
+			get(userStore).currentFilter
+		);
 	}
 
 	function handleMaximized(event: { detail: { headlineMaximize: boolean } }) {

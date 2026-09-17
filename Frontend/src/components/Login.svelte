@@ -5,7 +5,6 @@
 	import { getUser } from '../graphQl/gql-userManagement';
 	import { userStore } from '../store/userStore';
 	import { login } from '../keyCloakHandlers/authentication.js';
-	import { getUserInfo } from '../keyCloakHandlers/userManagement.js';
 	import { tokenService } from '../services/tokenService.js';
 	import { publicAssetPath } from '$lib/path-utils';
 	import { env } from '$env/dynamic/public';
@@ -67,15 +66,9 @@
 	});
 
 	async function autoLogin() {
-		console.log('AUTO LOGIN');
 		try {
-			const users = await getUser(null, 100);
-			const defaultUser = users.find((u: any) => u._id === 'ovis-root') || users[0];
-
-			if (!defaultUser) {
-				console.error('Default user not found and no users available');
-				return;
-			}
+			// Anonymous demo access never assumes a database administrator identity.
+			const defaultUser = { _id: '', role: 'demo', userFilter: [], darkMode: false, pseudonymization: true, language: $platformConfigStore.systemLanguage };
 
 			const chartPreferences = resolveChartDisplayPreferences(defaultUser);
 			const userAppearance = resolveUserAppearance(defaultUser, $platformConfigStore);
@@ -109,16 +102,7 @@
 				refresh_token: string;
 				expires_in: number;
 			};
-			console.log('Keycloak Authentication Result:', authResult);
-
-			try {
-				const keycloakUserInfo = await getUserInfo(authResult.access_token);
-				console.log('Keycloak User Info:', keycloakUserInfo);
-			} catch (userInfoError) {
-				console.error('Error fetching Keycloak user info:', userInfoError);
-			}
-
-			const users = await getUser(null, 100);
+			const users = await getUser(null, 100, authResult.access_token);
 			const matchingUser = users.find((u: any) => u._id === username);
 
 			if (!matchingUser) {
@@ -175,11 +159,11 @@
 	}
 
 	function handleChangePasswordClick() {
-		console.log('Change Password button clicked');
-		console.log('Username:', username);
-		console.log('Old Password:', oldPassword);
-		console.log('New Password:', newPassword);
-		console.log('Confirm New Password:', confirmNewPassword);
+		oldPassword = '';
+		newPassword = '';
+		confirmNewPassword = '';
+		showChangePassword = false;
+		showContactInfo = true;
 	}
 
 	function handleKeyboardAction(event: KeyboardEvent, action: () => void) {

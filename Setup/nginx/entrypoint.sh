@@ -78,6 +78,9 @@ server {
         proxy_temp_file_write_size 128k;
     }
 
+    # Generated catalogues are served only by the authenticated API.
+    location ~ /ovis-catalogue[.]json$ { return 404; }
+
     location / {
         proxy_pass http://${NGINX_FRONTEND_UPSTREAM};
         proxy_set_header Host \$host;
@@ -125,6 +128,9 @@ location /express/ {
     proxy_busy_buffers_size 128k;
     proxy_temp_file_write_size 128k;
 }
+
+# Also blocks catalogues below a configured public base path.
+location ~ /ovis-catalogue[.]json$ { return 404; }
 
 location / {
     proxy_pass http://${NGINX_FRONTEND_UPSTREAM};

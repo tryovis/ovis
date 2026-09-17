@@ -3,6 +3,7 @@
 	import { Chart, registerables } from 'chart.js';
 	import type { ChartConfiguration } from 'chart.js';
 	import { onDestroy, onMount, tick } from 'svelte';
+	import { get } from 'svelte/store';
 	import annotationPlugin from 'chartjs-plugin-annotation';
 	import noUiSlider from 'nouislider';
 	import type { LensDataPasser } from '@samply/lens';
@@ -16,6 +17,7 @@
 	import { maxStore } from '../../store/maxStore';
 	import { reloadOnly } from '../../store/reloadStore';
 	import { userStore } from '../../store/userStore';
+	import { addChartQueryItem } from '../../tableFilterItems';
 	import { buildStudyChartRows, createStudyShortnameQueryItem } from './studyPatientChartModel.js';
 	import '../../nouislider.css';
 
@@ -174,11 +176,7 @@
 	}
 
 	const addItem = (queryObject): void => {
-		dataPasser.addStratifierToQueryAPI({
-			label: queryObject.values[0].value,
-			catalogueGroupCode: queryObject.key,
-			parentGroupCode: queryObject.system
-		});
+		addChartQueryItem(dataPasser, queryObject, get(userStore).currentFilter);
 	};
 
 	function handleLogarithmToggled(event: { detail: { headlineInitialLogarithm: boolean } }) {

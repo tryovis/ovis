@@ -5,7 +5,7 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "node --test",
     "start": "node src/index.js",
     "dev": "nodemon src/index.js",
     "format": "prettier --config ../../../.prettierrc.cjs --ignore-path ../../../.prettierignore --write \"src/**/*.{js,mjs}\"",
@@ -20,7 +20,6 @@
   "dependencies": {
     "cors": "^2.8.5",
     "dotenv": "^16.4.1",
-    "express": "^4.19.2",
-    "nodemailer": "^6.10.0"
+    "express": "^4.19.2"
   }
 }

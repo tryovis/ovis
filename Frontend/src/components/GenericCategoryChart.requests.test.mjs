@@ -102,7 +102,7 @@ function createHarness(fetchCategory, options = {}) {
 		userStore: store({ colorPalette: ['#008000'] }),
 		t: store((key) => (key === 'other' ? 'Other' : key)),
 		reloadOnly: () => {},
-		appendQueryItemToFirstGroup: (_query, filter) => {
+		addChartQueryItem: (_dataPasser, filter) => {
 			filters.push(filter);
 			return {};
 		},

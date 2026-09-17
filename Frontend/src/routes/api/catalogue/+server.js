@@ -1,11 +1,15 @@
 import fs from 'node:fs';
 import { json } from '@sveltejs/kit';
+import { getBackendSession } from '$lib/server/backend-auth';
+import { protectCatalogue, catalogueRevision } from '$lib/server/catalogue-access';
 
 function getErrorMessage(error) {
 	return error instanceof Error ? error.message : String(error);
 }
 
-export async function GET() {
+export async function GET({ request }) {
+	const session = await getBackendSession(request);
+	if (session instanceof Response) return session;
 	const dynamicPath = '/app/dynamic-catalogue/ovis-catalogue.json';
 	// Internal Docker service communication - hardcoded for simplicity
 	// Override via OVIS_CATALOGUE_UPSTREAM_URL only for unusual deployments
@@ -24,6 +28,7 @@ export async function GET() {
 		if (fs.existsSync(dynamicPath)) {
 			const stats = fs.statSync(dynamicPath);
 			const data = fs.readFileSync(dynamicPath, 'utf-8');
+			const revision = catalogueRevision(stats.mtime.getTime(), session);
 
 			console.log(
 				`Serving dynamic catalogue - Size: ${stats.size} bytes, Modified: ${stats.mtime}`
@@ -33,13 +38,14 @@ export async function GET() {
 				{
 					source: 'dynamic',
 					timestamp: stats.mtime.getTime(),
+					revision,
 					size: stats.size,
-					data: JSON.parse(data)
+					data: protectCatalogue(JSON.parse(data), session)
 				},
 				{
 					headers: {
 						...noCacheHeaders,
-						ETag: `"${stats.mtime.getTime()}-${stats.size}"`
+						ETag: `"${revision}-${stats.size}"`
 					}
 				}
 			);
@@ -59,13 +65,14 @@ export async function GET() {
 
 			// If upstream already returns the same wrapper shape, forward it.
 			if (parsed && typeof parsed === 'object' && parsed.data && parsed.timestamp) {
+				const revision = catalogueRevision(parsed.timestamp, session);
 				return json(
-					{ ...parsed, source: parsed.source ?? 'upstream' },
+					{ ...parsed, revision, data: protectCatalogue(parsed.data, session), source: parsed.source ?? 'upstream' },
 					{
 						headers: {
 							...noCacheHeaders,
 							...(parsed.timestamp && parsed.size
-								? { ETag: `"${parsed.timestamp}-${parsed.size}"` }
+								? { ETag: `"${revision}-${parsed.size}"` }
 								: {})
 						}
 					}
@@ -75,6 +82,7 @@ export async function GET() {
 			// Otherwise, treat upstream response as raw catalogue JSON array/object.
 			const lastModified = res.headers.get('last-modified');
 			const timestamp = lastModified ? new Date(lastModified).getTime() : Date.now();
+			const revision = catalogueRevision(timestamp, session);
 
 			console.log(
 				`Serving upstream catalogue from ${upstreamUrl} - Size: ${size} bytes, Modified: ${new Date(
@@ -86,13 +94,14 @@ export async function GET() {
 				{
 					source: 'upstream',
 					timestamp,
+					revision,
 					size,
-					data: parsed
+					data: protectCatalogue(parsed, session)
 				},
 				{
 					headers: {
 						...noCacheHeaders,
-						ETag: `"${timestamp}-${size}"`
+						ETag: `"${revision}-${size}"`
 					}
 				}
 			);

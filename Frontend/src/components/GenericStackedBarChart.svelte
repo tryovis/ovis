@@ -13,7 +13,8 @@
 	import { responsiveChartFontSize, responsiveLegendLabels } from '$lib/responsiveChartSizing';
 	import type { AggregatedValue } from '../types/query';
 	import ChartStatusLine from './ChartStatusLine.svelte';
-	import { appendQueryItemToFirstGroup } from '../tableFilterItems';
+	import { addChartQueryItem } from '../tableFilterItems';
+	import { get } from 'svelte/store';
 
 	type Complication = {
 		category: (string | null | undefined)[];
@@ -345,14 +346,7 @@
 		};
 
 		const addItem = (queryObject: QueryItem): void => {
-			const system = queryObject.system ?? '';
-			dataPasser.setQueryStoreAPI(
-				appendQueryItemToFirstGroup(dataPasser.getQueryAPI(), {
-					...queryObject,
-					system,
-					name: `${system}:${queryObject.key}:${queryObject.type}`
-				})
-			);
+			addChartQueryItem(dataPasser, queryObject, get(userStore).currentFilter);
 		};
 
 		const originalLabels = [...tmpInputArray.category];
@@ -448,7 +442,7 @@
 									id: 'Random generierte UUID',
 									key: '!' + status,
 									name: 'childCategorie.name',
-									type: 'EQUALS',
+									type: 'NEQUALS',
 									system: collection,
 									values: [
 										{

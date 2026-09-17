@@ -87,7 +87,7 @@ test('preprocessor local imports stay inside Docker preprocessor image copy surf
 		.filter(({ absolutePath }) => absolutePath.startsWith(repositoryRoot))
 		.map(({ specifier, absolutePath }) => ({
 			specifier,
-			relativeToMongoRoot: path.relative(mongoRoot, absolutePath)
+			relativeToMongoRoot: path.relative(mongoRoot, absolutePath).split(path.sep).join('/')
 		}))
 		.filter(
 			({ relativeToMongoRoot }) =>

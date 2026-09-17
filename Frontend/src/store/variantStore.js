@@ -10,7 +10,7 @@ const normalizedImportMode = PUBLIC_IMPORT_MODE?.trim().toLowerCase() || 'ovis';
 // Convert string env variables to boolean with safe defaults
 // Handle edge cases where env variables might be undefined, null, or empty
 const isCCP = normalizedImportMode === 'ccp';
-const loginEnabled = PUBLIC_LOGIN_ENABLED && PUBLIC_LOGIN_ENABLED.trim().toLowerCase() === 'true';
+const loginEnabled = !(normalizedImportMode === 'demo' && PUBLIC_LOGIN_ENABLED?.trim().toLowerCase() === 'false');
 
 export const variantStore = writable({
 	importMode: normalizedImportMode,

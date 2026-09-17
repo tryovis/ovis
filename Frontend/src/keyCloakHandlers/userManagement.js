@@ -1,3 +1,4 @@
+import { authenticatedFetch } from '../lib/request-auth';
 // @ts-check
 /**
  * @typedef {Object} UserData
@@ -23,28 +24,8 @@
  * @property {Object} [customAttributes]
  */
 
-// Access environment variables using import.meta.env in SvelteKit
-const VITE_EXPRESS_BASEURL = import.meta.env.VITE_EXPRESS_BASEURL;
-const VITE_EXPRESS_USERNAME = import.meta.env.VITE_EXPRESS_USERNAME;
-const VITE_EXPRESS_PASSWORT = import.meta.env.VITE_EXPRESS_PASSWORT;
-
-if (!VITE_EXPRESS_BASEURL || !VITE_EXPRESS_USERNAME || !VITE_EXPRESS_PASSWORT) {
-  throw new Error('Missing required environment variables: VITE_EXPRESS_BASEURL, VITE_EXPRESS_USERNAME, VITE_EXPRESS_PASSWORT');
-}
-
-// Base URL and Bearer token from environment variables
-const BASE_URL = VITE_EXPRESS_BASEURL.replace(/\/+$/, '');
-
-// Use Buffer if available (Node.js), otherwise use btoa (browser)
-/** @type {string} */
-let BEARER_TOKEN;
-// @ts-ignore - Buffer may not be available in browser
-if (typeof Buffer !== 'undefined') {
-  // @ts-ignore
-  BEARER_TOKEN = Buffer.from(`${VITE_EXPRESS_USERNAME}:${VITE_EXPRESS_PASSWORT}`).toString('base64');
-} else {
-  BEARER_TOKEN = btoa(`${VITE_EXPRESS_USERNAME}:${VITE_EXPRESS_PASSWORT}`);
-}
+// Only the public service URL is included in browser code.
+const BASE_URL = (import.meta.env.VITE_EXPRESS_BASEURL || '/express').replace(/\/+$/, '');
 
 /**
  * Specific exceptions for authentication and HTTP errors.
@@ -114,8 +95,7 @@ export async function getUserInfo(accessToken) {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Accept': 'application/json',
-      'Authorization': `Bearer ${BEARER_TOKEN}`
+      'Accept': 'application/json'
     },
     body: JSON.stringify({ token: accessToken })
   });
@@ -145,12 +125,11 @@ export async function getUserInfo(accessToken) {
  */
 export async function updateUserAttributes(email, attributes) {
   const url = `${BASE_URL}/api/keycloak/user/${encodeURIComponent(email)}`;
-  const response = await fetch(url, {
+  const response = await authenticatedFetch(url, {
     method: 'PUT',
     headers: {
       'Content-Type': 'application/json',
-      'Accept': 'application/json',
-      'Authorization': `Bearer ${BEARER_TOKEN}`
+      'Accept': 'application/json'
     },
     body: JSON.stringify({ attributes })
   });
@@ -178,12 +157,11 @@ export async function updateUserAttributes(email, attributes) {
  */
 export async function createUser(userData) {
   const url = `${BASE_URL}/api/keycloak/createuser`;
-  const response = await fetch(url, {
+  const response = await authenticatedFetch(url, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Accept': 'application/json',
-      'Authorization': `Bearer ${BEARER_TOKEN}`
+      'Accept': 'application/json'
     },
     body: JSON.stringify(userData)
   });

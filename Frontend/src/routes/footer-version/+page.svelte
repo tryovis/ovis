@@ -15,6 +15,24 @@
 
   let entries: Entry[] = [
           {
+            id: "v1.4.0",
+            version: "1.4.0",
+            date: "16.09.2026",
+            title: "Filtering, Studies and Usability",
+            changes: [
+              "Filtering: restored reliable selections from charts, body maps, tables and quick selections, including more specific selections within assigned patient groups",
+              "Filter combinations: corrected patient, tumour and treatment results for combined conditions and exclusions, including multiple values, date and number ranges, and missing values; selected calendar dates are preserved and invalid dates no longer produce misleading ages",
+              "Filter editing: reduced loading work for large selections, improved input validation and preserved conditions when editing, importing, removing values or using undo/redo",
+              "Studies: restored charts, improved loading and German/English labels, and corrected participant lists and counts for the selected patient group and recruitment period",
+              "Charts and tables: category charts now show clearer loading, empty-result and error messages with retry; maximized tables keep their rows and use the available space",
+              "Cox documentation: improved the methodology page layout and scrolling within its panel",
+              "Administrators: the user list now shows all accounts on one page; assigned-filter edits wait for a confirmed save, retain entries on failure and record the acting user",
+              "Access: assigned patient groups are respected in patient details, timelines and studies without appearing as removable personal filters; anonymous demo visitors no longer receive administrator privileges",
+              "Update note for administrators: date and age corrections for existing records take effect after a normal source data reimport"
+            ],
+            expanded: true
+          },
+          {
             id: "v1.3.0",
             version: "1.3.0",
             date: "04.09.2026",
@@ -34,7 +52,7 @@
               "Improved information tooltips so they stay within the viewport and their documentation links remain clickable",
               "Fixed missing tumour, histology, TNM, status and survival data after a fresh import; reprocessing fills empty collections without duplicating existing records"
             ],
-            expanded: true
+            expanded: false
           },
           {
             id: "v1.2.0",

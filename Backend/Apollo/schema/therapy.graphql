@@ -1,7 +1,7 @@
 module.exports = `
     extend type Query {
         getAllTherapies(limit: Int, continueFromID: String, filter: String, offset: Int, sortField: String, sortDirection: String, columnFilters: [TableColumnFilter!]): [Therapy]
-        getTherapyGroupedByKey(groupedBy: Groupe!): [genericCount]
+        getTherapyGroupedByKey(groupedBy: Groupe!, filter: String): [genericCount]
         getTypeOfTherapyCountOverTimeScale: [GroupedTherapyTypeWithTimeScale]
         getTherapyOperationOPSTable(filter: String): OPSTable
         getTherapySystemicSubstanceTable(filter: String): [substanceCount]
@@ -179,4 +179,4 @@ module.exports = `
         count: Int
         text: String
     }
-`
+`;

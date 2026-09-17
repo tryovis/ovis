@@ -8,6 +8,8 @@
 	import { certificationCases, type QueryConfig } from '../../config/quicktools';
 	import { iconPath } from '$lib/path-utils';
 	import type { AggregatedValue } from '../../types/query';
+	import { userStore } from '../../store/userStore';
+	import { addChartQueryItem } from '../../tableFilterItems';
 
 	// Reactive translation function
 	const translate = (key: string): string => get(t)(key);
@@ -37,11 +39,7 @@
 
 	const addItem = (queryObject: QueryItem): void => {
 		console.log('ADD ITEM', queryObject);
-		dataPasser.addStratifierToQueryAPI({
-			label: queryObject.values[0].value,
-			catalogueGroupCode: queryObject.key,
-			parentGroupCode: queryObject.system
-		});
+		addChartQueryItem(dataPasser, queryObject, get(userStore).currentFilter);
 		console.log('Query API nach Hinzufügen:', dataPasser.getQueryAPI());
 	};
 

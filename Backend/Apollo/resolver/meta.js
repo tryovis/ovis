@@ -20,8 +20,16 @@ module.exports = {
 		},
 
 		// --- bestehend ---
-		getValueOptions: (_parent, { field, collection }, context) =>
-			context.db.collection(collection).distinct(field),
+		getValueOptions: async (_parent, { field, collection, filter }, context) => {
+			if (!filter) return context.db.collection(collection).distinct(field);
+			const { filter2match } = require('../astTranslator');
+			const stages = await filter2match({ value: filter, column: collection, db: context.db });
+			const values = await context.db
+				.collection(collection)
+				.aggregate([...stages, { $unwind: `$${field}` }, { $group: { _id: `$${field}` } }])
+				.toArray();
+			return values.map((value) => value._id).filter((value) => value != null);
+		},
 
 		// --- NEU: nur der letzte MetaData-Eintrag ---
 		getLastMetaData: async (_parent, _args, context) => {

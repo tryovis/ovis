@@ -53,7 +53,7 @@ function exactOne(clauses) {
 }
 
 function combineLogicalClauses(operand, clauses) {
-	if (clauses.length === 1) return clauses[0];
+	if (clauses.length === 1 && operand !== 'NOR') return clauses[0];
 	switch (operand) {
 		case 'AND':
 			return clauses.length === 0 ? {} : { $and: clauses };

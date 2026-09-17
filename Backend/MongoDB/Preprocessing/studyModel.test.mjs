@@ -1,7 +1,67 @@
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import test from 'node:test';
 
 import { materializeStudyCollections, shouldRebuildStudyCollections } from './studyModel.mjs';
+import { normalizeStudyDate } from './clinicalDates.mjs';
+
+test('importer study dates preserve ISO fractional seconds and reject invalid calendar days', () => {
+	const input = [
+		{
+			studyID: 'DATE-REGRESSION',
+			start: '1.2.2024',
+			firstPatInPlanned: '2024-03-01T00:00:00.000Z',
+			studyPatients: [
+				{ patID: 'P1', recruitmentDate: '2024-03-01T00:30:00.123+01:00' },
+				{ patID: 'P2', recruitmentDate: '1.7.2024' },
+				{ patID: 'P3', recruitmentDate: '00.00.0000' },
+				{ patID: 'P4', recruitmentDate: '2023-02-29' }
+			]
+		}
+	];
+	const before = structuredClone(input);
+	const result = materializeStudyCollections(input, {
+		normalizeStudyDate,
+		normalizeRecruitmentDate: normalizeStudyDate
+	});
+	assert.deepEqual(input, before);
+	assert.equal(result.studyDocuments[0].start.toISOString(), '2024-02-01T00:00:00.000Z');
+	assert.equal(
+		result.studyDocuments[0].firstPatInPlanned.toISOString(),
+		'2024-03-01T00:00:00.000Z'
+	);
+	assert.deepEqual(
+		result.studyPatientDocuments.map(
+			({ recruitmentDate }) => recruitmentDate?.toISOString() ?? null
+		),
+		['2024-02-29T23:30:00.123Z', '2024-07-01T00:00:00.000Z', null, null]
+	);
+});
+
+test('materialized German study and recruitment dates stay on their source day in both server timezones', () => {
+	const datesUrl = new URL('./clinicalDates.mjs', import.meta.url).href;
+	const modelUrl = new URL('./studyModel.mjs', import.meta.url).href;
+	const program = `
+		import {normalizeStudyDate} from ${JSON.stringify(datesUrl)};
+		import {materializeStudyCollections} from ${JSON.stringify(modelUrl)};
+		const result = materializeStudyCollections([{studyID:'TZ',start:'1.2.2024',firstPatInPlanned:'1.7.2024',
+			studyPatients:[{patID:'P',recruitmentDate:'2024-02-29T23:00:00.000Z'}]}],
+			{normalizeStudyDate,normalizeRecruitmentDate:normalizeStudyDate});
+		console.log(JSON.stringify([result.studyDocuments[0].start,result.studyDocuments[0].firstPatInPlanned,
+			result.studyPatientDocuments[0].recruitmentDate]));
+	`;
+	for (const TZ of ['UTC', 'Europe/Berlin']) {
+		const actual = execFileSync(process.execPath, ['--input-type=module', '-e', program], {
+			env: { ...process.env, TZ },
+			encoding: 'utf8'
+		});
+		assert.deepEqual(
+			JSON.parse(actual),
+			['2024-02-01T00:00:00.000Z', '2024-07-01T00:00:00.000Z', '2024-02-29T23:00:00.000Z'],
+			TZ
+		);
+	}
+});
 
 test('materializes study participants without changing the importer input shape', () => {
 	const input = [

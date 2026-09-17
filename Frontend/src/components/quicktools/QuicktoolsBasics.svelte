@@ -9,6 +9,9 @@
 	import { reloadOnly } from '../../store/reloadStore';
 	import { genderButtons, genderOtherExclusions } from '../../config/quicktools';
 	import { iconPath } from '$lib/path-utils';
+	import { get } from 'svelte/store';
+	import { userStore } from '../../store/userStore';
+	import { addChartQueryItem } from '../../tableFilterItems';
 
 	let dataPasser: LensDataPasser;
 
@@ -89,11 +92,7 @@
 			]
 		};
 
-		dataPasser.addStratifierToQueryAPI({
-			label: queryObject.values[0].value,
-			catalogueGroupCode: queryObject.key,
-			parentGroupCode: queryObject.system
-		});
+		addChartQueryItem(dataPasser, queryObject, get(userStore).currentFilter);
 		reloadOnly();
 	}
 
@@ -118,11 +117,7 @@
 			]
 		};
 
-		dataPasser.addStratifierToQueryAPI({
-			label: queryObject.values[0].value,
-			catalogueGroupCode: queryObject.key,
-			parentGroupCode: queryObject.system
-		});
+		addChartQueryItem(dataPasser, queryObject, get(userStore).currentFilter);
 		reloadOnly();
 	}
 
@@ -143,11 +138,7 @@
 			]
 		};
 
-		dataPasser.addStratifierToQueryAPI({
-			label: queryObject.values[0].value,
-			catalogueGroupCode: queryObject.key,
-			parentGroupCode: queryObject.system
-		});
+		addChartQueryItem(dataPasser, queryObject, get(userStore).currentFilter);
 		console.log(`Added gender: ${gender}`);
 		reloadOnly();
 	}
@@ -171,11 +162,7 @@
 				]
 			};
 
-			dataPasser.addStratifierToQueryAPI({
-				label: queryObject.values[0].value,
-				catalogueGroupCode: queryObject.key,
-				parentGroupCode: queryObject.system
-			});
+			addChartQueryItem(dataPasser, queryObject, get(userStore).currentFilter);
 		});
 		reloadOnly();
 	}

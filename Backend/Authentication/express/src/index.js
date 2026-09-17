@@ -24,9 +24,7 @@ const getConfiguredPublicOrigin = () => {
 
 		return publicUrl.origin;
 	} catch (error) {
-		throw new Error(
-			`Invalid OVIS_PUBLIC_ORIGIN "${configuredOrigin}": ${error.message}`
-		);
+		throw new Error(`Invalid OVIS_PUBLIC_ORIGIN "${configuredOrigin}": ${error.message}`);
 	}
 };
 
@@ -95,11 +93,11 @@ app.use(
 	})
 );
 
-app.use(express.json({ limit: '50mb', extended: true })); // Makes it possible to retrieve the body in a simple way and limits the post file size to 50 mb
+app.use(express.json({ limit: '64kb' }));
 
 // Logs the request what have been done in the terminal
 app.use((req, res, next) => {
-	console.log(req.path, req.method);
+	res.set('Cache-Control', 'no-store');
 	next();
 });
 

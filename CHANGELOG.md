@@ -4,27 +4,23 @@ All notable public changes to OVIS are documented here.
 
 This GitHub repository is the public open-source distribution of OVIS. Development happens in an internal GitLab repository, and public updates are published here after the source tree is sanitized for open-source release.
 
-## Unreleased
+## 1.4.0 - 2026-09-16
 
-### Added
+### Filtering, studies and usability
 
-- Added the public GitHub mirror publication workflow.
-- Added sanitized public mirror validation before publishing to GitHub.
-- Added support for publishing the GitHub mirror with a dedicated repository secret.
+- **Filter selection:** charts, body maps, tables and quick selections respond reliably, including more specific selections within assigned patient groups.
+- **Combined filters:** corrected patient, tumour and treatment results for combined conditions and exclusions, including multiple values, date and number ranges, and missing values. Selected calendar dates are preserved and invalid dates no longer produce misleading ages.
+- **Filter editing:** reduced loading work for large selections, improved input validation and preserved conditions when editing, importing, removing values or using undo/redo.
+- **Studies:** restored charts, improved loading and German/English labels, and corrected participant lists and counts for the selected patient group and recruitment period.
+- **Charts and tables:** category charts now show clearer loading, empty-result and error messages with retry. Maximized tables keep their rows and use the available space.
+- **Cox documentation:** improved the methodology page layout and scrolling within its panel.
 
-### Changed
+### For administrators
 
-- GitHub `main` is now published from sanitized GitLab `main` snapshots.
-- Public mirror commit titles now include the UTC snapshot date and sanitized top-level paths touched by each update, and commit bodies list created, modified, and deleted public files.
-- Public GitHub history is represented through this changelog and future GitHub releases rather than raw internal GitLab commits.
-- Simplified Docker configuration by fixing bundled service topology identifiers and internal Basic Auth credentials while retaining deployer-controlled secrets and external ports.
-- Made the standalone MongoDB image vendor-neutral and configurable through `OVIS_MONGODB_IMAGE`; the dedicated Bridgehead CCP image configuration remains unchanged.
+- **User management:** all accounts are visible on one page. Assigned-filter edits wait for a confirmed save, retain entries on failure and record the acting user.
+- **Access:** assigned patient groups are respected in patient details, timelines and studies without appearing as removable personal filters. Anonymous demo visitors no longer receive administrator privileges.
 
-### Notes for users
-
-- Use the GitHub repository as the public source for cloning, issues, and releases.
-- Accepted code changes are integrated through the internal development workflow and then mirrored back to GitHub.
-- User-facing changes should be added to this changelog before they are published.
+Date and age corrections for existing records take effect after a normal source data reimport.
 
 ## 1.3.0 - 2026-09-04
 

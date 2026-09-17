@@ -87,7 +87,7 @@ export async function POST(event: RequestEvent) {
 	const headers = buildUpstreamHeaders(event.request);
 
 	try {
-		const response = await fetch(UPSTREAM, {
+			const response = await fetch(UPSTREAM, {
 			method: 'POST',
 			headers,
 			body
@@ -99,7 +99,8 @@ export async function POST(event: RequestEvent) {
 			status: response.status,
 			statusText: response.statusText,
 			headers: {
-				'content-type': response.headers.get('content-type') || 'application/json'
+				'content-type': response.headers.get('content-type') || 'application/json',
+				'cache-control': 'no-store'
 			}
 		});
 	} catch (err) {

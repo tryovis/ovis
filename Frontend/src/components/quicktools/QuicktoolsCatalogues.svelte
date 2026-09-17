@@ -5,6 +5,9 @@
 	import type { LensDataPasser } from '@samply/lens';
 	import { reloadOnly } from '../../store/reloadStore';
 	import { iconPath } from '$lib/path-utils';
+	import { get } from 'svelte/store';
+	import { userStore } from '../../store/userStore';
+	import { addChartQueryItem } from '../../tableFilterItems';
 
 	const infoIcon = iconPath('info-outlined.svg');
 
@@ -125,11 +128,7 @@
 	const addItem = (queryObject: any): void => {
 		if (!lensReady || !dataPasser) return;
 		console.log('QUERY OBJECT TO ADD', queryObject);
-		dataPasser.addStratifierToQueryAPI({
-			label: queryObject.values[0].value,
-			catalogueGroupCode: queryObject.key,
-			parentGroupCode: queryObject.system
-		});
+		addChartQueryItem(dataPasser, queryObject, get(userStore).currentFilter);
 		console.log(dataPasser.getQueryAPI());
 	};
 
@@ -242,6 +241,7 @@
 	function selectDKH(id: string) {
 		if (!lensReady || !dataPasser) return;
 		const cat = DKH_CATEGORIES[id as string];
+		if (!cat) return;
 		selectedCatalog = { value: id as string, label: cat.label };
 
 		// ICDs hinzufügen (bei Uterus z.B. C54 ODER C55 => zwei Items)
@@ -256,8 +256,8 @@
 				system: 'diagnosis',
 				values: [{ name: cat.ageGroup, value: cat.ageGroup, queryBindId: '-' }]
 			});
-			reloadOnly();
 		}
+		reloadOnly();
 	}
 	// --------------------- ENDE: DKH Kategorien -----------------------
 </script>

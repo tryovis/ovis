@@ -14,6 +14,7 @@
 	import type { LensDataPasser } from '@samply/lens';
 	import { configStore } from '../../store/configStore'; // ConfigStore importieren
 	import { reloadOnly } from '../../store/reloadStore';
+	import { addChartQueryItem } from '../../tableFilterItems';
 	import { filterActiveStore } from '../../store/filterActiveStore.js';
 	import { addUserFilter } from '../../components/UserFilter';
 	import type { AggregatedValue } from '../../types/query';
@@ -177,14 +178,7 @@
 	};
 
 	const addItem = (queryObject: QueryItem): void => {
-		console.log('ADD ITEM', queryObject);
-		dataPasser.addStratifierToQueryAPI({
-			label: queryObject.values[0].value,
-			catalogueGroupCode: queryObject.key,
-			parentGroupCode: queryObject.system
-		});
-		console.log(dataPasser.getQueryAPI());
-		console.log('AFTER ADD ITEM');
+		addChartQueryItem(dataPasser, queryObject, get(userStore).currentFilter);
 	};
 
 	function createPieChart() {
@@ -245,8 +239,10 @@
 						if (elements.length > 0) {
 							const elementIndex = elements[0].index;
 
-							// Hole das Label des geklickten Kuchenstücks
-							const label = chartConfig.data.labels[elementIndex];
+							if (elementIndex < 0 || elementIndex >= inputArray.label.length) return;
+							// Use the source value, independently of translated display labels.
+							const label = inputArray.label[elementIndex];
+							const valueForQuery = label == null || String(label).trim().toLowerCase() === 'null' ? '-' : label;
 
 							const queryItem = {
 								id: 'Random generierte UUID', //uuidv4(),
@@ -257,7 +253,7 @@
 								values: [
 									{
 										name: 'test', //Anzeigename
-										value: label, // Hier verwenden wir das Label des geklickten Kuchenstücks
+										value: valueForQuery,
 										queryBindId: 'Auch eine random UUID' //Storebindung
 									}
 								]

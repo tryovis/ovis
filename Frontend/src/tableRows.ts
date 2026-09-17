@@ -27,14 +27,42 @@ export function getTablePanel(tableContainer: Element): HTMLElement | undefined 
 	return tablePanel instanceof HTMLElement ? tablePanel : undefined;
 }
 
+/** Maximized route panels have auto height. Their own bottom follows the current
+ * page length, so only the enclosing content area can provide a stable limit. */
+export function getTablePanelBottom(
+	tableContainer: Element,
+	maximized = false
+): number | undefined {
+	const panel = getTablePanel(tableContainer);
+	if (!panel) return undefined;
+	if (!maximized) return panel.getBoundingClientRect().bottom;
+	const content = panel.closest('.content-view');
+	if (!(content instanceof HTMLElement)) return undefined;
+	const contentStyle = getComputedStyle(content);
+	const panelStyle = getComputedStyle(panel);
+	return (
+		content.getBoundingClientRect().bottom -
+		(Number.parseFloat(contentStyle.paddingBottom) || 0) -
+		(Number.parseFloat(contentStyle.borderBottomWidth) || 0) -
+		(Number.parseFloat(panelStyle.marginBottom) || 0)
+	);
+}
+
 export function calculateTableShownRowsForContainer(
 	tableContainer: Element,
 	fallbackRows: number,
-	rowHeight = 32
+	rowHeight = 32,
+	maximized = false
 ): number {
 	const tablePanel = getTablePanel(tableContainer);
+	const bottom = getTablePanelBottom(tableContainer, maximized);
+	const panelHeight = maximized
+		? tablePanel && bottom != null
+			? Math.max(0, bottom - tablePanel.getBoundingClientRect().top)
+			: undefined
+		: tablePanel?.clientHeight;
 	return calculateTableShownRows({
-		panelHeight: tablePanel?.clientHeight,
+		panelHeight,
 		hasNavbar: tablePanel?.querySelector('.navbar') != null,
 		fallbackRows,
 		rowHeight

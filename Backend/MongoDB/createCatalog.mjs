@@ -27,7 +27,14 @@ try {
 	};
 
 	const invalidFields = { _id: 0 }; // Felder, die ignoriert werden sollen
-	const excludedCollections = ['user', 'ops']; // Collections, die ignoriert werden sollen (OPS kommt aus Modul)
+	// Never expose administrative data through the patient filter catalogue.
+	const excludedCollections = [
+		'user',
+		'usageEvent',
+		'platformConfiguration',
+		'platformDocument',
+		'ops'
+	];
 
 	let outputData = [];
 

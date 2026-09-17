@@ -1,221 +1,87 @@
-import { authenticateRequest } from '../component/getAuthentification.js';
+import { createHash } from 'node:crypto';
 import { getUserManagmentToken } from './authentificationController.js';
 
-// In-memory store for password reset codes
-const resetCodes = new Map();
-
-/**
- * Generates a random 6-digit code
- * @returns {string} 6-digit code
- */
-const generateVerificationCode = () => {
-	return Math.floor(100000 + Math.random() * 900000).toString();
+// Password proof, expiry and one-time consumption are handled by Keycloak itself.
+// This endpoint never returns a reset code, token or user-existence result.
+const requestedAccounts = new Map();
+const genericMessage = {
+	message: 'If the account can receive password recovery mail, a reset link will be sent.'
 };
 
-const userExistsInKeycloak = async (email) => {
-	const managementToken = await getUserManagmentToken();
+const createResetCode = async (req, res) => {
+	const email = req.body?.email;
+	if (
+		typeof email !== 'string' ||
+		email.length > 320 ||
+		!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+	) {
+		return res.status(400).json({ message: 'A valid email address is required' });
+	}
+	const normalizedEmail = email.trim().toLowerCase();
+	const key = createHash('sha256').update(normalizedEmail).digest('hex');
+	const now = Date.now();
+	for (const [account, expiry] of requestedAccounts) {
+		if (expiry <= now) requestedAccounts.delete(account);
+	}
+	if (requestedAccounts.has(key) || requestedAccounts.size >= 10000)
+		return res.status(202).json(genericMessage);
+	requestedAccounts.set(key, now + 60000);
+	// Respond before the lookup/mail request so response timing does not reveal account existence.
+	res.status(202).json(genericMessage);
 
-	const url = `${process.env.KEYCLOAK_URL}/admin/realms/${process.env.KEYCLOAK_REALM}/users?username=${email}`;
-
-	const response = await fetch(url, {
-		method: 'GET',
-		headers: {
+	try {
+		const managementToken = await getUserManagmentToken();
+		const realmUrl = `${process.env.KEYCLOAK_URL}/admin/realms/${process.env.KEYCLOAK_REALM}`;
+		const search = new URLSearchParams({ email: normalizedEmail, exact: 'true' });
+		const headers = {
 			Authorization: `Bearer ${managementToken}`,
 			'Content-Type': 'application/json'
+		};
+		const response = await fetch(`${realmUrl}/users?${search}`, {
+			headers,
+			redirect: 'error',
+			signal: AbortSignal.timeout(10000)
+		});
+		if (!response.ok) throw new Error('Recovery unavailable');
+		const users = await response.json();
+		const user =
+			Array.isArray(users) &&
+			users.find(
+				(candidate) =>
+					candidate.enabled !== false &&
+					typeof candidate.id === 'string' &&
+					typeof candidate.email === 'string' &&
+					candidate.email.toLowerCase() === normalizedEmail
+			);
+		if (user) {
+			const sent = await fetch(
+				`${realmUrl}/users/${encodeURIComponent(user.id)}/execute-actions-email?lifespan=900`,
+				{
+					method: 'PUT',
+					headers,
+					body: JSON.stringify(['UPDATE_PASSWORD']),
+					redirect: 'error',
+					signal: AbortSignal.timeout(10000)
+				}
+			);
+			if (!sent.ok) throw new Error('Recovery unavailable');
 		}
+	} catch {
+		// No email addresses, Keycloak response bodies, credentials or reset links in logs.
+		console.warn(
+			'Password recovery unavailable: check Keycloak SMTP and service-account permissions.'
+		);
+	}
+};
+
+const retiredResetEndpoint = (_req, res) =>
+	res.status(410).json({
+		message:
+			'Code-based password reset has been removed. Request a recovery email and follow its Keycloak link.'
 	});
 
-	if (!response.ok) {
-		throw new Error(`Error fetching user from Keycloak: ${response.statusText}`);
-	}
-
-	const users = await response.json();
-	return users.length > 0; // Return true if user exists
+export {
+	createResetCode,
+	retiredResetEndpoint as checkResetCode,
+	retiredResetEndpoint as resetPassword
 };
-
-/**
- * Creates or updates a password reset code for a given email
- * @async
- * @function createResetCode
- */
-const createResetCode = async (req, res) => {
-	try {
-		authenticateRequest(req);
-
-		const { email } = req.body;
-
-		if (!email) {
-			return res.status(400).json({
-				message: 'Email is required'
-			});
-		}
-
-		// Check if the user exists in Keycloak
-		const userExists = await userExistsInKeycloak(email);
-		if (!userExists) {
-			return res.status(404).json({
-				message: 'User does not exist'
-			});
-		}
-
-		const resetCode = generateVerificationCode();
-
-		// Store in memory
-		resetCodes.set(email, {
-			reset_code: resetCode,
-			verified: false,
-			created_at: new Date()
-		});
-
-		res.status(200).json({
-			message: 'Reset code generated successfully',
-			reset_code: resetCode
-		});
-	} catch (error) {
-		console.error('Reset code generation error:', error);
-		res.status(error.status || 500).json({
-			message: error.message || 'Failed to generate reset code'
-		});
-	}
-};
-
-/**
- * Checks if the provided reset code matches the one stored in the database for the given email
- * @async
- * @function checkResetCode
- */
-const checkResetCode = async (req, res) => {
-	try {
-		const { email, reset_code } = req.body;
-
-		if (!email || !reset_code) {
-			return res.status(400).json({
-				message: 'Email and reset code are required'
-			});
-		}
-
-		const record = resetCodes.get(email);
-
-		if (!record) {
-			return res.status(404).json({
-				message: 'No reset code found for this email'
-			});
-		}
-
-		// Check if the reset code matches
-		const isCodeValid = record.reset_code === reset_code;
-
-		// Update the verified field based on the code validity
-		record.verified = isCodeValid;
-		resetCodes.set(email, record);
-
-		res.status(200).json({
-			valid: isCodeValid
-		});
-	} catch (error) {
-		console.error('Error checking reset code:', error);
-		res.status(error.status || 500).json({
-			message: error.message || 'Failed to check reset code'
-		});
-	}
-};
-
-/**
- * Resets a user's password in Keycloak
- * @async
- * @function resetPassword
- */
-const resetPassword = async (req, res) => {
-	try {
-		authenticateRequest(req);
-
-		const { email, newpassword } = req.body;
-
-		if (!email || !newpassword) {
-			return res.status(400).json({
-				message: 'Email and new password are required'
-			});
-		}
-
-		// Check if there's a valid reset code for this email
-		const resetCodeRecord = resetCodes.get(email);
-
-		if (!resetCodeRecord) {
-			return res.status(404).json({
-				message: 'Password reset code not found or has expired'
-			});
-		}
-
-		if (!resetCodeRecord.verified) {
-			return res.status(403).json({
-				message: 'Password reset code has not been verified'
-			});
-		}
-
-		// Get management token first
-		const managementToken = await getUserManagmentToken();
-		if (!managementToken) {
-			return res.status(500).json({
-				message: 'Failed to obtain management token'
-			});
-		}
-
-		// First, get the user ID from Keycloak using the email
-		const userSearchUrl = `${process.env.KEYCLOAK_URL}/admin/realms/${process.env.KEYCLOAK_REALM}/users?username=${email}`;
-		const userSearchResponse = await fetch(userSearchUrl, {
-			method: 'GET',
-			headers: {
-				Authorization: `Bearer ${managementToken}`,
-				'Content-Type': 'application/json'
-			}
-		});
-
-		if (!userSearchResponse.ok) {
-			throw new Error(`Error fetching user from Keycloak: ${userSearchResponse.statusText}`);
-		}
-
-		const users = await userSearchResponse.json();
-		if (!users || users.length === 0) {
-			return res.status(404).json({
-				message: 'User not found in Keycloak'
-			});
-		}
-
-		const userId = users[0].id; // Get the ID of the first matching user
-
-		// Now reset the password using the obtained user ID
-		const resetUrl = `${process.env.KEYCLOAK_URL}/admin/realms/${process.env.KEYCLOAK_REALM}/users/${userId}/reset-password`;
-
-		const resetResponse = await fetch(resetUrl, {
-			method: 'PUT',
-			headers: {
-				Authorization: `Bearer ${managementToken}`,
-				'Content-Type': 'application/json'
-			},
-			body: JSON.stringify({
-				type: 'password',
-				value: newpassword,
-				temporary: false
-			})
-		});
-
-		if (!resetResponse.ok) {
-			const errorData = await resetResponse.json().catch(() => ({
-				error: `HTTP error! status: ${resetResponse.status}`
-			}));
-			throw new Error(errorData.error || 'Password reset failed');
-		}
-
-		// After successful password reset, delete the reset code record
-		resetCodes.delete(email);
-
-		res.status(204).send();
-	} catch (error) {
-		console.error('Password reset error:', error);
-		res.status(error.status || 500).json({
-			message: error.message || 'Failed to reset password'
-		});
-	}
-};
-
-export { createResetCode, checkResetCode, resetPassword };

@@ -3,6 +3,8 @@
 import * as d3 from 'd3';
 import type { Selection } from 'd3-selection';
 import { userStore } from '../../store/userStore';
+import { get } from 'svelte/store';
+import { addChartQueryItem } from '../../tableFilterItems';
 import { calculateCubesPlotArea, calculateTNMValues, isTNMVisible } from './cubesGridData';
 import { reloadOnly } from '../../store/reloadStore';
 import { configStore } from '../../store/configStore';
@@ -38,7 +40,8 @@ interface DataPasser {
 		catalogueGroupCode: string;
 		parentGroupCode?: string;
 	}) => void;
-	getQueryAPI: () => unknown;
+	getQueryAPI: () => QueryItem[][];
+	setQueryStoreAPI: (query: QueryItem[][]) => void;
 }
 
 interface TNMData {
@@ -403,14 +406,7 @@ function handleCubeClick(event: MouseEvent, dataPasser: DataPasser, cubeDataInpu
 			: 'M';
 
 	const addItem = (queryObject: QueryItem): void => {
-		console.log('ADD ITEM', queryObject);
-		dataPasser.addStratifierToQueryAPI({
-			label: queryObject.values[0].value,
-			catalogueGroupCode: queryObject.key,
-			parentGroupCode: queryObject.system
-		});
-		console.log(dataPasser.getQueryAPI());
-		console.log('AFTER ADD ITEM');
+		addChartQueryItem(dataPasser, { ...queryObject, system: 'tnm' }, get(userStore).currentFilter);
 	};
 
 	const tnm = cubeDataInput.tnm;
@@ -460,9 +456,9 @@ function handleCubeClick(event: MouseEvent, dataPasser: DataPasser, cubeDataInpu
 		]
 	};
 
-	addItem(queryItemT);
-	addItem(queryItemN);
-	addItem(queryItemM);
+	if (TNM3DChartSelectedTType?.value !== 'hide') addItem(queryItemT);
+	if (TNM3DChartSelectedNType?.value !== 'hide') addItem(queryItemN);
+	if (TNM3DChartSelectedMType?.value !== 'hide') addItem(queryItemM);
 	reloadOnly();
 }
 

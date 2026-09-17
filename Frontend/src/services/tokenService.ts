@@ -2,6 +2,8 @@ import { introspectToken, refreshToken, isTokenExpired, ensureValidToken } from 
 import { authStore } from '../store/authStore.js';
 import { userStore } from '../store/userStore.js';
 import { get } from 'svelte/store';
+import { setAccessTokenProvider, invalidateAuthenticatedRequests } from '$lib/request-auth';
+import { clearRequestCaches } from '../graphQl/request-cache.js';
 
 interface KeycloakTokens {
   access_token: string;
@@ -38,6 +40,7 @@ interface IntrospectionResult {
  */
 class TokenService {
   private isValidating: boolean = false;
+  private tokenPromise: Promise<KeycloakTokens> | null = null;
 
   /**
    * Initialize token validation on app startup
@@ -171,6 +174,8 @@ class TokenService {
    * Handle logout by clearing all stored data
    */
   handleLogout(): void {
+    invalidateAuthenticatedRequests();
+    clearRequestCaches();
     console.log('Handling logout - clearing stored data');
     
     // Clear localStorage
@@ -200,6 +205,16 @@ class TokenService {
    * @returns {Promise<KeycloakTokens>} Valid token data
    */
   async getValidTokens(): Promise<KeycloakTokens> {
+    if (this.tokenPromise) return this.tokenPromise;
+    this.tokenPromise = this.refreshValidTokens();
+    try {
+      return await this.tokenPromise;
+    } finally {
+      this.tokenPromise = null;
+    }
+  }
+
+  private async refreshValidTokens(): Promise<KeycloakTokens> {
     const userData = get(userStore) as UserData;
     
     if (!userData.keycloakTokens) {
@@ -250,3 +265,8 @@ class TokenService {
 
 // Export singleton instance
 export const tokenService = new TokenService();
+
+setAccessTokenProvider(async () => {
+  if (typeof window === 'undefined' || !(get(userStore) as UserData).keycloakTokens) return null;
+  return (await tokenService.getValidTokens()).access_token;
+});

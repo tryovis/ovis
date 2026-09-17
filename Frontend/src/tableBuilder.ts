@@ -1,9 +1,13 @@
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-nocheck
 import jQuery from 'jquery';
+import { escapeHtml } from './lib/escape-html';
 import DataTable from 'datatables.net';
 import 'datatables.net';
 import type { LensDataPasser } from '@samply/lens';
+
+import { get } from 'svelte/store';
+import { userStore } from './store/userStore';
 import type { ConfigColumns, Api } from 'datatables.net';
 import moment from 'moment';
 import { reloadOnly } from '../src/store/reloadStore';
@@ -11,7 +15,7 @@ import { datePickerStore } from './store/datePickerStore'; // Importiere den Sto
 import { numberPickerStore } from './store/numberPickerStore'; // Importiere den Store
 import { TNMPickerStore } from './store/TNMPickerStore'; // Importiere den Store
 import {
-	appendQueryItemToFirstGroup,
+	addChartQueryItem,
 	createArrayFilterItems,
 	isArrayFilterColumn
 } from './tableFilterItems';
@@ -90,10 +94,7 @@ const addItem = (queryObject: QueryItem): void => {
 		name: `${system ?? ''}:${queryObject.key}:${queryObject.type}`
 	};
 	console.log('ADDED QUERY ITEM', queryObject);
-	const queryBeforeAdd = currentDataPasser.getQueryAPI();
-	currentDataPasser.setQueryStoreAPI(
-		appendQueryItemToFirstGroup(queryBeforeAdd, normalizedQueryObject)
-	);
+	addChartQueryItem(currentDataPasser, normalizedQueryObject, get(userStore).currentFilter);
 	console.log(currentDataPasser.getQueryAPI());
 };
 
@@ -189,7 +190,7 @@ export function createTable(
 		clonedHeader.find('th').removeClass('sorting_asc sorting_desc sorting');
 		clonedHeader.find('th').each(function (this: HTMLTableCellElement) {
 			const title = jQuery(this).text();
-			jQuery(this).html('<input style="width: 80%" type="text" placeholder="' + title + '" />');
+			jQuery(this).html('<input style="width: 80%" type="text" placeholder="' + escapeHtml(title) + '" />');
 		});
 	}
 
@@ -215,7 +216,7 @@ export function createTable(
 						? processedData
 							? moment(processedData, 'DD.MM.YYYY').format('YYYY-MM-DD')
 							: '0000-00-00'
-						: processedData;
+						: (type === 'display' ? escapeHtml(processedData) : processedData);
 				}
 			},
 			{
@@ -233,16 +234,16 @@ export function createTable(
 						const maxLength = 7;
 						return processedData && processedData.length > maxLength
 							? `<span class="tooltip">
-                <span class="tooltiptext">${processedData}</span>
+                <span class="tooltiptext">${escapeHtml(processedData)}</span>
                 ${
 									typeof processedData === 'string'
-										? processedData.substring(0, maxLength) + '…'
+										? escapeHtml(processedData.substring(0, maxLength) + '…')
 										: ''
 								}
               </span>`
-							: processedData;
+							: (type === 'display' ? escapeHtml(processedData) : processedData);
 					}
-					return processedData;
+					return type === 'display' ? escapeHtml(processedData) : processedData;
 				},
 
 				createdCell: function (
@@ -280,7 +281,7 @@ export function createTable(
 				if (!input.length) {
 					const title = jQuery(api.column(colIdx).header()).text();
 					jQuery(cell).html(
-						'<input style="width: 80%" type="text" placeholder="' + title + '" />'
+						'<input style="width: 80%" type="text" placeholder="' + escapeHtml(title) + '" />'
 					);
 					input = jQuery('input', cell);
 				}
@@ -444,11 +445,11 @@ function truncateCellData(
 			) {
 				const truncatedData = processedCellData.substring(0, truncateLength) + '…';
 				jQuery(cell).html(`<span class="tooltip">
-                              <span class="tooltiptext">${processedCellData}</span>
-                              ${truncatedData}
+                              <span class="tooltiptext">${escapeHtml(processedCellData)}</span>
+                              ${escapeHtml(truncatedData)}
                             </span>`);
 			} else {
-				jQuery(cell).html(processedCellData);
+				jQuery(cell).text(processedCellData);
 			}
 		}
 	});

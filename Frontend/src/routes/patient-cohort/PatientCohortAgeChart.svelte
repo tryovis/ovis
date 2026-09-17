@@ -16,6 +16,7 @@
 	import { filterActiveStore } from '../../store/filterActiveStore.js';
 	import { addUserFilter } from '../../components/UserFilter';
 	import { reloadOnly } from '../../store/reloadStore';
+	import { addChartQueryItem } from '../../tableFilterItems';
 	import type { AggregatedValue } from '../../types/query';
 	import { responsiveChartFontSize, usesMobileLandscapeLayout } from '$lib/responsiveChartSizing';
 
@@ -170,14 +171,7 @@
 	};
 
 	const addItem = (queryObject: QueryItem): void => {
-		console.log('ADD ITEM', queryObject);
-		dataPasser.addStratifierToQueryAPI({
-			label: queryObject.values[0].value,
-			catalogueGroupCode: queryObject.key,
-			parentGroupCode: 'diagnosis'
-		});
-		console.log(dataPasser.getQueryAPI());
-		console.log('AFTER ADD ITEM');
+		addChartQueryItem(dataPasser, queryObject, get(userStore).currentFilter);
 	};
 
 	function createScatterChart() {
@@ -235,7 +229,7 @@
 					if (points.length) {
 						const { datasetIndex, index } = points[0];
 						const point = (chart.data.datasets[datasetIndex].data as { x: number; y: number }[])[index];
-						console.log('Alter angeklickt:', point.x, ' | Anzahl:', point.y);
+						if (!point || typeof point.x !== 'number' || !Number.isFinite(point.x)) return;
 
 						let queryItem = {
 							id: 'Random generierte UUID', //uuidv4(),

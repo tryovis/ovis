@@ -1,10 +1,12 @@
 const MISSING = Symbol('missing');
+const EMPTY_ARRAY = Symbol('empty-array');
 
 export const NULL_VALUES = ['-', '', ' ', null];
 
 const NULL_VALUE_SET = new Set(NULL_VALUES);
 
-const isNullishValue = (value) => value === MISSING || NULL_VALUE_SET.has(value);
+const isNullishValue = (value) =>
+	value === MISSING || value === EMPTY_ARRAY || NULL_VALUE_SET.has(value);
 
 const normalizeIdList = (value) => {
 	if (Array.isArray(value)) return value.flat(Infinity).filter((item) => item != null);
@@ -15,6 +17,8 @@ const comparable = (value) => (value instanceof Date ? value.getTime() : value);
 
 const equalValue = (left, right) => {
 	if (left instanceof Date || right instanceof Date) {
+		if (left == null || right == null || typeof left === 'symbol' || typeof right === 'symbol')
+			return false;
 		const leftTime = new Date(left).getTime();
 		const rightTime = new Date(right).getTime();
 		return Number.isFinite(leftTime) && Number.isFinite(rightTime) && leftTime === rightTime;
@@ -26,9 +30,7 @@ export function roundToNextUTCMidnight(timestamp) {
 	if (timestamp == null || timestamp === '') return timestamp;
 	const date = new Date(timestamp);
 	if (Number.isNaN(date.getTime())) return timestamp;
-	date.setUTCHours(0, 0, 0, 0);
-	if (Number(timestamp) % 86400000 !== 0) date.setUTCDate(date.getUTCDate() + 1);
-	return date;
+	return new Date(Math.ceil(date.getTime() / 86400000) * 86400000);
 }
 
 export function normalizeAstKeys(value) {
@@ -38,9 +40,10 @@ export function normalizeAstKeys(value) {
 		if (typeof node.key === 'string') {
 			const negated = node.key.startsWith('!');
 			const rawKey = negated ? node.key.slice(1) : node.key;
-			const normalized = rawKey.startsWith('ICDO_')
-				? rawKey
-				: rawKey.replaceAll(/_(?!3)(?!id)/g, '.');
+			const normalized =
+				rawKey.startsWith('ICDO_') || rawKey.startsWith('grading_')
+					? rawKey
+					: rawKey.replaceAll(/_(?!3)(?!id)/g, '.');
 			if (
 				node.system === 'study' &&
 				(normalized.startsWith('studyPatients.') || normalized === 'recruitmentDate')
@@ -67,14 +70,14 @@ export function valuesAtPath(document, rawPath) {
 	const visit = (value, index) => {
 		if (index === parts.length) {
 			if (Array.isArray(value)) {
-				if (value.length === 0) return [MISSING];
+				if (value.length === 0) return [EMPTY_ARRAY];
 				return value.flatMap((item) => (Array.isArray(item) ? visit(item, index) : [item]));
 			}
 			return [value];
 		}
 
 		if (Array.isArray(value)) {
-			if (value.length === 0) return [MISSING];
+			if (value.length === 0) return [EMPTY_ARRAY];
 			return value.flatMap((item) => visit(item, index));
 		}
 
@@ -89,10 +92,11 @@ export function valuesAtPath(document, rawPath) {
 
 function matchesEquals(values, requested) {
 	if (requested === '-') return values.some(isNullishValue);
+	if (requested === null) return values.some((value) => value === MISSING || value === null);
 	return values.some((value) => value !== MISSING && equalValue(value, requested));
 }
 
-function matchesBetween(values, rawRange, key) {
+function matchesBetween(values, rawRange, key, system) {
 	let { min = null, max = null } = rawRange ?? {};
 	const bothNullish = (min == null || min === '') && (max == null || max === '');
 	if (bothNullish) return values.some(isNullishValue);
@@ -100,6 +104,9 @@ function matchesBetween(values, rawRange, key) {
 	if (String(key).toLowerCase().includes('date')) {
 		min = roundToNextUTCMidnight(min);
 		max = roundToNextUTCMidnight(max);
+	} else if (system === 'study' && ['start', 'firstPatInPlanned'].includes(key)) {
+		if (min != null && min !== '') min = new Date(min);
+		if (max != null && max !== '') max = new Date(max);
 	}
 
 	const comparableMin = min == null || min === '' ? null : comparable(min);
@@ -127,9 +134,9 @@ export function evaluateLeaf(document, leaf) {
 		case 'NEQUALS':
 			return !matchesEquals(values, value);
 		case 'BETWEEN':
-			return matchesBetween(values, value, key);
+			return matchesBetween(values, value, key, leaf.system);
 		case 'NBETWEEN':
-			return !matchesBetween(values, value, key);
+			return !matchesBetween(values, value, key, leaf.system);
 		default:
 			throw new Error(`Unsupported comparison type: ${leaf.type}`);
 	}
@@ -150,11 +157,29 @@ function logicalResult(operand, results) {
 	}
 }
 
+// null means that the referenced identity is absent, rather than a known false value.
+function knownLogicalResult(operand, results) {
+	if (operand === 'AND')
+		return results.includes(false) ? false : results.includes(null) ? null : true;
+	if (operand === 'OR')
+		return results.includes(true) ? true : results.includes(null) ? null : false;
+	if (operand === 'NOR') {
+		const positive = knownLogicalResult('OR', results);
+		return positive == null ? null : !positive;
+	}
+	if (operand === 'XOR')
+		return results.includes(null) ? null : results.filter(Boolean).length === 1;
+	throw new Error(`Unsupported logical operand: ${operand}`);
+}
+
 function directArrayPrefix(node) {
+	node = transparentLogicalNode(node);
 	if (Array.isArray(node?.children)) {
+		if (['NOR', 'XOR'].includes(node.operand)) return null;
 		const prefixes = node.children.map(directArrayPrefix);
 		return prefixes.every((prefix) => prefix && prefix === prefixes[0]) ? prefixes[0] : null;
 	}
+	if (!['EQUALS', 'BETWEEN'].includes(node?.type)) return null;
 	const key = String(node?.key ?? '').replace(/^!/, '');
 	const dot = key.indexOf('.');
 	return dot > 0 ? key.slice(0, dot) : null;
@@ -176,15 +201,43 @@ function evaluateSameArrayEntry(document, node) {
 	const prefixes = node.children.map(directArrayPrefix);
 	if (!prefixes[0] || !prefixes.every((prefix) => prefix === prefixes[0])) return null;
 	const array = document?.[prefixes[0]];
-	if (!Array.isArray(array) || !array.some((item) => item && typeof item === 'object')) return null;
+	if (!Array.isArray(array)) return null;
 	const relative = relativeNode(node, prefixes[0]);
-	return array.some((item) => evaluateDocumentNode(item, relative));
+	return array.some(
+		(item) => item && typeof item === 'object' && evaluateDocumentNode(item, relative)
+	);
 }
 
 export function evaluateDocumentNode(document, node) {
+	node = transparentLogicalNode(node);
 	if (!Array.isArray(node?.children)) return evaluateLeaf(document, node);
+	if (canonicalNegatedGroup(node))
+		return node.children.every((child) => evaluateLeaf(document, child));
 	const sameArrayEntry = evaluateSameArrayEntry(document, node);
 	if (sameArrayEntry != null) return sameArrayEntry;
+	if (node.operand === 'AND') {
+		const arrayTerms = new Map();
+		const remaining = [];
+		for (const child of conjunctionTerms(node)) {
+			const prefix = directArrayPrefix(child);
+			if (!prefix || !Array.isArray(document?.[prefix])) remaining.push(child);
+			else {
+				if (!arrayTerms.has(prefix)) arrayTerms.set(prefix, []);
+				arrayTerms.get(prefix).push(child);
+			}
+		}
+		if ([...arrayTerms.values()].some((terms) => terms.length > 1)) {
+			return (
+				remaining.every((child) => evaluateDocumentNode(document, child)) &&
+				[...arrayTerms.values()].every((children) =>
+					evaluateDocumentNode(
+						document,
+						children.length === 1 ? children[0] : { operand: 'AND', children }
+					)
+				)
+			);
+		}
+	}
 	return logicalResult(
 		node.operand,
 		node.children.map((child) => evaluateDocumentNode(document, child))
@@ -210,15 +263,91 @@ function everyLeaf(node, predicate) {
 
 function canonicalNegatedGroup(node) {
 	if (!Array.isArray(node?.children) || node.children.length === 0) return false;
-	const key = String(node.key ?? node.children[0]?.key ?? '');
-	if (
-		!key.startsWith('!') &&
-		!node.children.every((child) => String(child.key ?? '').startsWith('!'))
-	) {
-		return false;
-	}
+	if (!['AND', 'OR'].includes(node.operand)) return false;
+	const keys = new Set(node.children.map((child) => String(child.key ?? '').replace(/^!/, '')));
 	const types = new Set(node.children.map((child) => child.type));
-	return types.size === 1 && (types.has('NEQUALS') || types.has('NBETWEEN'));
+	return keys.size === 1 && types.size === 1 && (types.has('NEQUALS') || types.has('NBETWEEN'));
+}
+
+function negativeLeaf(node) {
+	return !Array.isArray(node?.children) && ['NEQUALS', 'NBETWEEN'].includes(node?.type);
+}
+
+// Unary AND/OR/XOR are identities; two unary NORs cancel, also across identity wrappers.
+// Keep an exclusion group after reducing its children, even when its negative leaf was wrapped.
+function transparentLogicalNode(node) {
+	if (!Array.isArray(node?.children) || canonicalNegatedGroup(node)) return node;
+	const children = node.children.map(transparentLogicalNode);
+	const reduced = { ...node, children };
+	const negativeLeaves = children.map((child) => {
+		while (child.children?.length === 1 && ['AND', 'OR', 'XOR'].includes(child.operand))
+			child = child.children[0];
+		return child;
+	});
+	const exclusion = { ...node, children: negativeLeaves };
+	if (canonicalNegatedGroup(exclusion)) return exclusion;
+	if (children.length !== 1) return reduced;
+	const child = children[0];
+	if (['AND', 'OR', 'XOR'].includes(node.operand)) return child;
+	if (node.operand === 'NOR' && child.operand === 'NOR' && child.children.length === 1)
+		return child.children[0];
+	return reduced;
+}
+
+// Parentheses around conjunctions do not permit their predicates to match different events.
+function conjunctionTerms(node) {
+	node = transparentLogicalNode(node);
+	if (canonicalNegatedGroup(node)) return [node];
+	if (
+		Array.isArray(node?.children) &&
+		node.children.length === 1 &&
+		['AND', 'OR'].includes(node.operand)
+	) {
+		return conjunctionTerms(node.children[0]);
+	}
+	if (node?.operand === 'AND') return node.children.flatMap(conjunctionTerms);
+	return [node];
+}
+
+function groupedConjunction(node) {
+	const bySystem = new Map();
+	const result = [];
+	for (const term of conjunctionTerms(node)) {
+		const system = singleLeafSystem(term);
+		if (!system) result.push(term);
+		else {
+			if (!bySystem.has(system)) bySystem.set(system, []);
+			bySystem.get(system).push(term);
+		}
+	}
+	for (const terms of bySystem.values())
+		result.push(terms.length === 1 ? terms[0] : { operand: 'AND', children: terms });
+	return result;
+}
+
+// Evaluate a choice inside a conjunction one branch at a time, so a selected event
+// must witness every positive condition in that branch. This oracle does not use
+// the production normalizer or the generated Mongo predicates.
+function conjunctiveChoices(node) {
+	if (node?.operand !== 'AND' || canonicalNegatedGroup(node)) return null;
+	const terms = conjunctionTerms(node);
+	const index = terms.findIndex(
+		(term) => !singleLeafSystem(term) && ['OR', 'XOR'].includes(term.operand)
+	);
+	if (index === -1) return null;
+	const choice = terms[index];
+	return choice.children.map((selected, selectedIndex) => ({
+		operand: 'AND',
+		children: [
+			...terms.filter((_term, termIndex) => termIndex !== index),
+			selected,
+			...(choice.operand === 'XOR'
+				? choice.children
+						.filter((_child, childIndex) => childIndex !== selectedIndex)
+						.map((other) => ({ operand: 'NOR', children: [other] }))
+				: [])
+		]
+	}));
 }
 
 const setOperation = (operand, childSets, universe) => {
@@ -275,6 +404,14 @@ export class ReferenceModel {
 	}
 
 	linkedDocumentTumorIDs(system, document) {
+		if (system === 'patient') {
+			return [
+				...new Set([
+					...normalizeIdList(document.tumorID),
+					...(this.tumorIDsByPatID.get(document.patID) ?? [])
+				])
+			];
+		}
 		if (system === 'studyPatient') {
 			return [...(this.tumorIDsByPatID.get(document.patID) ?? [])];
 		}
@@ -296,12 +433,29 @@ export class ReferenceModel {
 		return normalizeIdList(document?.tumorID);
 	}
 
-	matchingTumors(node) {
-		const cacheKey = `mixed:${JSON.stringify(node)}`;
+	sourceUniverse(system) {
+		return ['patient', 'diagnosis'].includes(system)
+			? new Set(this.docsByTumor.get(system)?.keys() ?? [])
+			: this.tumorUniverse;
+	}
+
+	matchingTumors(node, negated = false) {
+		node = transparentLogicalNode(node);
+		const cacheKey = `mixed:${negated}:${JSON.stringify(node)}`;
 		if (this.tumorMatchCache.has(cacheKey)) return this.tumorMatchCache.get(cacheKey);
+		const choices = conjunctiveChoices(node);
+		if (choices) {
+			const sets = choices.map((choice) => this.matchingTumors(choice, negated));
+			const result = setOperation(negated ? 'AND' : 'OR', sets, this.tumorUniverse);
+			this.tumorMatchCache.set(cacheKey, result);
+			return result;
+		}
 		const system = singleLeafSystem(node);
 		if (system) {
-			const result = this.matchingTumorsForSystem(system, node);
+			const matches = this.matchingTumorsForSystem(system, node);
+			const result = negated
+				? new Set([...this.sourceUniverse(system)].filter((id) => !matches.has(id)))
+				: matches;
 			this.tumorMatchCache.set(cacheKey, result);
 			return result;
 		}
@@ -310,41 +464,55 @@ export class ReferenceModel {
 			this.tumorMatchCache.set(cacheKey, result);
 			return result;
 		}
-		let childSets;
-		if (node.operand === 'AND') {
-			const grouped = new Map();
-			const ungrouped = [];
-			for (const child of node.children) {
-				const childSystem = singleLeafSystem(child);
-				if (!childSystem) {
-					ungrouped.push(child);
-					continue;
-				}
-				if (!grouped.has(childSystem)) grouped.set(childSystem, []);
-				grouped.get(childSystem).push(child);
-			}
-			childSets = ungrouped.map((child) => this.matchingTumors(child));
-			for (const [childSystem, children] of grouped.entries()) {
-				childSets.push(
-					children.length === 1
-						? this.matchingTumors(children[0])
-						: this.matchingTumorsForSystem(childSystem, { operand: 'AND', children })
+		const children = node.operand === 'AND' ? groupedConjunction(node) : node.children;
+		const trueSets = children.map((child) => this.matchingTumors(child));
+		const falseSets = children.map((child) => this.matchingTumors(child, true));
+		const result = new Set(
+			[...this.tumorUniverse].filter((id) => {
+				const truth = knownLogicalResult(
+					node.operand,
+					trueSets.map((set, index) =>
+						set.has(id) ? true : falseSets[index].has(id) ? false : null
+					)
 				);
-			}
-		} else {
-			childSets = node.children.map((child) => this.matchingTumors(child));
-		}
-		const result = setOperation(node.operand, childSets, this.tumorUniverse);
+				return truth === !negated;
+			})
+		);
 		this.tumorMatchCache.set(cacheKey, result);
 		return result;
 	}
 
 	matchingTumorsForSystem(system, node) {
+		node = transparentLogicalNode(node);
+		if (negativeLeaf(node)) node = { operand: 'OR', children: [node] };
 		const cacheKey = `${system}:${JSON.stringify(node)}`;
 		if (this.tumorMatchCache.has(cacheKey)) return this.tumorMatchCache.get(cacheKey);
+		const universe = this.sourceUniverse(system);
+		if (node?.operand === 'AND' && !canonicalNegatedGroup(node)) {
+			const terms = conjunctionTerms(node);
+			const projected = terms.filter(
+				(term) =>
+					negativeLeaf(term) || canonicalNegatedGroup(term) || ['NOR', 'XOR'].includes(term.operand)
+			);
+			if (projected.length > 0) {
+				const local = terms.filter((term) => !projected.includes(term));
+				const parts = [
+					...projected,
+					...(local.length ? [{ operand: 'AND', children: local }] : [])
+				];
+				const result = setOperation(
+					'AND',
+					parts.map((part) => this.matchingTumorsForSystem(system, part)),
+					universe
+				);
+				this.tumorMatchCache.set(cacheKey, result);
+				return result;
+			}
+		}
 		if (
 			Array.isArray(node?.children) &&
 			node.children.length === 1 &&
+			node.operand !== 'NOR' &&
 			!canonicalNegatedGroup(node)
 		) {
 			const result = this.matchingTumorsForSystem(system, node.children[0]);
@@ -357,11 +525,18 @@ export class ReferenceModel {
 
 		if (canonicalNegatedGroup(node)) {
 			const type = node.children[0].type;
-			for (const tumorID of this.tumorUniverse) {
+			for (const tumorID of universe) {
 				const tumorDocuments = index.get(tumorID) ?? [];
-				if (type === 'NEQUALS' && node.children.some((child) => child.value === '-')) {
-					const nonMissingLeaves = node.children.filter((child) => child.value === '-');
-					const excludedLeaves = node.children.filter((child) => child.value !== '-');
+				if (
+					type === 'NEQUALS' &&
+					node.children.some((child) => child.value === '-' || child.value === null)
+				) {
+					const nonMissingLeaves = node.children.filter(
+						(child) => child.value === '-' || child.value === null
+					);
+					const excludedLeaves = node.children.filter(
+						(child) => child.value !== '-' && child.value !== null
+					);
 					const hasPresentValue = tumorDocuments.some((document) =>
 						nonMissingLeaves.every((leaf) => evaluateLeaf(document, leaf))
 					);
@@ -383,7 +558,7 @@ export class ReferenceModel {
 
 		if (Array.isArray(node?.children) && node.operand !== 'AND') {
 			const childSets = node.children.map((child) => this.matchingTumorsForSystem(system, child));
-			const combined = setOperation(node.operand, childSets, this.tumorUniverse);
+			const combined = setOperation(node.operand, childSets, universe);
 			this.tumorMatchCache.set(cacheKey, combined);
 			return combined;
 		}
@@ -394,7 +569,7 @@ export class ReferenceModel {
 		}
 
 		if (evaluateDocumentNode({}, node)) {
-			for (const tumorID of this.tumorUniverse) {
+			for (const tumorID of universe) {
 				if (!index.has(tumorID)) result.add(tumorID);
 			}
 		}
@@ -404,42 +579,44 @@ export class ReferenceModel {
 	}
 
 	evaluateTargetDocument(document, targetSystem, node) {
+		return this.evaluateTargetTruth(document, targetSystem, node) === true;
+	}
+
+	evaluateTargetTruth(document, targetSystem, node) {
+		node = transparentLogicalNode(node);
+		const choices = conjunctiveChoices(node);
+		if (choices)
+			return knownLogicalResult(
+				'OR',
+				choices.map((choice) => this.evaluateTargetTruth(document, targetSystem, choice))
+			);
 		const system = singleLeafSystem(node);
 		if (system === targetSystem) return evaluateDocumentNode(document, node);
 		if (system) {
 			const matching = this.matchingTumorsForSystem(system, node);
-			return this.documentTumorIDs(document).some((tumorID) => matching.has(tumorID));
+			const ids = this.documentTumorIDs(document);
+			if (ids.some((tumorID) => matching.has(tumorID))) return true;
+			return ids.some((id) => this.sourceUniverse(system).has(id)) ? false : null;
 		}
 		if (!Array.isArray(node?.children)) return false;
-		return logicalResult(
+		return knownLogicalResult(
 			node.operand,
-			node.children.map((child) => this.evaluateTargetDocument(document, targetSystem, child))
+			(node.operand === 'AND' ? groupedConjunction(node) : node.children).map((child) =>
+				this.evaluateTargetTruth(document, targetSystem, child)
+			)
 		);
 	}
 
 	evaluatePatient(patient, node) {
 		const system = singleLeafSystem(node);
 		if (system === 'patient') return evaluateDocumentNode(patient, node);
-		if (system) {
-			const matching = this.matchingTumorsForSystem(system, node);
-			return this.documentTumorIDs(patient).some((tumorID) => matching.has(tumorID));
-		}
-
-		const leaves = [];
-		const collectLeaves = (item) => {
-			if (!Array.isArray(item?.children)) leaves.push(item);
-			else item.children.forEach(collectLeaves);
-		};
-		collectLeaves(node);
-		if (leaves.length > 0 && leaves.every((leaf) => leaf.system !== 'patient')) {
+		const tumors = this.linkedDocumentTumorIDs('patient', patient);
+		if (tumors.length > 0) {
 			const matching = this.matchingTumors(node);
-			return this.documentTumorIDs(patient).some((tumorID) => matching.has(tumorID));
+			return tumors.some((tumorID) => matching.has(tumorID));
 		}
-
-		return logicalResult(
-			node.operand,
-			node.children.map((child) => this.evaluatePatient(patient, child))
-		);
+		// Patients without a diagnosis may still satisfy a local branch of a mixed OR.
+		return this.evaluateTargetDocument(patient, 'patient', node);
 	}
 
 	studyPatientRows() {
@@ -470,6 +647,7 @@ export class ReferenceModel {
 	}
 
 	evaluateStudyPatient(row, node) {
+		node = transparentLogicalNode(node);
 		const system = singleLeafSystem(node);
 		if (system === 'study') return row.study ? evaluateDocumentNode(row.study, node) : false;
 		if (system === 'studyPatient') return evaluateDocumentNode(row.studyPatient, node);

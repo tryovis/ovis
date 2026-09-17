@@ -40,10 +40,14 @@ const loadOpsCatalogue = async () => {
 
 module.exports = {
 	Query: {
-		getTherapyGroupedByKey: async (_parent, { groupedBy }, context) => {
+		getTherapyGroupedByKey: async (_parent, { groupedBy, filter }, context) => {
+			const stages = filter
+				? await filter2match({ value: filter, column: context.collections.therapy, db: context.db })
+				: [];
 			let result = await context.db
 				.collection(context.collections.therapy)
 				.aggregate([
+					...stages,
 					{
 						$group: {
 							_id: `$${groupedBy}`,

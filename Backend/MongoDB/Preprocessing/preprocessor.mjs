@@ -13,6 +13,7 @@ import { ozRules } from './onkozertRules.mjs';
 import { config, normalizeLower } from './env-config.mjs';
 import { performance } from 'node:perf_hooks';
 import { formatAgeAtDiagnosisGroup } from './ageAtDiagnosisGroup.mjs';
+import { sanitizeDate, calculateAgeAtDiagnosis, normalizeStudyDate } from './clinicalDates.mjs';
 import { parseSurgeon } from './therapyFieldParsers.mjs';
 import { classifyEnetsDiagnosis } from './enets.mjs';
 import {
@@ -240,19 +241,6 @@ function matchesOnkozertRule(rule, obj, data, histologies = []) {
 }
 
 // --- helpers for time-based metastasis labelling ---
-// Safeguard: set any date before 1900 (18XX etc.) to null and normalize common formats
-const sanitizeDate = (value) => {
-	if (!value) return null;
-	// Handle German-style DD.MM.YYYY strings
-	if (typeof value === 'string' && /^\d{1,2}\.\d{1,2}\.\d{4}$/.test(value)) {
-		const [d, m, y] = value.split('.');
-		value = `${y}-${m}-${d}`; // ISO-ish so Date() parses reliably
-	}
-	const d = value instanceof Date ? value : new Date(value);
-	if (isNaN(d)) return null;
-	return d.getFullYear() < 1900 ? null : d;
-};
-
 const within90Days = (a, b) => {
 	const A = sanitizeDate(a);
 	const B = sanitizeDate(b);
@@ -1323,11 +1311,6 @@ function deserializeDate(it) {
 	return it;
 }
 
-function fixDateString(it) {
-	const [d, m, y] = it.split('.');
-	return [y, m, d].join('-');
-}
-
 function genFollowUp(patient, progress, therapy, diagnosis) {
 	// Index once so the per-diagnosis loop stays O(1) per lookup.
 	const patientByPatID = new Map(patient.map((p) => [p.patID, p]));
@@ -1727,14 +1710,6 @@ function genKaplanMeier(diagnosis, patient, pprogress, mmetastasis, tnm, therapy
 	return dp;
 }
 
-const normalizeStudyDate = (value) => {
-	if (value == null || value === '' || value === '00.00.0000') return null;
-	if (typeof value === 'string' && value.includes('.')) {
-		return sanitizeDate(fixDateString(value));
-	}
-	return sanitizeDate(value);
-};
-
 const normalizeStudyPhase = (value) =>
 	matchesNormalizedSet(value, config.study.nullPhasesNormalized) ? null : value;
 
@@ -1940,12 +1915,8 @@ const runPreprocessor = async () => {
 
 		const patientProfileStartedAt = profilingEnabled ? performance.now() : 0;
 		const fpa = lookupIndexes.patientByPatID.get(it.patID);
-		if (it.diagnosisDate && fpa?.birthDate) {
-			const millis = Math.abs(sanitizeDate(it.diagnosisDate) - sanitizeDate(fpa.birthDate));
-			let millisecondsInYear = 1000 * 60 * 60 * 24 * 365.2425;
-			obj.ageAtDiagnosis = Math.round(millis / millisecondsInYear);
-			obj.ageAtDiagnosisGroup = formatAgeAtDiagnosisGroup(obj.ageAtDiagnosis);
-		}
+		obj.ageAtDiagnosis = calculateAgeAtDiagnosis(it.diagnosisDate, fpa?.birthDate);
+		obj.ageAtDiagnosisGroup = formatAgeAtDiagnosisGroup(obj.ageAtDiagnosis);
 		obj.vitalDate = fpa?.vitalDate;
 		obj.vitalState = fpa?.vitalState;
 		obj.gender = fpa?.gender;

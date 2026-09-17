@@ -211,7 +211,7 @@ The `compose.yaml` file defines the following services:
     *   **Port:** Internal service on port `4001` (the frontend reaches it through `/api/graphql`)
     *   **Environment:** Defines ports, database connection (`ADDRESS`, `DB`), CORS settings.
     *   **Depends On:** Database, Data Preprocessing service.
-    *   **Development:** Uses `node --watch` for automatic restarts on code changes. Mounts local source code (`./Backend/Apollo:/app`).
+    *   **Source updates:** Rebuild the Apollo image after source changes. Source and dependencies run together from the image; old host dependencies and persistent dependency volumes cannot override them.
 
 5.  **`ovis-backend-database-mongodb`**
     *   **Purpose:** Provides the MongoDB database instance.
@@ -239,7 +239,7 @@ The `compose.yaml` file defines the following services:
 ### Volumes
 
 *   **`shared_data`:** Used for sharing data between the data import services
-*   **`node_modules`:** Used as a cache for Node.js dependencies
+*   **Apollo dependencies:** Installed from the lockfile inside the image; no persistent `node_modules` volume is mounted over them.
 *   **`mongo_db`:** MongoDB data persistence
 *   **`mongo_conf`:** MongoDB configuration persistence
 
@@ -282,7 +282,7 @@ OVIS uses environment variables for deployment choices and secrets. Fixed intern
 ### Core Settings
 *   **`APP_DOMAIN`**: Hostname where the application is hosted (default: `localhost`)
 *   **`OVIS_IMPORT_MODE`**: Data import mode - `demo`, `ccp`, `onkostar`, or `credos`
-*   **`PUBLIC_LOGIN_ENABLED`**: Enable/disable authentication - `true` or `false`
+*   **`PUBLIC_LOGIN_ENABLED`**: Require login in demo mode (`true` or `false`). Clinical import modes always require login. Anonymous demo access is read-only.
 
 ### Service Ports
 Port numbers for direct access (when `NGINX_PROXY_MODE=false`):
@@ -298,7 +298,9 @@ Apollo always listens on internal port `4001`; it is reached through the fronten
 *   **`KEYCLOAK_CLIENT_SECRET`**: OAuth client secret
 *   **`KEYCLOAK_ADMIN_CLIENT_SECRET`**: Admin client secret
 
-The internal Basic Auth pair is fixed to `admin/admin`. It is embedded in browser JavaScript and is not the user-authentication boundary. The Keycloak realm and client IDs are fixed to `ovis`, `ovis_client`, and `admin-cli`.
+Apollo verifies access tokens with the configured Keycloak realm and checks the active OVIS user record on each request. Roles and assigned cohort filters are enforced on the server. The Keycloak realm and client IDs are fixed to `ovis`, `ovis_client`, and `admin-cli`; client secrets remain server-side. `KEYCLOAK_ISSUER` can optionally pin the exact public realm issuer.
+
+Deploy the updated frontend, Apollo API, Express authentication service and Compose configuration together. See [SECURITY.md](SECURITY.md) for the access policy, local test commands and remaining deployment checks. Password recovery now uses Keycloak email links; configure Keycloak SMTP and service-account permissions. The former code-check/reset endpoints return HTTP 410.
 
 ### Database Configuration
 *   **`POSTGRES_PASSWORD`**: Password for the fixed `keycloak` PostgreSQL database and user
@@ -636,7 +638,7 @@ OVIS features a dynamic catalogue loading system that automatically updates sear
 1. **Data Processing**: The `ovis-backend-mongodb-data-preprocessing` service generates the catalogue from MongoDB data
 2. **Shared Volume**: A Docker volume (`catalogue_volume`) shares the catalogue between containers
 3. **Automatic Detection**: Frontend polls for changes every 30 seconds and updates reactively
-4. **Live Updates**: Any catalogue modifications are automatically detected and served to users
+4. **Access Control**: `/api/catalogue` verifies the current backend session and applies the account's data restrictions before returning suggestions. Authentication is required outside an explicitly anonymous demo.
 
 ### Manual Catalogue Updates
 
@@ -661,8 +663,8 @@ docker exec ovis-ovis-backend-mongodb-data-preprocessing-1 node ./createCatalog.
 Check if updates are working:
 
 ```bash
-# Get current timestamp
-curl -s http://localhost:5173/api/catalogue | jq '.timestamp, .source'
+# Inspect /api/catalogue in the browser network panel after signing in.
+# Responses include timestamp and source, and are not publicly cached.
 
 # After making changes, timestamp will automatically update
 # Frontend will detect changes within 30 seconds
@@ -674,12 +676,12 @@ curl -s http://localhost:5173/api/catalogue | jq '.timestamp, .source'
 - ✅ **Real-Time Sync**: Changes propagate within 30 seconds  
 - ✅ **Works in All Modes**: Development and production modes
 - ✅ **Any Edit Method**: Direct file edits, script updates, or regeneration
-- ✅ **Graceful Fallback**: Falls back to static catalogue if dynamic unavailable
+- **Protected fallback**: If the shared file is unavailable, the authenticated route requests the preprocessing service. The former public static catalogue has been removed.
 
 ### Troubleshooting
 *   **Port Conflicts:** Change ports in `.env` if defaults are in use
 *   **SSL Issues:** Ensure certificate files exist and have correct permissions
-*   **Authentication:** Set `PUBLIC_LOGIN_ENABLED=false` to disable during development
+*   **Authentication:** Anonymous development is supported only with synthetic data in `OVIS_IMPORT_MODE=demo` and `PUBLIC_LOGIN_ENABLED=false`. Clinical modes always require a valid login.
 *   **Data Import:** Check logs with `docker logs ovis-backend-data-import` for import issues
 *   **Catalogue Not Updating:** Check API endpoint `/api/catalogue` for timestamps and errors
 

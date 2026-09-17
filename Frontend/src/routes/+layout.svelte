@@ -23,6 +23,7 @@
   import { tokenService } from '../services/tokenService.js';
   import { env } from '$env/dynamic/public';
   import { apiPath, appPath, iconPath } from '$lib/path-utils';
+  import { authenticatedFetch } from '$lib/request-auth';
   import { version as appVersion } from '../../package.json';
   import { applyChartDisplayPreferences } from '../store/configStore.js';
   import { resolveChartDisplayPreferences } from '../store/chartDisplayPreferences.js';
@@ -104,7 +105,8 @@
   let catalogueJSON: Promise<string>;
   let storeLoaded = false;
   let sessionInterval = 30; // In Sekunden
-  let lastCatalogueTimestamp = 0;
+  let lastCatalogueRevision: string | null = null;
+  let catalogueRequestNumber = 0;
   let cataloguePollingInterval: ReturnType<typeof setInterval>;
   let platformConfigPollingInterval: ReturnType<typeof setInterval>;
   let catalogueSource = 'loading';
@@ -237,9 +239,9 @@
         await runInitLogic();
       }
 
-      // Start catalogue polling (runs regardless of auth status for public access)
+      // Patient-derived catalogue is available only after authentication.
       cataloguePollingInterval = setInterval(async () => {
-        await loadCatalogue();
+        if (get(authStore)) await loadCatalogue();
       }, 30000); // Poll every 30 seconds
 
       platformConfigPollingInterval = setInterval(() => {
@@ -270,6 +272,13 @@
   });
 
   authStore.subscribe(async (authValue) => {
+    if (!authValue) {
+      catalogueData = [];
+      catalogueJSON = Promise.resolve('[]');
+      lastCatalogueRevision = null;
+      catalogueRequestNumber++;
+      storeLoaded = false;
+    }
     if (authValue && !isInitializing) {
       console.log("authStore hat sich geändert – neuer Login erkannt");
       await runInitLogic();
@@ -277,18 +286,23 @@
   });
 
   async function loadCatalogue() {
+    const requestNumber = ++catalogueRequestNumber;
     try {
-      const response = await fetch(`${apiPath('catalogue')}?t=${Date.now()}`);
+      const requestUser = get(userStore).currentUser;
+      const response = await authenticatedFetch(`${apiPath('catalogue')}?t=${Date.now()}`);
+      if (!response.ok) return false;
       const result = await response.json();
+      if (!get(authStore) || get(userStore).currentUser !== requestUser || requestNumber !== catalogueRequestNumber) return false;
 
       if (result.error) {
         console.error('Catalogue API error:', result.message);
         return false;
       }
 
-      if (result.timestamp !== lastCatalogueTimestamp) {
+      if (!Array.isArray(result.data) || typeof result.revision !== 'string') return false;
+      if (result.revision !== lastCatalogueRevision) {
         catalogueData = result.data;
-        lastCatalogueTimestamp = result.timestamp;
+        lastCatalogueRevision = result.revision;
         catalogueSource = result.source;
 
         // Update the promise for reactive components
@@ -314,10 +328,19 @@
     const storeValue = get(userStore);
     currentUser = storeValue.currentUser;
 
+    if (storeValue.currentRole === 'demo' && !currentUser) {
+      storeLoaded = true;
+      return;
+    }
+
     console.log("currentUser", currentUser);
 
     let userData = await getUser(null, 1000);
     currentUserDB = userData.find((u: any) => u._id === currentUser);
+    if (!currentUserDB) {
+      tokenService.handleLogout();
+      return;
+    }
     console.log("currentUserDB", currentUserDB);
 
     const chartPreferences = resolveChartDisplayPreferences(currentUserDB);

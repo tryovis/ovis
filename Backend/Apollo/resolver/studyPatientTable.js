@@ -84,9 +84,19 @@ async function matchingStudyKeys(ast, collections, db) {
 	return db.collection(collections.study).distinct('studyKey', match ?? {});
 }
 
-/** Translate any global AST into a query on one materialized participation row. */
-async function filterAstToParticipationMatch(ast, collections, db) {
-	if (!ast) return null;
+const isParticipationLeaf = (leaf) => ['study', 'studyPatient'].includes(leaf.system);
+const participationAtom = Symbol('participationAtom');
+const MAX_PARTICIPATION_FILTER_BRANCHES = 256;
+
+function participationComplexityError() {
+	const error = new Error('Filter is too complex. Reduce nested study filter combinations.');
+	error.code = 'FILTER_TOO_COMPLEX';
+	error.extensions = { code: 'BAD_USER_INPUT' };
+	return error;
+}
+
+/** A study predicate belongs to this participation's study, not any study of its patient. */
+async function participationOnlyMatch(ast, collections, db) {
 	const system = singleLeafSystem(ast);
 	if (system === 'study') {
 		return { studyKey: { $in: await matchingStudyKeys(ast, collections, db) } };
@@ -94,38 +104,124 @@ async function filterAstToParticipationMatch(ast, collections, db) {
 	if (system === 'studyPatient') {
 		return collectionMatch(ast, collections.studyPatient, db);
 	}
-	if (system) {
-		return { patID: { $in: await matchingPatientIDs(ast, collections, db) } };
-	}
 	if (!Array.isArray(ast.children)) return { $expr: { $eq: [1, 0] } };
-	if (everyLeaf(ast, (leaf) => !['study', 'studyPatient'].includes(leaf.system))) {
+	const children = [];
+	for (const child of ast.children) {
+		children.push(await participationOnlyMatch(child, collections, db));
+	}
+	return combineLogicalClauses(ast.operand, children);
+}
+
+function replaceParticipationAtom(node, selected, value) {
+	if (node?.[participationAtom] === selected) return value;
+	if (!Array.isArray(node?.children)) return node;
+	if (node.children.length === 0) return ['AND', 'NOR'].includes(node.operand);
+	const children = node.children.map((child) => replaceParticipationAtom(child, selected, value));
+	if (children.every((child, index) => child === node.children[index])) return node;
+	const remaining = children.filter((child) => typeof child !== 'boolean');
+	const trueCount = children.filter((child) => child === true).length;
+	const falseCount = children.length - remaining.length - trueCount;
+	if (node.operand === 'AND') {
+		if (falseCount) return false;
+		if (!remaining.length) return true;
+	} else if (node.operand === 'OR') {
+		if (trueCount) return true;
+		if (!remaining.length) return false;
+		// Removing a row predicate must not invent a canonical multi-value exclusion group.
+		// This false subtree keeps a mixed OR of negative clinical clauses a logical OR.
+		// Unlike OR([]), it also means false if a later decision lifts it to the AST root.
+		if (remaining.length > 1 && falseCount)
+			remaining.push({ operand: 'NOR', children: [{ operand: 'AND', children: [] }] });
+	} else if (node.operand === 'NOR') {
+		if (trueCount) return false;
+		if (!remaining.length) return true;
+		return { operand: 'NOR', children: remaining };
+	} else if (node.operand === 'XOR') {
+		if (trueCount > 1) return false;
+		if (!remaining.length) return trueCount === 1;
+		if (trueCount === 1) return { operand: 'NOR', children: remaining };
+	} else {
+		throw new Error(`Unknown logical operator: ${node.operand}`);
+	}
+	return remaining.length === 1 ? remaining[0] : { ...node, children: remaining };
+}
+
+function firstParticipationAtom(node) {
+	if (node?.[participationAtom] !== undefined) return node[participationAtom];
+	for (const child of node?.children ?? []) {
+		const found = firstParticipationAtom(child);
+		if (found !== undefined) return found;
+	}
+	return undefined;
+}
+
+/**
+ * Fix each row's study/participation predicates before evaluating the entire clinical AST.
+ * Projecting separate clinical branches to patients would allow different tumors to satisfy
+ * an access lock and a requested filter. Pure clinical subtrees remain intact, including
+ * canonical exclusion groups. The bound is checked before any clinical queries are issued.
+ */
+function participationFilterCases(ast) {
+	const atoms = [];
+	const atomIndexes = new Map();
+	const visit = (node) => {
+		if (everyLeaf(node, isParticipationLeaf)) {
+			const key = JSON.stringify(node);
+			if (!atomIndexes.has(key)) {
+				atomIndexes.set(key, atoms.length);
+				atoms.push(node);
+			}
+			return { [participationAtom]: atomIndexes.get(key) };
+		}
+		if (everyLeaf(node, (leaf) => !isParticipationLeaf(leaf))) return node;
+		return { ...node, children: node.children.map(visit) };
+	};
+	const cases = [];
+	let terminalBranches = 0;
+	const split = (node, choices) => {
+		const selected = firstParticipationAtom(node);
+		if (selected === undefined) {
+			if (++terminalBranches > MAX_PARTICIPATION_FILTER_BRANCHES)
+				throw participationComplexityError();
+			if (node !== false) cases.push({ clinical: node, choices });
+			return;
+		}
+		for (const value of [true, false]) {
+			split(replaceParticipationAtom(node, selected, value), [...choices, { selected, value }]);
+		}
+	};
+	split(visit(ast), []);
+	return { atoms, cases };
+}
+
+/** Translate any global AST into a query on one materialized participation row. */
+async function filterAstToParticipationMatch(ast, collections, db) {
+	if (!ast) return null;
+	if (everyLeaf(ast, isParticipationLeaf)) return participationOnlyMatch(ast, collections, db);
+	if (everyLeaf(ast, (leaf) => !isParticipationLeaf(leaf))) {
 		return { patID: { $in: await matchingPatientIDs(ast, collections, db) } };
 	}
-
-	let childrenToTranslate = ast.children;
-	if (ast.operand === 'AND') {
-		const patientScoped = [];
-		const participationScoped = [];
-		for (const child of ast.children) {
-			if (everyLeaf(child, (leaf) => !['study', 'studyPatient'].includes(leaf.system))) {
-				patientScoped.push(child);
-			} else {
-				participationScoped.push(child);
+	const { atoms, cases } = participationFilterCases(ast);
+	const rowMatches = [];
+	for (const atom of atoms) rowMatches.push(await participationOnlyMatch(atom, collections, db));
+	const clinicalMatches = new Map();
+	const alternatives = [];
+	for (const { clinical, choices } of cases) {
+		const clauses = choices.map(({ selected, value }) =>
+			value ? rowMatches[selected] : { $nor: [rowMatches[selected]] }
+		);
+		if (clinical !== true) {
+			const key = astValue(clinical);
+			if (!clinicalMatches.has(key)) {
+				clinicalMatches.set(key, {
+					patID: { $in: await matchingPatientIDs(clinical, collections, db) }
+				});
 			}
+			clauses.push(clinicalMatches.get(key));
 		}
-		childrenToTranslate = [
-			...participationScoped,
-			...(patientScoped.length > 0 ? [{ operand: 'AND', children: patientScoped }] : [])
-		];
+		alternatives.push(combineLogicalClauses('AND', clauses));
 	}
-
-	const children = [];
-	for (const child of childrenToTranslate) {
-		const match = await filterAstToParticipationMatch(child, collections, db);
-		if (match) children.push(match);
-	}
-	if (children.length === 0) return null;
-	return combineLogicalClauses(ast.operand, children);
+	return combineLogicalClauses('OR', alternatives);
 }
 
 async function globalParticipationMatch(input, collections, db) {

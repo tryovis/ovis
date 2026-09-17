@@ -17,12 +17,12 @@ const postalCodeDistricts = Object.freeze({
 	97084: 'Heidingsfeld, Heuchelhof, Rottenbauer'
 });
 
-const genPatQuery = (collection, patID, fields) => {
-	console.log(`${patID}, ${fields}`);
+const genPatQuery = (collection, patID, fields, filterStages = []) => {
 	const agg = [
 		{
 			$match: patID
 		},
+		...filterStages,
 		{
 			$project: {
 				_id: 0,
@@ -30,7 +30,6 @@ const genPatQuery = (collection, patID, fields) => {
 			}
 		}
 	];
-	console.dir(agg, { depth: null });
 	const res = collection.aggregate(agg).toArray();
 	return res;
 };
@@ -121,7 +120,14 @@ module.exports = {
 			}));
 		},
 
-		getPatientSingleHeader: async (_parent, { patID }, context) => {
+		getPatientSingleHeader: async (_parent, { patID, filter }, context) => {
+			const permittedDiagnoses = filter
+				? await filter2match({
+						value: filter,
+						column: context.collections.diagnosis,
+						db: context.db
+				  })
+				: [];
 			const res = (
 				await context.db
 					.collection(context.collections.patient)
@@ -136,6 +142,7 @@ module.exports = {
 								foreignField: 'patID',
 								as: 'fstAss',
 								pipeline: [
+									...permittedDiagnoses,
 									{
 										$project: {
 											_id: 0,
@@ -161,13 +168,31 @@ module.exports = {
 					])
 					.toArray()
 			)[0];
+			if (!res) return null;
 			res.diagnosis = res.diagnosis.join(', ');
 			return res;
 		},
-		getPatientOverview: async (_parent, { patID }, context) => {
-			const diag = genPatQuery(
+		getPatientOverview: async (_parent, { patID, filter }, context) => {
+			// Use the same event-level filter semantics as the charts and tables.
+			// A patient-level branch can authorize a linked event before a diagnosis
+			// has arrived; diagnosis restrictions still require a matching diagnosis.
+			const eventMatch = { patID };
+			const scopedPatQuery = async (collection, match, fields) => {
+				const filterStages =
+					filter && collection.collectionName !== context.collections.studyPatient
+						? await filter2match({
+								value: filter,
+								column: collection.collectionName,
+								db: context.db
+						  })
+						: [];
+				// Study participation remains patient-scoped. The authorization wrapper
+				// has already checked this patient's access before calling the resolver.
+				return genPatQuery(collection, match, fields, filterStages);
+			};
+			const diag = scopedPatQuery(
 				context.db.collection(context.collections.diagnosis),
-				{ patID },
+				eventMatch,
 				{
 					x: '$diagnosisDate',
 					y: 'Diagnose',
@@ -175,9 +200,9 @@ module.exports = {
 				}
 			);
 
-			const hstl = genPatQuery(
+			const hstl = scopedPatQuery(
 				context.db.collection(context.collections.histology),
-				{ patID },
+				eventMatch,
 				{
 					x: '$ICDO_histologyDate',
 					y: 'Histology',
@@ -185,9 +210,9 @@ module.exports = {
 				}
 			);
 
-			const dstc = genPatQuery(
+			const dstc = scopedPatQuery(
 				context.db.collection(context.collections.diagnostic),
-				{ patID },
+				eventMatch,
 				{
 					x: '$diagnosticOccurrenceDate',
 					y: 'Diagnostik',
@@ -195,85 +220,77 @@ module.exports = {
 				}
 			);
 
-			const curs = genPatQuery(
-				context.db.collection(context.collections.progress),
-				{ patID },
-				{
-					x: '$progressOccurrenceDate',
-					y: 'Krankheitsverlauf',
-					label: '$overallAssessment'
-				}
-			);
+			const curs = scopedPatQuery(context.db.collection(context.collections.progress), eventMatch, {
+				x: '$progressOccurrenceDate',
+				y: 'Krankheitsverlauf',
+				label: '$overallAssessment'
+			});
 
-			const thpy = genPatQuery(
-				context.db.collection(context.collections.therapy),
-				{ patID },
-				{
-					x: '$therapyOccurrenceDate',
-					y: {
-						$switch: {
-							branches: [
-								{
-									case: { $eq: ['$generalType', 'operation'] },
-									then: 'Operation'
-								},
-								{
-									case: { $eq: ['$generalType', 'radiation'] },
-									then: 'Bestrahlung'
-								},
-								{
-									case: { $eq: ['$generalType', 'systemic'] },
-									then: 'Syst. Therapy'
-								}
-							],
-							default: 'Sonstige Therapie'
-						}
-					},
-					label: {
-						$switch: {
-							branches: [
-								{
-									case: { $eq: ['$generalType', 'operation'] },
-									then: {
-										$reduce: {
-											input: '$ops',
-											initialValue: '',
-											in: {
-												$concat: [
-													'$$value',
-													{ $cond: { if: { $eq: ['$$value', ''] }, then: '', else: ';' } },
-													'$$this.code'
-												]
-											}
+			const thpy = scopedPatQuery(context.db.collection(context.collections.therapy), eventMatch, {
+				x: '$therapyOccurrenceDate',
+				y: {
+					$switch: {
+						branches: [
+							{
+								case: { $eq: ['$generalType', 'operation'] },
+								then: 'Operation'
+							},
+							{
+								case: { $eq: ['$generalType', 'radiation'] },
+								then: 'Bestrahlung'
+							},
+							{
+								case: { $eq: ['$generalType', 'systemic'] },
+								then: 'Syst. Therapy'
+							}
+						],
+						default: 'Sonstige Therapie'
+					}
+				},
+				label: {
+					$switch: {
+						branches: [
+							{
+								case: { $eq: ['$generalType', 'operation'] },
+								then: {
+									$reduce: {
+										input: '$ops',
+										initialValue: '',
+										in: {
+											$concat: [
+												'$$value',
+												{ $cond: { if: { $eq: ['$$value', ''] }, then: '', else: ';' } },
+												'$$this.code'
+											]
 										}
 									}
-								},
-								{
-									case: { $eq: ['$generalType', 'radiation'] },
-									then: {
-										$reduce: {
-											input: '$radiation',
-											initialValue: '',
-											in: {
-												$concat: [
-													'$$value',
-													{ $cond: { if: { $eq: ['$$value', ''] }, then: '', else: ';' } },
-													'$$this.type'
-												]
-											}
+								}
+							},
+							{
+								case: { $eq: ['$generalType', 'radiation'] },
+								then: {
+									$reduce: {
+										input: '$radiation',
+										initialValue: '',
+										in: {
+											$concat: [
+												'$$value',
+												{ $cond: { if: { $eq: ['$$value', ''] }, then: '', else: ';' } },
+												'$$this.type'
+											]
 										}
 									}
-								},
-								{
-									case: { $eq: ['$generalType', 'systemic'] },
-									then: '$subType'
 								}
-							],
-							default: '$subType'
-						}
+							},
+							{
+								case: { $eq: ['$generalType', 'systemic'] },
+								then: '$subType'
+							}
+						],
+						default: '$subType'
 					}
 				}
-			);
+			});
 
 			// const tnm = genPatQuery(context.db.collection(context.collections.tnm), { patID }, {
 			//     x: "$progressOccurrenceDate",
@@ -281,9 +298,9 @@ module.exports = {
 			//     label: "$investigationMethod"
 			// })
 
-			const csltn = genPatQuery(
+			const csltn = scopedPatQuery(
 				context.db.collection(context.collections.consultation),
-				{ patID },
+				eventMatch,
 				{
 					x: '$consultationOccurrenceDate',
 					y: 'Consultation',
@@ -291,19 +308,15 @@ module.exports = {
 				}
 			);
 
-			const tb = genPatQuery(
-				context.db.collection(context.collections.tumorBoard),
-				{ patID },
-				{
-					x: '$tumorBoardOccurrenceDate',
-					y: 'Tumor-Board',
-					label: '$type'
-				}
-			);
+			const tb = scopedPatQuery(context.db.collection(context.collections.tumorBoard), eventMatch, {
+				x: '$tumorBoardOccurrenceDate',
+				y: 'Tumor-Board',
+				label: '$type'
+			});
 
-			const bmtr = genPatQuery(
+			const bmtr = scopedPatQuery(
 				context.db.collection(context.collections.bioMaterial),
-				{ patID },
+				eventMatch,
 				{
 					x: '$bioMaterialOccurrenceDate',
 					y: 'Bio Material',
@@ -311,9 +324,9 @@ module.exports = {
 				}
 			);
 
-			const mlmk = genPatQuery(
+			const mlmk = scopedPatQuery(
 				context.db.collection(context.collections.molecularmarker),
-				{ patID },
+				eventMatch,
 				{
 					x: '$molecularMarkerOccurrenceDate',
 					y: 'Molecular Marker',
@@ -321,19 +334,15 @@ module.exports = {
 				}
 			);
 
-			const stat = genPatQuery(
-				context.db.collection(context.collections.status),
-				{ patID },
-				{
-					x: '$statusOccurrenceDate',
-					y: 'Status',
-					label: '$type'
-				}
-			);
+			const stat = scopedPatQuery(context.db.collection(context.collections.status), eventMatch, {
+				x: '$statusOccurrenceDate',
+				y: 'Status',
+				label: '$type'
+			});
 
-			const splm = genPatQuery(
+			const splm = scopedPatQuery(
 				context.db.collection(context.collections.supplementary),
-				{ patID },
+				eventMatch,
 				{
 					x: '$supplementaryOccurrenceDate',
 					y: 'Supplementary',
@@ -341,9 +350,9 @@ module.exports = {
 				}
 			);
 
-			const mtas = genPatQuery(
+			const mtas = scopedPatQuery(
 				context.db.collection(context.collections.metastasis),
-				{ patID },
+				eventMatch,
 				{
 					x: '$metastasisDate',
 					y: 'Metastasis',
@@ -351,7 +360,7 @@ module.exports = {
 				}
 			);
 
-			const stdy = genPatQuery(
+			const stdy = scopedPatQuery(
 				context.db.collection(context.collections.studyPatient),
 				{ patID },
 				{

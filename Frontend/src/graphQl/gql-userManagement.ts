@@ -183,12 +183,14 @@ export const createUser = (
 
 export const getUser = (
 	continueFromID: string | null = null,
-	limit = 1000
+	limit = 1000,
+	accessToken?: string
 ): Promise<UserRecord[]> => {
 	return graphqlFetch(dataUrl, {
 		method: 'POST',
 		headers: {
-			'Content-Type': 'application/json'
+			'Content-Type': 'application/json',
+			...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {})
 		},
 		body: JSON.stringify({
 			query: `
@@ -227,6 +229,7 @@ export const getUser = (
 	})
 		.then((resp) => resp.json())
 		.then((result) => {
+			if (result.errors?.length) throw new Error(result.errors[0].message);
 			result.data.getUser.forEach((element: UserRecord) => {
 				if (element.createdAt) {
 					element.createdAt = new Date(element.createdAt).toLocaleDateString(

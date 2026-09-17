@@ -5,7 +5,9 @@
 	import { t, locale, locales } from "../store/languageStore";
     import type { LensDataPasser } from "@samply/lens";
     import { onMount } from 'svelte';
-    import { addNumberInterval } from './extendedAstFunctions';
+    import { addChartQueryItem } from '../tableFilterItems';
+    import { get } from 'svelte/store';
+    import { userStore } from '../store/userStore';
     import { iconPath } from '$lib/path-utils';
 
     let dataPasser: LensDataPasser;
@@ -38,30 +40,19 @@
         console.log("UPPER VALUE", upperValue);
         console.log("SYSTEm", collection)
 
-        /*dataPasser.addStratifierToQueryAPI({
-            label: `${Number(lowerValue)} - ${Number(upperValue)}`,
-            catalogueGroupCode: fieldName + "",
-            parentGroupCode: collection + ""
-        });*/
-        //console.log("Sending to Stratifier:", `label: ${Number(upperValue)} - ${Number(upperValue)}`);
-        dataPasser.setQueryStoreFromAstAPI(
-            addNumberInterval(
-                Number(lowerValue),
-                Number(upperValue),
-                dataPasser.getAstAPI(),
-                collection,      // z. B. "diagnosis" / "tnm"
-                fieldName        // z. B. "ageAtDiagnosis" / "tumorID"
-            ),
-            collection,
-            fieldName
-        );
+        if (isConfirmDisabled) return;
+        addChartQueryItem(dataPasser, {
+            id: '', key: fieldName, name: fieldName, type: 'BETWEEN', system: collection,
+            values: [{ name: '', value: { min: Number(lowerValue), max: Number(upperValue) }, queryBindId: '' }]
+        }, get(userStore).currentFilter);
 
         reloadOnly();
         // Schließt die Number-Picker-Komponente
         toggleNumberPicker(false);
     }
 
-    $: isConfirmDisabled = Number(upperValue) < Number(lowerValue);
+    $: isConfirmDisabled = String(lowerValue ?? '').trim() === '' || String(upperValue ?? '').trim() === '' ||
+        !Number.isFinite(Number(lowerValue)) || !Number.isFinite(Number(upperValue)) || Number(upperValue) < Number(lowerValue);
 </script>
 
 <lens-data-passer bind:this={dataPasser} />

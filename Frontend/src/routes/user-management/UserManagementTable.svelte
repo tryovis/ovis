@@ -16,6 +16,7 @@
 	import type { LensDataPasser } from '@samply/lens';
 	import { showToast } from '../../store/toastStore';
 	import { appPath, iconPath } from '$lib/path-utils';
+	import { escapeHtml } from '$lib/escape-html';
 
 	const translate = (key: string): string => get(t)(key);
 
@@ -86,30 +87,30 @@
 			//Promoten
 			if ((currentRole === 'admin' || currentRole === 'super-admin') && data === 'user') {
 				promoteButton =
-					'<button class="promote-button iconRound" data-identifier="' + row._id + '">▲</button>';
+					'<button class="promote-button iconRound" data-identifier="' + escapeHtml(row._id) + '">▲</button>';
 			}
 			//Demoten
 			if ((currentRole === 'admin' || currentRole === 'super-admin') && data === 'manager') {
 				demoteButton =
-					'<button class="demote-button iconRound" data-identifier="' + row._id + '">▼</button>';
+					'<button class="demote-button iconRound" data-identifier="' + escapeHtml(row._id) + '">▼</button>';
 			}
 			//super-admin Rechte
 			if (currentRole === 'super-admin') {
 				if (data === 'manager') {
 					demoteButton =
-						'<button class="demote-button iconRound" data-identifier="' + row._id + '">▼</button>';
+						'<button class="demote-button iconRound" data-identifier="' + escapeHtml(row._id) + '">▼</button>';
 					promoteButton =
-						'<button class="promote-button iconRound" data-identifier="' + row._id + '">▲</button>';
+						'<button class="promote-button iconRound" data-identifier="' + escapeHtml(row._id) + '">▲</button>';
 				}
 				if (data === 'admin') {
 					demoteButton =
-						'<button class="demote-button iconRound" data-identifier="' + row._id + '">▼</button>';
+						'<button class="demote-button iconRound" data-identifier="' + escapeHtml(row._id) + '">▼</button>';
 				}
 			}
 
 			return `<div style="display: flex; justify-content: flex-end; align-items: center;">
 						<div>
-							<span>${data}</span>
+							<span>${escapeHtml(data)}</span>
 						</div>
 						<div style="margin-left: auto;">
 							${promoteButton}
@@ -136,18 +137,18 @@
 		}
 
 		// Buttons: Add-Button **immer sichtbar**, andere Buttons nur bei vorhandenem Filter
-		let addButton = `<button class='add-button iconRound' data-identifier='${row._id}'><img src='${plusIcon}'></button>`;
+		let addButton = `<button class='add-button iconRound' data-identifier='${escapeHtml(row._id)}'><img src='${plusIcon}'></button>`;
 		let editButton = filterObject
-			? `<button class='edit-button iconRound' data-identifier='${row._id}'><img src='${editIcon}'></button>`
+			? `<button class='edit-button iconRound' data-identifier='${escapeHtml(row._id)}'><img src='${editIcon}'></button>`
 			: '';
 		let eraseButton = filterObject
-			? `<button class='erase-button iconRound' data-identifier='${row._id}'><img src='${eraserIcon}'></button>`
+			? `<button class='erase-button iconRound' data-identifier='${escapeHtml(row._id)}'><img src='${eraserIcon}'></button>`
 			: '';
 		let backwardButton = filterObject
-			? `<button class="backward-button iconRound" data-identifier="${row._id}"><img src="${backIcon}"></button>`
+			? `<button class="backward-button iconRound" data-identifier="${escapeHtml(row._id)}"><img src="${backIcon}"></button>`
 			: '';
 		let forwardButton = filterObject
-			? `<button class="forward-button iconRound" data-identifier="${row._id}"><img src="${forwardIcon}"></button>`
+			? `<button class="forward-button iconRound" data-identifier="${escapeHtml(row._id)}"><img src="${forwardIcon}"></button>`
 			: '';
 
 		return `
@@ -249,10 +250,10 @@
 				const originalMax = node.value.max;
 
 				if (originalMin === originalMax) {
-					return originalMin; // Nur den min-Wert anzeigen
+					return escapeHtml(originalMin); // Nur den min-Wert anzeigen
 				}
 
-				return `${originalMin}<br>${originalMax}`; // Beide Werte anzeigen
+				return `${escapeHtml(originalMin)}<br>${escapeHtml(originalMax)}`;
 			}
 		} else if (node.type === 'EQUALS') {
 			return truncateValue(String(node.value ?? ''));
@@ -269,11 +270,11 @@
 	}
 
 	function truncateLabel(label: string) {
-		return label.length > 9 ? label.slice(0, 9) + '...' : label; // Kürzen auf 10 Zeichen
+		return escapeHtml(label.length > 9 ? label.slice(0, 9) + '...' : label);
 	}
 
 	function truncateValue(value: string) {
-		return value.length > 10 ? value.slice(0, 10) + '...' : value; // Kürzen auf 10 Zeichen
+		return escapeHtml(value.length > 10 ? value.slice(0, 10) + '...' : value);
 	}
 
 	function renderPseudo(data: boolean, _type: string, row: UserRecord) {
@@ -283,21 +284,21 @@
 			pseudoLabel = 'Pseudo.';
 			pseudoButton =
 				'<button class="pseudo-button iconRound" alt="info" data-identifier="' +
-				row._id +
+				escapeHtml(row._id) +
 				'"><img class="pseudo-button" src="' +
 				iconPath('pseudo_off.svg') +
 				'" data-identifier="' +
-				row._id +
+				escapeHtml(row._id) +
 				'"></button>';
 		} else {
 			pseudoLabel = 'Offen';
 			pseudoButton =
 				'<button class="pseudo-button iconRound" alt="info" data-identifier="' +
-				row._id +
+				escapeHtml(row._id) +
 				'"><img class="pseudo-button" src="' +
 				iconPath('pseudo.svg') +
 				'" data-identifier="' +
-				row._id +
+				escapeHtml(row._id) +
 				'"></button>';
 		}
 		return `<div style="display: flex; justify-content: flex-end; align-items: center;">
@@ -311,25 +312,25 @@
 		if (data === 'active') {
 			statusButton =
 				'<button class="status-button iconRound"  alt="info" data-identifier="' +
-				row._id +
+				escapeHtml(row._id) +
 				'"><img class="status-button" src="' +
 				iconPath('inactive.svg') +
 				'" data-identifier="' +
-				row._id +
+				escapeHtml(row._id) +
 				'"></button>';
 		} else {
 			statusButton =
 				'<button class="status-button iconRound" alt="info"  data-identifier="' +
-				row._id +
+				escapeHtml(row._id) +
 				'"><img class="status-button" src="' +
 				iconPath('active.svg') +
 				'" data-identifier="' +
-				row._id +
+				escapeHtml(row._id) +
 				'"></button>';
 		}
 		return `<div style="display: flex; justify-content: flex-end; align-items: center;">
 					<div>
-						<span>${data}</span>
+						<span>${escapeHtml(data)}</span>
 					</div>
 					<div style="margin-left: auto;">
 						${statusButton}
@@ -340,11 +341,11 @@
 	function renderTrash(_data: string, _type: string, row: UserRecord) {
 		let trashButton =
 			'<button class="delete-button iconRound"  alt="info" data-identifier="' +
-			row._id +
+			escapeHtml(row._id) +
 			'"><img class="delete-button" src="' +
 			trashIcon +
 			'" data-identifier="' +
-			row._id +
+			escapeHtml(row._id) +
 			'"></button>';
 
 		if (row.role === 'super-admin') {

@@ -2,11 +2,14 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import path from 'node:path';
+import os from 'node:os';
+import { unlink } from 'node:fs/promises';
+import { randomUUID } from 'node:crypto';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { build } from 'esbuild';
 
-const outfile = '/tmp/ovis-table-page-test.mjs';
+const outfile = path.join(os.tmpdir(), `ovis-table-page-${randomUUID()}.mjs`);
 const frontendRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 
 await build({
@@ -44,6 +47,7 @@ await build({
 });
 
 const { fetchTableRows, graphqlFetch } = await import(pathToFileURL(outfile).href);
+await unlink(outfile);
 
 const patientQuery = `
 	query getPatientCohortOverviewTable ($continueFromID: String, $limit: Int, $filter: String) {

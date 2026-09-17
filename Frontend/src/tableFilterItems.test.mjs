@@ -2,14 +2,14 @@ import assert from 'node:assert/strict';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
-import { pathToFileURL } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { build } from 'esbuild';
 
 const outfile = join(tmpdir(), 'ovis-tableFilterItems-test.mjs');
 
 await build({
-	entryPoints: ['Frontend/src/tableFilterItems.ts'],
+	entryPoints: [fileURLToPath(new URL('./tableFilterItems.ts', import.meta.url))],
 	outfile,
 	bundle: true,
 	format: 'esm',

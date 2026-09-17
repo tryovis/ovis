@@ -5,6 +5,9 @@
   import { reloadOnly } from "../store/reloadStore";
   import { t } from "../store/languageStore";
   import { iconPath } from '$lib/path-utils';
+  import { get } from 'svelte/store';
+  import { userStore } from '../store/userStore';
+  import { addChartQueryItem } from '../tableFilterItems';
 
   let dataPasser: LensDataPasser;
 
@@ -20,11 +23,10 @@
 
   function addEquals(fieldName: string, value: string) {
     // EQUALS-Filter über Lens API (wie bei Quicktools)
-    dataPasser.addStratifierToQueryAPI({
-      label: value,
-      catalogueGroupCode: fieldName,
-      parentGroupCode: collection + ""
-    });
+    addChartQueryItem(dataPasser, {
+      id: '', key: fieldName, name: fieldName, type: 'EQUALS', system: collection,
+      values: [{ name: value, value, queryBindId: '' }]
+    }, get(userStore).currentFilter);
 
     reloadOnly();
   }

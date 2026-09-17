@@ -1,12 +1,12 @@
 const { ApolloServer } = require('@apollo/server');
-const { expressMiddleware } = require('@apollo/server/express4');
+const { expressMiddleware } = require('@as-integrations/express4');
 const { ApolloServerPluginDrainHttpServer } = require('@apollo/server/plugin/drainHttpServer');
 const express = require('express');
 const http = require('http');
 const cors = require('cors');
-const { json } = require('body-parser');
 const { closeConnection, establishConnection, oncdb } = require('./monConnector.js');
 const { createRuntimeIndexes } = require('./runtimeIndexes.js');
+const { createAccessControl } = require('./accessControl.js');
 
 const resolver = require('./resolver/resolver');
 const tumorResolver = require('./resolver/tumor.js');
@@ -121,23 +121,26 @@ async function startApolloServer() {
 	const httpServer = http.createServer(app);
 	const database = await establishConnection(dbName);
 	await createRuntimeIndexes(database, COLLECTIONS);
+	const accessControl = createAccessControl();
+	app.get('/auth/session', accessControl.sessionHandler(database, COLLECTIONS));
 
 	const server = new ApolloServer({
 		typeDefs,
-		resolvers,
+		resolvers: accessControl.protectResolvers(resolvers),
+		includeStacktraceInErrorResponses: false,
 		plugins: [ApolloServerPluginDrainHttpServer({ httpServer })]
 	});
 	await server.start();
 
-	// ✅ WICHTIG: body-parser default (100kb) führt sonst zu 413 bei großen Filters/ASTs
+	// Large filter ASTs require a higher limit than Express's 100kb default.
 	app.use(
 		APOLLOPATH,
 		cors(),
-		json({ limit: '50mb' }),
+		express.json({ limit: '50mb' }),
 		expressMiddleware(server, {
 			context: async ({ req }) => {
 				return {
-					...req,
+					...(await accessControl.authenticate(req, database, COLLECTIONS)),
 					db: database,
 					collections: COLLECTIONS
 				};
