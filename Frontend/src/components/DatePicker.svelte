@@ -138,6 +138,7 @@
     $: confirmTooltip = isConfirmDisabled ? "Kein gültiges Interval" : "";
 
     function addDate() {
+    if (isConfirmDisabled) return;
     // Oberes Datum
     const upperDate = selectedOption === "datum"
         ? `${selectedUpperMonth}.${selectedUpperDay}.${selectedUpperYear}` // Wenn Tag und Monat verfügbar sind
@@ -155,6 +156,7 @@
     if(collection === "histology"){
         collection = "diagnosis"
     }
+	if ($datePickerStore.onConfirm?.() === false) return;
 	dataPasser.addStratifierToQueryAPI(
         { label: `${upperDate} - ${lowerDate}`,  catalogueGroupCode: typeOfDate+"", parentGroupCode: collection+""}
         //{ label: `${upperDate} - ${lowerDate}`, catalogueGroupCode: typeOfDate+"", parentGroupCode: collection+""}

@@ -41,6 +41,7 @@
         console.log("SYSTEm", collection)
 
         if (isConfirmDisabled) return;
+        if ($numberPickerStore.onConfirm?.() === false) return;
         addChartQueryItem(dataPasser, {
             id: '', key: fieldName, name: fieldName, type: 'BETWEEN', system: collection,
             values: [{ name: '', value: { min: Number(lowerValue), max: Number(upperValue) }, queryBindId: '' }]

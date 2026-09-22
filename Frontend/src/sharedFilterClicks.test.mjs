@@ -5,6 +5,8 @@ import vm from 'node:vm';
 import ts from 'typescript';
 import moment from 'moment';
 import { createLensHarness } from './testhelpers/lensHarness.mjs';
+import { build } from 'esbuild';
+import { fileURLToPath } from 'node:url';
 
 const transpile = (source) =>
 	ts.transpileModule(source, {
@@ -15,6 +17,11 @@ const helpers = await import(
 		transpile(fs.readFileSync(new URL('./tableFilterItems.ts', import.meta.url), 'utf8'))
 	).toString('base64')}`
 );
+const scopeBundle = await build({
+	entryPoints: [fileURLToPath(new URL('./components/therapy/fixedFilterSelection.ts', import.meta.url))],
+	bundle: true, write: false, format: 'esm', platform: 'node', logLevel: 'silent'
+});
+const { applyFixedFilterSelection } = await import(`data:text/javascript;base64,${Buffer.from(scopeBundle.outputFiles[0].text).toString('base64')}`);
 function functions(file, names, callbackMarker) {
 	const source = fs.readFileSync(new URL(file, import.meta.url), 'utf8');
 	const script = source.includes('<script')
@@ -141,6 +148,10 @@ function fixture(restricted = true) {
 	lens.setCatalogue(catalogue);
 	const c = vm.createContext({
 		...helpers,
+		fixedFilter: null,
+		applyFixedFilterSelection,
+		$datePickerStore: {},
+		$numberPickerStore: {},
 		moment,
 		get: (s) => s,
 		userStore: { currentFilter: restricted ? JSON.stringify(assignment) : '' },

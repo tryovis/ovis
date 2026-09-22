@@ -84,7 +84,9 @@
 	const therapyGeneralIcon = iconPath('physiotherapy.png');
 	const therapyOperationIcon = iconPath('scalpel.png');
 	const therapySysytemicIcon = iconPath('spritze.png');
-	const therapyRadiationIcon = iconPath('x-ray.png');
+	const therapyRadiationIcon = iconPath('radiotherapy.svg');
+	const therapyNuclearIcon = iconPath('x-ray.png');
+	const therapyOtherIcon = iconPath('therapy-other.svg');
 	const statusIcon = iconPath('status.png');
 	const progresIcon = iconPath('progress.png');
 	const tumorboardIcon = iconPath('tumorboard.png');
@@ -169,6 +171,20 @@
 			icon: therapyRadiationIcon,
 			labelKey: 'radiation',
 			enabled: navConfig.therapy.radiation
+		},
+		{
+			id: 'therapy-nuclear',
+			route: 'therapy-nuclear',
+			icon: therapyNuclearIcon,
+			labelKey: 'nuclearMedicine',
+			enabled: navConfig.therapy.nuclear
+		},
+		{
+			id: 'therapy-other',
+			route: 'therapy-other',
+			icon: therapyOtherIcon,
+			labelKey: 'otherTherapies',
+			enabled: navConfig.therapy.other
 		}
 	];
 

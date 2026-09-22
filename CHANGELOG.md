@@ -6,6 +6,17 @@ This GitHub repository is the public open-source distribution of OVIS. Developme
 
 ## 1.4.0 - 2026-09-16
 
+### Therapies and demo data
+
+- **Nuclear medicine and other therapies:** added dedicated pages with therapy descriptions, source codes, filtered distributions and CSV exports. Nuclear medicine details also include radionuclides and radiopharmaceuticals.
+- **Therapy details:** compact column headings improve readability, while the new pages focus on therapy-specific information and retain start date, end date and days since diagnosis (TsD).
+- **Onkostar:** corrected the nuclear medicine therapy type mapping and added source codes and version-specific catalogue descriptions for nuclear medicine and other therapies.
+- **Radiation therapy:** restored the default order by treatment start and corrected the row count, including therapies with multiple or missing details. Column filters, sorting and export counts now use the same radiation details; total-dose units are included.
+- **Navigation:** added distinct icons for radiation therapy and other therapies; nuclear medicine uses the radioactivity symbol.
+- **Demo data:** extended nuclear medicine and other therapy examples and added 1,020 synthetic radiation details with doses, techniques and target areas, covering all 1,057 demo radiation therapies while preserving existing records.
+
+Existing records receive the new Onkostar therapy details after a source reimport and reprocessing of the affected therapy data.
+
 ### Filtering, studies and usability
 
 - **Filter selection:** charts, body maps, tables and quick selections respond reliably, including more specific selections within assigned patient groups.
@@ -13,6 +24,7 @@ This GitHub repository is the public open-source distribution of OVIS. Developme
 - **Filter editing:** reduced loading work for large selections, improved input validation and preserved conditions when editing, importing, removing values or using undo/redo.
 - **Studies:** restored charts, improved loading and German/English labels, and corrected participant lists and counts for the selected patient group and recruitment period.
 - **Charts and tables:** category charts now show clearer loading, empty-result and error messages with retry. Maximized tables keep their rows and use the available space.
+- **Column search:** searches OPS codes, active substances, complications and other list columns by their displayed values; study participant columns use the displayed count. Surgery and systemic therapy tables, counts and exports consistently respect the therapy type and selected patient group.
 - **Cox documentation:** improved the methodology page layout and scrolling within its panel.
 
 ### For administrators

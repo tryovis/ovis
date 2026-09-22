@@ -18,17 +18,24 @@
             id: "v1.4.0",
             version: "1.4.0",
             date: "16.09.2026",
-            title: "Filtering, Studies and Usability",
+            title: "Therapies, Filtering, Studies and Usability",
             changes: [
+              "Nuclear medicine and other therapies: added dedicated pages with therapy descriptions, source codes, filtered charts and CSV exports; nuclear medicine also includes radionuclides and radiopharmaceuticals",
+              "Therapy details: compact column headings and a focus on therapy-specific information, with start date, end date and days since diagnosis (TsD) retained",
+              "Onkostar: corrected nuclear medicine therapy type mapping and added source codes and version-specific catalogue descriptions for nuclear medicine and other therapies",
+              "Radiation therapy: restored sorting by treatment start and corrected row counts, including multiple or missing details; column filters, sorting and export counts now use the same radiation details, and total-dose units are included",
+              "Navigation: distinct icons for radiation therapy and other therapies, with the radioactivity symbol reserved for nuclear medicine in the therapy menu",
+              "Demo data: expanded nuclear medicine and other therapy examples and added 1,020 synthetic radiation details with doses, techniques and target areas, covering all 1,057 demo radiation therapies while preserving existing records",
               "Filtering: restored reliable selections from charts, body maps, tables and quick selections, including more specific selections within assigned patient groups",
               "Filter combinations: corrected patient, tumour and treatment results for combined conditions and exclusions, including multiple values, date and number ranges, and missing values; selected calendar dates are preserved and invalid dates no longer produce misleading ages",
               "Filter editing: reduced loading work for large selections, improved input validation and preserved conditions when editing, importing, removing values or using undo/redo",
               "Studies: restored charts, improved loading and German/English labels, and corrected participant lists and counts for the selected patient group and recruitment period",
               "Charts and tables: category charts now show clearer loading, empty-result and error messages with retry; maximized tables keep their rows and use the available space",
+              "Column search: searches OPS codes, active substances, complications and other list columns by their displayed values; study participant columns use the displayed count; surgery and systemic therapy tables, counts and exports respect the same therapy type and selected patient group",
               "Cox documentation: improved the methodology page layout and scrolling within its panel",
               "Administrators: the user list now shows all accounts on one page; assigned-filter edits wait for a confirmed save, retain entries on failure and record the acting user",
               "Access: assigned patient groups are respected in patient details, timelines and studies without appearing as removable personal filters; anonymous demo visitors no longer receive administrator privileges",
-              "Update note for administrators: date and age corrections for existing records take effect after a normal source data reimport"
+              "Update note for administrators: date and age corrections for existing records take effect after a normal source data reimport; the new Onkostar therapy details require a source reimport and reprocessing of the affected therapy data"
             ],
             expanded: true
           },

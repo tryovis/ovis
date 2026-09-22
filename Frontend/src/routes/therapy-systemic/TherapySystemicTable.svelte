@@ -2,7 +2,7 @@
 	import GenericTable from '../../components/GenericTable.svelte';
 	import { maxStore } from '../../store/maxStore';
 	import { t, locale, locales } from "../../store/languageStore";
-	import { getTherapySystemicTable } from '../../graphQl/gql-therapy-systemic';
+	import { getTherapySystemicTable, systemicTherapyFilter } from '../../graphQl/gql-therapy-systemic';
 	
 	let sortingIndex = 2;
 
@@ -38,6 +38,7 @@
 
 <GenericTable
 	collection="therapy"
+	fixedFilter={systemicTherapyFilter}
 	columns={columns}
 	getTableData={getTherapySystemicTable}
 	sortingIndex={sortingIndex}

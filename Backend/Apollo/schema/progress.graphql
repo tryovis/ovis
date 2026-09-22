@@ -52,6 +52,13 @@ module.exports = `
         localRState
         globalRState
         subType
+        subTypeCode
+        subTypeDetail
+        subTypeDetailCode
+        radioNuclid
+        radioNuclidCode
+        radiopharmaceutical
+        radiopharmaceuticalCode
         emergencySurgery
         side
 

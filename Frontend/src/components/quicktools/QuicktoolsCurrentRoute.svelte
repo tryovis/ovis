@@ -15,7 +15,9 @@
     const therapyGeneralIcon = iconPath('physiotherapy.png') 
     const therapyOperationIcon = iconPath('scalpel.png') 
     const therapySysytemicIcon = iconPath('spritze.png') 
-    const therapyRadiationIcon = iconPath('x-ray.png') 
+    const therapyRadiationIcon = iconPath('radiotherapy.svg')
+    const therapyNuclearIcon = iconPath('x-ray.png')
+    const therapyOtherIcon = iconPath('therapy-other.svg')
     const statusIcon = iconPath('status.png') 
     const progresIcon = iconPath('progress.png') 
     const tumorboardIcon = iconPath('tumorboard.png') 
@@ -45,6 +47,8 @@
     { path: '/therapy-operation', text: $t("therapies")+' &rarr; '+$t("surgery"), icon: therapyOperationIcon },
     { path: '/therapy-systemic', text: $t("therapies")+' &rarr; '+$t("systemic"), icon: therapySysytemicIcon  },
     { path: '/therapy-radiation', text: $t("therapies")+' &rarr; '+$t("radiation"), icon: therapyRadiationIcon },
+    { path: '/therapy-nuclear', text: $t("therapies")+' &rarr; '+$t("nuclearMedicine"), icon: therapyNuclearIcon },
+    { path: '/therapy-other', text: $t("therapies")+' &rarr; '+$t("otherTherapies"), icon: therapyOtherIcon },
     { path: '/therapy', text: $t("therapies"), icon: therapyGeneralIcon },
     { path: '/progress', text: 'Time-Lines &rarr; '+ $t("progress"), icon: progresIcon  },
     { path: '/tumorboard', text: 'Time-Lines &rarr; '+$t("tumorboards"), icon: tumorboardIcon },

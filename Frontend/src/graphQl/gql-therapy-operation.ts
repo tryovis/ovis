@@ -1,4 +1,9 @@
 import { dataUrl, graphqlFetch } from './gql-url'
+import { withFixedFilter } from './scoped-filter';
+
+export const operationTherapyFilter = JSON.stringify({
+  key: 'generalType', type: 'EQUALS', system: 'therapy', value: 'operation'
+});
 const localeOptions:Intl.DateTimeFormatOptions = {
   day: '2-digit',
   month: '2-digit',
@@ -11,27 +16,6 @@ export const getTherapyOperationTable = (
 	limit: number,
 	filter: string | null
 ) => {
-
-  let userFilter = filter ? JSON.parse(filter) : null;
-
-  let fixedOperationFilter = {
-    "operand": "AND",
-    "children": [
-      {
-        "key": "generalType",
-        "type": "EQUALS",
-        "system": "therapy",
-        "value": "operation"
-      }
-    ]
-  };
-
-  // Check if the userFilter has an empty "children" array
-  if (userFilter && userFilter.children && userFilter.children.length > 0) {
-    // If userFilter is not empty, combine it with the fixed operation filter
-    fixedOperationFilter.children.push(userFilter);
-  }
-
 
   return graphqlFetch(dataUrl, {
     method: 'POST',
@@ -64,7 +48,7 @@ export const getTherapyOperationTable = (
       variables: {
         "continueFromID": continueFromID,
         "limit": limit,
-        "filter": JSON.stringify(fixedOperationFilter) // Convert the combined or fixed filter back to a string
+        "filter": withFixedFilter(filter, operationTherapyFilter)
       }
     }),
   })

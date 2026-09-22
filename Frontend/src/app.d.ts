@@ -36,6 +36,8 @@ declare module '$env/static/public' {
 	export const PUBLIC_NAV_THERAPY_OPERATION_ENABLED: string | undefined;
 	export const PUBLIC_NAV_THERAPY_SYSTEMIC_ENABLED: string | undefined;
 	export const PUBLIC_NAV_THERAPY_RADIATION_ENABLED: string | undefined;
+	export const PUBLIC_NAV_THERAPY_NUCLEAR_ENABLED: string | undefined;
+	export const PUBLIC_NAV_THERAPY_OTHER_ENABLED: string | undefined;
 	export const PUBLIC_NAV_PROGRESS_ENABLED: string | undefined;
 	export const PUBLIC_NAV_TUMORBOARD_ENABLED: string | undefined;
 	export const PUBLIC_NAV_CONSULTATION_ENABLED: string | undefined;

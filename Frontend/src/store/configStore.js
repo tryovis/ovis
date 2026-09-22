@@ -51,6 +51,18 @@ export const configStore = writable({
     TherapyRadiationChartShowLogarithm: false,
     TherapyRadiationChartInitialDropdown: "radiation_type",
 
+    TherapyNuclearChartShowChart: true,
+    TherapyNuclearChartShowTop5: true,
+    TherapyNuclearChartShowNull: false,
+    TherapyNuclearChartShowLogarithm: false,
+    TherapyNuclearChartInitialDropdown: "subType",
+
+    TherapyOtherChartShowChart: true,
+    TherapyOtherChartShowTop5: true,
+    TherapyOtherChartShowNull: false,
+    TherapyOtherChartShowLogarithm: false,
+    TherapyOtherChartInitialDropdown: "subType",
+
     ProgressChartShowChart: true,
     ProgressChartShowTop5: true,
     ProgressChartShowNull: false,

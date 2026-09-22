@@ -1,5 +1,6 @@
 const { ObjectId } = require('bson');
 const { filter2match } = require('./astTranslator');
+const { columnFilterStages } = require('./tableColumnSearch');
 
 const sortOrder = { newest: -1, oldest: 1 };
 const tableSortOrder = { asc: 1, desc: -1 };
@@ -19,23 +20,6 @@ const Match = (fArray) => ({
 	$match: Object.assign({}, ...fArray)
 });
 
-const escapeRegex = (value) => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-
-const normalizeColumnFilters = (columnFilters) =>
-	Array.isArray(columnFilters)
-		? columnFilters.filter(({ field, value }) => field && String(value ?? '').trim() !== '')
-		: [];
-
-const columnFilterStages = (columnFilters) =>
-	normalizeColumnFilters(columnFilters).map(({ field, value }) => ({
-		$match: {
-			[field]: {
-				$regex: escapeRegex(value),
-				$options: 'i'
-			}
-		}
-	}));
-
 const sortStage = ({ sortField, sortDirection }, stableSortFields = {}) => {
 	const direction = tableSortOrder[sortDirection] ?? sortOrder.newest;
 	if (!sortField) return { $sort: { ...SORT.$sort, ...stableSortFields } };
@@ -53,7 +37,7 @@ const aggregationArry = async (
 	if (filter) aggArry.push(...(await filter2match({ value: filter, column: colname, db })));
 	if (project) aggArry.push(...project);
 	aggArry.push(...rowStages);
-	aggArry.push(...columnFilterStages(columnFilters));
+	aggArry.push(...columnFilterStages(columnFilters, colname));
 	aggArry.push(sortStage({ sortField, sortDirection }, stableSortFields));
 	if (skip) aggArry.push(Skip(skip));
 	if (offset) aggArry.push(Offset(offset));
@@ -72,7 +56,7 @@ const countAggregationArry = async (
 	if (filter) aggArry.push(...(await filter2match({ value: filter, column: colname, db })));
 	if (project) aggArry.push(...project);
 	aggArry.push(...rowStages);
-	aggArry.push(...columnFilterStages(columnFilters));
+	aggArry.push(...columnFilterStages(columnFilters, colname));
 	aggArry.push({ $count: 'count' });
 	return aggArry;
 };

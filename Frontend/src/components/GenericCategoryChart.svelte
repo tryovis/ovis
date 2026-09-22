@@ -10,6 +10,8 @@
 	import Headline from './Headline.svelte';
 	import { prepareCategoryChart } from './categoryChartModel.js';
 	import { getCategoryChart } from '../graphQl/gql-generic';
+	import { withFixedFilter } from '../graphQl/scoped-filter';
+	import { applyFixedFilterSelection } from './therapy/fixedFilterSelection';
 	import { createLatestRequest } from '../lib/latestRequest.js';
 	import { iconPath } from '$lib/path-utils';
 	import { filterActiveStore } from '../store/filterActiveStore.js';
@@ -24,6 +26,7 @@
 
 	export let aspectRatioMin: number;
 	export let collection: string;
+	export let fixedFilter: string | null = null;
 	export let dropdownObject: { label: string; value: string }[];
 	export let headlineTitle: string;
 	export let headlineTooltip: string;
@@ -95,7 +98,7 @@
 	});
 
 	$: if (isMounted && dataPasser && pieChart) {
-		const dataKey = `${collection}:${initialDropdownValue}`;
+		const dataKey = `${collection}:${initialDropdownValue}${fixedFilter ? `:${fixedFilter}` : ''}`;
 		if (dataKey !== requestedDataKey) void loadCategoryData(dataKey);
 	}
 
@@ -103,6 +106,7 @@
 		const request = categoryRequest.start();
 		const selectedValue = initialDropdownValue;
 		const selectedCollection = collection;
+		const selectedFixedFilter = fixedFilter;
 		requestedDataKey = dataKey;
 		loading = true;
 		loadError = false;
@@ -113,7 +117,7 @@
 			filter = filterActive
 				? JSON.stringify(dataPasser.getAstAPI())
 				: JSON.stringify({ operand: 'OR', children: [] });
-			filter = JSON.stringify(await addUserFilter(JSON.parse(filter)));
+			filter = withFixedFilter(JSON.stringify(await addUserFilter(JSON.parse(filter))), selectedFixedFilter) ?? '';
 			const result = await getCategoryChart(selectedValue, selectedCollection, filter);
 			if (!categoryRequest.isCurrent(request)) return;
 
@@ -145,7 +149,7 @@
 	}
 
 	function retryCategoryData() {
-		void loadCategoryData(`${collection}:${initialDropdownValue}`);
+		void loadCategoryData(`${collection}:${initialDropdownValue}${fixedFilter ? `:${fixedFilter}` : ''}`);
 	}
 
 	function renderCategoryChart() {
@@ -262,11 +266,15 @@
 			tableData,
 			columns,
 			tableShownRows,
-			sortingIndex
+			sortingIndex,
+			null,
+			true,
+			{ fixedFilter }
 		);
 	}
 
 	function addItem(key: string, type: string, value: string | null): void {
+		if (!applyFixedFilterSelection(dataPasser, fixedFilter, get(userStore).currentFilter)) return;
 		addChartQueryItem(
 			dataPasser,
 			{

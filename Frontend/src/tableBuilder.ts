@@ -20,6 +20,7 @@ import {
 	isArrayFilterColumn
 } from './tableFilterItems';
 import type { QueryItem } from './tableFilterItems';
+import { applyFixedFilterSelection } from './components/therapy/fixedFilterSelection';
 
 let currentDataPasser: LensDataPasser | null = null;
 
@@ -35,6 +36,7 @@ type NumberPickerState = {
 	selectedNumber: string | number | null;
 	collection: string | null;
 	fieldName: string | null;
+	onConfirm?: () => boolean | void;
 };
 
 type DatePickerState = {
@@ -42,6 +44,7 @@ type DatePickerState = {
 	selectedDate: string | null;
 	collection: string | null;
 	typeOfDate: string | null;
+	onConfirm?: () => boolean | void;
 };
 
 type WritableSet<T> = { set: (value: T) => void };
@@ -70,7 +73,8 @@ type TablePageResult = {
 };
 
 type ServerSideTableOptions = {
-	fetchPage: (request: TablePageRequest) => Promise<TablePageResult>;
+	fetchPage?: (request: TablePageRequest) => Promise<TablePageResult>;
+	fixedFilter?: string | null;
 };
 
 const normalizeColumnSearch = (value: string): string =>
@@ -165,6 +169,10 @@ export function createTable(
 			? enableCellClick
 			: serverSideOptions
 		: serverSideOptions ?? (typeof enableCellClick === 'object' ? enableCellClick : null);
+	const applySelectionScope = () => {
+		currentDataPasser = dataPasser;
+		return applyFixedFilterSelection(dataPasser, effectiveServerSideOptions?.fixedFilter ?? null, get(userStore).currentFilter);
+	};
 
 	if (DataTable.isDataTable(`#${tableID}`)) {
 		const existingTable = jQuery(`#${tableID}`).DataTable() as Api<unknown>;
@@ -264,7 +272,8 @@ export function createTable(
 						cellData,
 						colIndex,
 						collection,
-						effectiveEnableCellClick
+						effectiveEnableCellClick,
+						applySelectionScope
 					);
 				}
 			}
@@ -333,7 +342,8 @@ export function createTable(
 							cellData,
 							_colIdx,
 							collection,
-							effectiveEnableCellClick
+							effectiveEnableCellClick,
+							applySelectionScope
 						);
 					});
 			});
@@ -341,7 +351,7 @@ export function createTable(
 				adjustColumnWidths(api, columns);
 			}
 		},
-		data: effectiveServerSideOptions ? undefined : tableData,
+		data: effectiveServerSideOptions?.fetchPage ? undefined : tableData,
 		deferRender: true,
 		paging: rowCount !== -1,
 		pageLength: rowCount,
@@ -350,7 +360,7 @@ export function createTable(
 		autoWidth: false
 	};
 
-	if (effectiveServerSideOptions) {
+	if (effectiveServerSideOptions?.fetchPage) {
 		dataTableConfig.serverSide = true;
 		dataTableConfig.searchDelay = 500;
 		dataTableConfig.ajax = async function (request: any, callback: (data: unknown) => void) {
@@ -568,7 +578,8 @@ function bindCellClickHandler(
 	cellData: unknown,
 	colIndex: number,
 	collection: string,
-	enableCellClick: boolean
+	enableCellClick: boolean,
+	beforeSelect?: () => boolean | void
 ) {
 	if (!enableCellClick) {
 		tableCell.onclick = null;
@@ -586,7 +597,8 @@ function bindCellClickHandler(
 					show: true,
 					selectedDate: cellData as string | null,
 					collection,
-					typeOfDate: columnName
+					typeOfDate: columnName,
+					onConfirm: beforeSelect
 				});
 			}
 		};
@@ -621,6 +633,7 @@ function bindCellClickHandler(
 				columnName !== 'ageAtDiagnosis' &&
 				!/DaysSinceDiagnosis$/.test(columnName)
 			) {
+				if (beforeSelect?.() === false) return;
 				if (
 					columnName === 'ops' ||
 					columnName === 'surgeon' ||
@@ -668,7 +681,8 @@ function bindCellClickHandler(
 					show: true,
 					selectedNumber: processedCellData as string | number,
 					collection,
-					fieldName: columnName
+					fieldName: columnName,
+					onConfirm: beforeSelect
 				});
 			}
 		}

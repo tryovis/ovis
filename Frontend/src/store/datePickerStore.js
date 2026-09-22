@@ -1,6 +1,6 @@
 import { writable } from 'svelte/store';
 
-/** @typedef {{ show: boolean; selectedDate: string | null; collection: string | null; typeOfDate: string | null; }} DatePickerState */
+/** @typedef {{ show: boolean; selectedDate: string | null; collection: string | null; typeOfDate: string | null; onConfirm?: () => boolean | void; }} DatePickerState */
 
 /** @type {import('svelte/store').Writable<DatePickerState>} */
 export const datePickerStore = writable({
@@ -14,6 +14,7 @@ export const datePickerStore = writable({
 export function toggleDatePicker(show) {
 	datePickerStore.update((state) => ({
 		...state,
-		show
+		show,
+		onConfirm: show ? state.onConfirm : undefined
 	}));
 }

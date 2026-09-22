@@ -1,5 +1,6 @@
 const { aggregationArry, countAggregationArry } = require('../utils');
 const { filter2match } = require('../astTranslator');
+const { getTherapyRadiationCount } = require('./therapyRadiationTable');
 const {
 	getStudyCategoryChart,
 	getStudyOverview,
@@ -80,6 +81,8 @@ module.exports = {
 				? getStudyPatientCount(input, context)
 				: input.collection === 'study'
 				? getStudyOverviewCount(input, context)
+				: input.collection === 'radiation'
+				? getTherapyRadiationCount(input, context)
 				: tableCount(context.db, collectionNameForCount(context, input.collection), input),
 
 		getFirstAssessment: (_parent, input, context) =>

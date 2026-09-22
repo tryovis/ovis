@@ -2,6 +2,22 @@ function sanitiseCatalogueText(value) {
 	return value.toString().replace(/\s+/g, ' ').trim();
 }
 
+const therapyFieldDescriptions = {
+	subTypeCode: ['Code der dokumentierten Therapieart. / Code of the documented therapy type.'],
+	subTypeDetail: ['Ergänzende Bezeichnung der Therapieart. / Additional therapy type description.'],
+	subTypeDetailCode: ['Code der ergänzenden Therapieart. / Code of the additional therapy type.'],
+	radioNuclid: [
+		'Radionuklid der nuklearmedizinischen Therapie. / Radionuclide used in nuclear medicine therapy.'
+	],
+	radioNuclidCode: [
+		'Radionuklid-Code der nuklearmedizinischen Therapie. / Radionuclide code for nuclear medicine therapy.'
+	],
+	radiopharmaceutical: [
+		'Radiopharmakon der nuklearmedizinischen Therapie. / Radiopharmaceutical used in nuclear medicine therapy.'
+	],
+	radiopharmaceuticalCode: ['Code des Radiopharmakons. / Radiopharmaceutical code.']
+};
+
 export function createCollectionBuilder(
 	collectionName,
 	{
@@ -123,6 +139,9 @@ export function createCollectionBuilder(
 						fieldType: 'single-select',
 						type: 'EQUALS',
 						system: collectionName,
+						...(collectionName === 'therapy' && therapyFieldDescriptions[field]
+							? { infoButtonText: therapyFieldDescriptions[field] }
+							: {}),
 						criteria: criteriaValues.map((value) => ({
 							key: value.toString(),
 							name: value.toString(),

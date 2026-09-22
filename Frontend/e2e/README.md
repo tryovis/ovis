@@ -69,3 +69,38 @@ The request budget counts value-option requests during 3.5 seconds after opening
 Recorded on 2026-09-16: the blank editor with 131 catalogue entries made 116 value-option requests before the change and zero afterward within the same 3.5-second observation. Selecting and reselecting gender needed one request. A 2,000-value selection retained every value while rendering ten value inputs and 40 shared suggestion nodes. The expanded frontend runner passed 157 tests on both Windows (Node 24) and Linux (Node 20). These measurements establish reduced requests and rendering work; they do not establish a fixed wall-clock speedup on clinic servers.
 
 The final production browser matrix passed all 35 scenarios (16 restricted, 16 unrestricted, 3 administrator), including saving and reopening decimal bounds 0.25–12.5, with zero browser errors. Open-editor combination screenshots and a failed-administrator-save screenshot supplement the JSON results.
+
+## Nuclear medicine and other therapy pages
+
+`therapyDetails.mjs` uses the same package/browser environment variables against a
+local production preview (default `http://127.0.0.1:5189`). Run after building the
+new routes:
+
+```sh
+OVIS_TEST_OUTPUT=./therapy-details-results node e2e/therapyDetails.mjs
+```
+
+Every API response is intercepted; other origins and unrecognised API routes are
+blocked. Synthetic fixtures mix nuclear medicine, other, systemic and radiation
+therapies, and patients inside/outside an assigned `gender = w` restriction. The
+fixture evaluates outgoing filter expressions, sorting, pagination and column
+filters, so missing view or patient scopes affect the returned records.
+
+The German UI matrix clicks both menu links, checks table totals and rows,
+maximizes/restores tables, sorts labels in both directions, filters codes, checks
+empty results and legacy records without the new fields, and downloads complete
+and filtered CSV files with separate codes and labels. Chart controls exercise
+radionuclides, radiopharmaceuticals and optional designations, including the chart's
+table view. Separate click regressions seed a synthetic mixed nuclear/other Lens
+selection, then click rendered chart-table and detail-table cells to check that
+the resulting selection retains only the current therapy type and preserves the
+assigned patient restriction. Seeding is setup, not the interaction under test.
+
+Screenshots, CSV downloads and `report.json` are written to the output directory;
+failure captures include the DOM text. This validates frontend behavior with
+synthetic responses, not live Onkostar data or backend query execution.
+
+Recorded on 2026-09-17 against the final production build: all 22 scenarios passed
+with zero browser errors. Full/filtered CSV downloads contained 13/5 nuclear
+medicine records and 8/3 other therapy records. Screenshots wait for Chart.js
+animation and require more painted chart pixels than legend swatches alone.

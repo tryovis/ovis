@@ -54,6 +54,55 @@ test('createCollectionCatalogue adds future ICD-10 C/D values absent from diagno
 	);
 });
 
+test('nuclear and other therapy details remain separate selectable fields and preserve codes', () => {
+	const catalogue = createCollectionCatalogue('therapy', [
+		{
+			generalType: 'nuclear',
+			subType: 'Peptid-Radio-Rezeptor-Therapie',
+			subTypeCode: 'PRRT',
+			subTypeDetail: null,
+			subTypeDetailCode: null,
+			radioNuclid: 'Lutetium-177',
+			radioNuclidCode: '001',
+			radiopharmaceutical: 'DOTA-TATE',
+			radiopharmaceuticalCode: '002'
+		},
+		{
+			generalType: 'other',
+			subType: 'Tumorembolisation',
+			subTypeCode: 'TEB',
+			subTypeDetail: 'Ergänzende Therapieart',
+			subTypeDetailCode: '003'
+		},
+		{ generalType: 'radiation', radiation: [{ radioNuclid: 'Iridium' }] }
+	]);
+	const fields = new Map(catalogue.childCategories.map((field) => [field.key, field]));
+	const values = (key) => fields.get(key).criteria.map((criterion) => criterion.key);
+
+	assert.deepEqual(values('subType'), ['Peptid-Radio-Rezeptor-Therapie', 'Tumorembolisation', '-']);
+	assert.deepEqual(values('subTypeCode'), ['PRRT', 'TEB', '-']);
+	assert.deepEqual(values('subTypeDetail'), ['Ergänzende Therapieart', '-']);
+	assert.deepEqual(values('subTypeDetailCode'), ['003', '-']);
+	assert.deepEqual(values('radioNuclid'), ['Lutetium-177', '-']);
+	assert.deepEqual(values('radioNuclidCode'), ['001', '-']);
+	assert.deepEqual(values('radiopharmaceutical'), ['DOTA-TATE', '-']);
+	assert.deepEqual(values('radiopharmaceuticalCode'), ['002', '-']);
+	assert.deepEqual(values('radiation_radioNuclid'), ['Iridium', '-']);
+	for (const key of [
+		'subTypeCode',
+		'subTypeDetail',
+		'subTypeDetailCode',
+		'radioNuclid',
+		'radioNuclidCode',
+		'radiopharmaceutical',
+		'radiopharmaceuticalCode'
+	]) {
+		assert.equal(fields.get(key).system, 'therapy');
+		assert.equal(fields.get(key).type, 'EQUALS');
+		assert.ok(fields.get(key).infoButtonText[0]);
+	}
+});
+
 test('checked-in catalogue criteria satisfy the Lens text schema', async () => {
 	const catalogue = JSON.parse(
 		await readFile(new URL('./ovis-catalogue.json', import.meta.url), 'utf8')

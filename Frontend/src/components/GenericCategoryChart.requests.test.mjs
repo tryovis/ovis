@@ -6,6 +6,14 @@ import ts from 'typescript';
 import { prepareCategoryChart } from './categoryChartModel.js';
 import { createLatestRequest } from '../lib/latestRequest.js';
 
+const filterSource = fs.readFileSync(new URL('../graphQl/scoped-filter.ts', import.meta.url), 'utf8');
+const filterScript = ts.transpileModule(filterSource, {
+	compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext }
+}).outputText;
+const { withFixedFilter, fixedFilterSelections } = await import(
+	`data:text/javascript;base64,${Buffer.from(filterScript).toString('base64')}`
+);
+
 const component = fs.readFileSync(
 	new URL('./GenericCategoryChart.svelte', import.meta.url),
 	'utf8'
@@ -90,7 +98,16 @@ function createHarness(fetchCategory, options = {}) {
 			return table;
 		},
 		changeRowCount: () => {},
-		addUserFilter: async (filter) => filter,
+		addUserFilter: async (filter) => options.userFilter
+			? { operand: 'AND', children: [filter, options.userFilter] }
+			: filter,
+		withFixedFilter,
+		applyFixedFilterSelection: (_dataPasser, fixed) => {
+			for (const scope of fixedFilterSelections(fixed)) {
+				filters.push({ key: scope.key, values: [{ value: scope.value }] });
+			}
+			return true;
+		},
 		prepareCategoryChart,
 		getCategoryChart: (...args) => {
 			calls.push(args);
@@ -98,7 +115,7 @@ function createHarness(fetchCategory, options = {}) {
 		},
 		createLatestRequest,
 		iconPath: (path) => path,
-		filterActiveStore: store({ filterActive: true }),
+		filterActiveStore: store({ filterActive: options.filterActive !== false }),
 		userStore: store({ colorPalette: ['#008000'] }),
 		t: store((key) => (key === 'other' ? 'Other' : key)),
 		reloadOnly: () => {},
@@ -115,12 +132,13 @@ function createHarness(fetchCategory, options = {}) {
 	vm.runInContext(
 		`${executable}
 		collection = 'study';
+		fixedFilter = ${JSON.stringify(options.fixedFilter ?? null)};
 		initialDropdownValue = 'phase';
 		showChartStoreValue = ${options.showChart !== false};
 		dropdownObject = [{label: 'Phase', value: 'phase'}, {label: 'Status', value: 'status'}];
 		isMounted = true;
 		dataPasser = {
-			getAstAPI: () => ({operand: 'OR', children: []}),
+			getAstAPI: () => (${JSON.stringify(options.activeFilter ?? { operand: 'OR', children: [] })}),
 			getQueryAPI: () => ({}),
 			setQueryStoreAPI: () => {}
 		};
@@ -128,6 +146,8 @@ function createHarness(fetchCategory, options = {}) {
 		globalThis.harness = {
 			update() { ${reactiveFunctions.map((name) => `${name}();`).join(' ')} },
 			select(value) { initialDropdownValue = value; },
+			setScope(value) { fixedFilter = value; },
+			click(key, value) { addItem(key, 'EQUALS', value); },
 			retry() { retryCategoryData(); },
 			toggleChart(value) { return handleChartToggled({detail: {headlineShowChart: value}}); },
 			toggleTop5(value) { handleTop5Toggled({detail: {headlineInitialTop5: value}}); },
@@ -144,6 +164,43 @@ async function flushUpdates(harness, cycles = 4) {
 		await new Promise((resolve) => setImmediate(resolve));
 	}
 }
+
+test('therapy scope stays outside active OR filters and assigned filters', async () => {
+	const scope = { key: 'generalType', type: 'EQUALS', system: 'therapy', value: 'nuclear' };
+	const activeFilter = {
+		operand: 'OR',
+		children: [
+			{ key: 'subType', type: 'EQUALS', system: 'therapy', value: 'PSMA' },
+			{ key: 'gender', type: 'EQUALS', system: 'patient', value: 'm' }
+		]
+	};
+	const userFilter = { key: 'organizationalUnit', type: 'EQUALS', system: 'therapy', value: 'A' };
+	const harness = createHarness(async () => ({ label: ['PSMA'], count: [1] }), {
+		fixedFilter: JSON.stringify(scope), activeFilter, userFilter
+	});
+	await flushUpdates(harness);
+	assert.deepEqual(JSON.parse(harness.calls[0][2]), {
+		operand: 'AND', children: [scope, { operand: 'AND', children: [activeFilter, userFilter] }]
+	});
+	harness.click('subType', 'PSMA');
+	assert.deepEqual(harness.filters.map(({ key, values }) => [key, values[0].value]), [
+		['generalType', 'nuclear'], ['subType', 'PSMA']
+	]);
+});
+
+test('disabling cohort filters keeps the therapy scope and switching scope reloads once', async () => {
+	const scope = (value) => JSON.stringify({ key: 'generalType', type: 'EQUALS', system: 'therapy', value });
+	const harness = createHarness(async () => ({ label: [], count: [] }), {
+		fixedFilter: scope('nuclear'), filterActive: false,
+		activeFilter: { key: 'subType', type: 'EQUALS', system: 'therapy', value: 'PSMA' }
+	});
+	await flushUpdates(harness);
+	assert.deepEqual(JSON.parse(harness.calls[0][2]), { operand: 'AND', children: [JSON.parse(scope('nuclear'))] });
+	harness.setScope(scope('other'));
+	await flushUpdates(harness);
+	assert.equal(harness.calls.length, 2);
+	assert.deepEqual(JSON.parse(harness.calls[1][2]), { operand: 'AND', children: [JSON.parse(scope('other'))] });
+});
 
 test('a rejected category request stays settled across reactive updates', async () => {
 	const harness = createHarness(async () => {

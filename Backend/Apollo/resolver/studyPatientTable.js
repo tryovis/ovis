@@ -1,26 +1,10 @@
 const { filter2match } = require('../astTranslator');
 const { combineLogicalClauses, parseAstFilter } = require('../astUtils');
+const { columnFilterStages, normalizeColumnFilters } = require('../tableColumnSearch');
 
 const sortOrder = { newest: -1 };
 const tableSortOrder = { asc: 1, desc: -1 };
 const emptyFilter = '{"operand":"OR","children":[]}';
-
-const escapeRegex = (value) => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-
-const normalizeColumnFilters = (columnFilters) =>
-	Array.isArray(columnFilters)
-		? columnFilters.filter(({ field, value }) => field && String(value ?? '').trim() !== '')
-		: [];
-
-const columnFilterStages = (columnFilters) =>
-	normalizeColumnFilters(columnFilters).map(({ field, value }) => ({
-		$match: {
-			[field]: {
-				$regex: escapeRegex(value),
-				$options: 'i'
-			}
-		}
-	}));
 
 const sortStage = ({ sortField, sortDirection }) => {
 	const direction = tableSortOrder[sortDirection] ?? sortOrder.newest;
@@ -356,7 +340,7 @@ async function buildStudyOverviewAggregation(input, collections, db) {
 		stages = await studyOverviewRowStages(input, collections, db);
 	}
 	stages.push(...(input?.project ?? []));
-	stages.push(...columnFilterStages(input?.columnFilters));
+	stages.push(...columnFilterStages(input?.columnFilters, collections.study));
 	const direction = tableSortOrder[input?.sortDirection] ?? sortOrder.newest;
 	const sortField = input?.sortField === 'studyPatients' ? '__studyPatientCount' : input?.sortField;
 	if (input?.sortField === 'studyPatients') {
@@ -394,7 +378,7 @@ async function buildStudyOverviewCountAggregation(input, collections, db) {
 		? await studyOverviewRowStages(input, collections, db)
 		: (await studyOverviewMembership(input, collections, db)).stages;
 	stages.push(...(input?.project ?? []));
-	stages.push(...columnFilterStages(input?.columnFilters));
+	stages.push(...columnFilterStages(input?.columnFilters, collections.study));
 	stages.push({ $count: 'count' });
 	return stages;
 }

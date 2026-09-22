@@ -1,6 +1,6 @@
 import { writable } from 'svelte/store';
 
-/** @typedef {{ show: boolean; selectedNumber: string | number | null; collection: string | null; fieldName: string | null; }} NumberPickerState */
+/** @typedef {{ show: boolean; selectedNumber: string | number | null; collection: string | null; fieldName: string | null; onConfirm?: () => boolean | void; }} NumberPickerState */
 
 /** @type {import('svelte/store').Writable<NumberPickerState>} */
 export const numberPickerStore = writable({
@@ -14,6 +14,7 @@ export const numberPickerStore = writable({
 export function toggleNumberPicker(show) {
 	numberPickerStore.update((state) => ({
 		...state,
-		show
+		show,
+		onConfirm: show ? state.onConfirm : undefined
 	}));
 }

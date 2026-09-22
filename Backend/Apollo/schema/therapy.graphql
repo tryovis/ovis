@@ -15,7 +15,14 @@ module.exports = `
         patID: String
         diagnosisDate: Float 
         therapyOccurrenceDate: Float
-        subType: String 
+        subType: String
+        subTypeCode: String
+        subTypeDetail: String
+        subTypeDetailCode: String
+        radioNuclid: String
+        radioNuclidCode: String
+        radiopharmaceutical: String
+        radiopharmaceuticalCode: String
         intention: String 
         localRState: String
         globalRState: String
@@ -125,6 +132,14 @@ module.exports = `
         doseDeviation
         therapyLine
         ActiveSubstance
+        subType
+        subTypeCode
+        subTypeDetail
+        subTypeDetailCode
+        radioNuclid
+        radioNuclidCode
+        radiopharmaceutical
+        radiopharmaceuticalCode
     }
 
     enum radiationMapping {

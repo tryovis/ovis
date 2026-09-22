@@ -1,7 +1,7 @@
 const path = require('path');
 const { pathToFileURL } = require('url');
 const { agg, genCategoryGroupedResult } = require('../groupResult.js');
-const { aggregationArry } = require('../utils');
+const { buildTherapyRadiationAggregation } = require('./therapyRadiationTable');
 const { filter2match } = require('../astTranslator');
 
 const OPS_DATA_PATHS = [
@@ -176,61 +176,11 @@ module.exports = {
 			return genCategoryGroupedResult(raw);
 		},
 
-		// therapy.js – in getTherapyRadiationTable
-		// therapy.js
-		// therapy.js – in getTherapyRadiationTable
 		getTherapyRadiationTable: async (_parent, args, context) => {
-			if (args?.filter) {
-				// 'radiation_type' -> 'type', etc. (du hattest diese Zeile schon kommentiert)
-				args.filter = args.filter.replaceAll('radiation_', '');
-			}
-
-			const agg = await aggregationArry(args, context.collections.therapy, context.db);
-
-			agg.unshift(
-				// 1) Top-Level-Filter (therapy.*) VOR dem Unwind/Mapping
-				{ $match: { generalType: 'radiation' /* weitere therapy.*-Filter hier */ } },
-
-				{ $unwind: { path: '$radiation', preserveNullAndEmptyArrays: true } },
-
-				// 2) Anstatt $project => $set: fügt nur neue/umbenannte Felder hinzu,
-				//    der Rest des Dokuments bleibt erhalten.
-				{
-					$set: {
-						type: '$radiation.type',
-						brachyType: '$radiation.brachyType',
-						radioTarget: '$radiation.radioTarget',
-						boost: '$radiation.boost',
-						totalDose: '$radiation.totalDose',
-						tech: '$radiation.tech',
-						radioType: '$radiation.radioType',
-						radioNuclid: '$radiation.radioNuclid',
-						singleDose: '$radiation.singleDose',
-						singleDoseUnit: '$radiation.singleDoseUnit',
-						subArea: '$radiation.subArea',
-						supArea: '$radiation.supArea',
-						side: '$radiation.side',
-						tumor: '$radiation.tumor',
-						metastasis: '$radiation.metastasis',
-						lymphNodes: '$radiation.lymphNodes',
-						performance: '$radiation.performance',
-						duration: '$radiation.duration',
-						breath: '$radiation.breath',
-						stereo: '$radiation.stereo',
-						areaGrouped: '$radiation.areaGrouped',
-						areaDetailed: '$radiation.areaDetailed'
-					}
-				},
-
-				// 3) Optional: ursprüngliches Nested-Feld loswerden
-				{ $unset: 'radiation' }
-			);
-
-			// Dein generisches filter2match kannst du danach weiterhin anhängen.
-			// Matches auf therapy.* sollten vor Schritt 2 kommen (wie oben).
-			// Matches auf radiation_* (bzw. die flachen Aliases wie "type") kommen danach.
-
-			return context.db.collection(context.collections.therapy).aggregate(agg).toArray();
+			return context.db
+				.collection(context.collections.therapy)
+				.aggregate(await buildTherapyRadiationAggregation(args, context))
+				.toArray();
 		},
 
 		// … im Resolver-Objekt

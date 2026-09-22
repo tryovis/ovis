@@ -142,6 +142,21 @@ const matches = (doc, query = {}, variables = {}) =>
 const readExpr = (doc, expr, variables = {}) => {
 	if (typeof expr === 'string' && expr.startsWith('$$')) return variables[expr.slice(2)];
 	if (typeof expr === 'string' && expr.startsWith('$')) return getValue(doc, expr.slice(1));
+	if (expr && typeof expr === 'object' && '$cond' in expr) {
+		const [condition, positive, negative] = expr.$cond;
+		return readExpr(doc, readExpr(doc, condition, variables) ? positive : negative, variables);
+	}
+	if (expr && typeof expr === 'object' && '$isArray' in expr)
+		return Array.isArray(readExpr(doc, expr.$isArray, variables));
+	if (expr && typeof expr === 'object' && '$convert' in expr) {
+		assert.equal(expr.$convert.to, 'string');
+		const value = readExpr(doc, expr.$convert.input, variables);
+		return value == null ? expr.$convert.onNull : String(value);
+	}
+	if (expr && typeof expr === 'object' && '$regexMatch' in expr) {
+		const { input, regex, options } = expr.$regexMatch;
+		return new RegExp(regex, options).test(readExpr(doc, input, variables));
+	}
 	if (expr && typeof expr === 'object' && '$toString' in expr) {
 		return String(readExpr(doc, expr.$toString, variables));
 	}
@@ -787,6 +802,44 @@ test('study overview sorts the patient column by participation count', async () 
 	);
 	assert.ok(stages.some((stage) => stage.$set?.__studyPatientCount?.$size));
 	assert.ok(stages.some((stage) => stage.$sort?.__studyPatientCount === 1));
+});
+
+test('study patient-column search matches visible counts without matching hidden patient IDs', async () => {
+	for (const [value, expected] of [
+		['3', ['004902']],
+		['2', []],
+		['0', ['009999']],
+		['p1', []]
+	]) {
+		const input = { filter: emptyFilter, columnFilters: [{ field: 'studyPatients', value }] };
+		const rows = await getStudyOverview(input, context());
+		const count = await getStudyOverviewCount(input, context());
+		assert.deepEqual(
+			rows.map((row) => row.studyID),
+			expected,
+			value
+		);
+		assert.equal(count, expected.length, value);
+	}
+});
+
+test('study patient-column search counts only participations inside the selected cohort', async () => {
+	for (const [value, expectedCount] of [
+		['2', 1],
+		['3', 0]
+	]) {
+		const input = {
+			filter: filterValue([
+				{ key: 'ICD.ICD10', type: 'EQUALS', system: 'diagnosis', value: 'C25' }
+			]),
+			columnFilters: [{ field: 'studyPatients', value }]
+		};
+		const rows = await getStudyOverview(input, context());
+		assert.equal(rows.length, expectedCount);
+		assert.equal(await getStudyOverviewCount(input, context()), expectedCount);
+		if (expectedCount)
+			assert.deepEqual(rows[0].studyPatients.map((row) => row.patID).sort(), ['p1', 'p3']);
+	}
 });
 
 test('study metadata filters keep every participation of the matching study', async () => {

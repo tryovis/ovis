@@ -4,7 +4,7 @@
 	import { t, locale, locales } from "../../store/languageStore";
 	import { getTherapyRadiationTable } from '../../graphQl/gql-therapy-radiation';
 
-	let sortingIndex = 2;
+	let sortingIndex = 3;
 
 	let columns = [
 		{ data: 'patID' , header: $t("PID"), tooltip: "Patienten-Identifikationsnummer" },
@@ -52,6 +52,7 @@
 
 <GenericTable
 	collection="therapy"
+	countCollection="radiation"
 	columns={columns}
 	getTableData={getTherapyRadiationTable}
 	sortingIndex={sortingIndex}

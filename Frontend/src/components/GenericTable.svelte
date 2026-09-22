@@ -8,6 +8,7 @@
 	import { addUserFilter } from '../components/UserFilter';
 	import { t, locale, locales } from '../store/languageStore';
 	import { buildTableHeaders, filterColumnsForImportMode } from '../tableColumnVariants';
+	import { withFixedFilter } from '../graphQl/scoped-filter';
 	import {
 		calculateTableShownRowsForContainer,
 		getTablePanel,
@@ -37,6 +38,7 @@
 	export let columns: any;
 	export let collection: string;
 	export let countCollection: string | undefined = undefined;
+	export let fixedFilter: string | null = null;
 	export let getTableData: any;
 	export let sortingIndex: number;
 	export let tableIdName: string;
@@ -195,7 +197,7 @@
 		} else {
 			filter = JSON.stringify({ operand: 'OR', children: [] });
 		}
-		return JSON.stringify(await addUserFilter(JSON.parse(filter)));
+		return withFixedFilter(JSON.stringify(await addUserFilter(JSON.parse(filter))), fixedFilter);
 	}
 
 	function prepareTableRows(rows: any[]) {
@@ -311,7 +313,7 @@
 			sortingIndex,
 			null,
 			true,
-			{ fetchPage: fetchServerPage }
+			{ fetchPage: fetchServerPage, fixedFilter }
 		);
 		genericTable.on('draw.dt.genericTableFit', scheduleTableFit);
 		scheduleTableFit();

@@ -23,7 +23,9 @@ export const navConfig = {
     general: flag(env.PUBLIC_NAV_THERAPY_GENERAL_ENABLED, true),
     operation: flag(env.PUBLIC_NAV_THERAPY_OPERATION_ENABLED, true),
     systemic: flag(env.PUBLIC_NAV_THERAPY_SYSTEMIC_ENABLED, true),
-    radiation: flag(env.PUBLIC_NAV_THERAPY_RADIATION_ENABLED, true)
+    radiation: flag(env.PUBLIC_NAV_THERAPY_RADIATION_ENABLED, true),
+    nuclear: flag(env.PUBLIC_NAV_THERAPY_NUCLEAR_ENABLED, true),
+    other: flag(env.PUBLIC_NAV_THERAPY_OTHER_ENABLED, true)
   },
   timeline: {
     progress: flag(env.PUBLIC_NAV_PROGRESS_ENABLED, true),
