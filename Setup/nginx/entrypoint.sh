@@ -66,6 +66,8 @@ server {
     location /express/ {
         if (\$http_referer !~ "^https?://${APP_DOMAIN}") { return 403; }
         proxy_pass http://express-auth:5000/;
+        # Leave room for the 60-second login timeout and its error response.
+        proxy_read_timeout 75s;
         proxy_set_header Host \$host;
         proxy_set_header X-Real-IP \$remote_addr;
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
@@ -117,6 +119,8 @@ location /keycloak/ {
 location /express/ {
     if (\$http_referer !~ "^https?://${APP_DOMAIN}") { return 403; }
     proxy_pass http://express-auth:5000/;
+    # Leave room for the 60-second login timeout and its error response.
+    proxy_read_timeout 75s;
     proxy_set_header Host \$host;
     proxy_set_header X-Real-IP \$remote_addr;
     proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;

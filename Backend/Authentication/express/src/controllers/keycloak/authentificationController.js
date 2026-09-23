@@ -8,13 +8,13 @@ const clientCredentials = () => ({
 	client_secret: process.env.KEYCLOAK_CLIENT_SECRET
 });
 
-const keycloakPostRequest = async (url, body) => {
+const keycloakPostRequest = async (url, body, timeoutMs = 10000) => {
 	const response = await fetch(url, {
 		method: 'POST',
 		body: new URLSearchParams(body),
 		headers: { 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json' },
 		redirect: 'error',
-		signal: AbortSignal.timeout(10000)
+		signal: AbortSignal.timeout(timeoutMs)
 	});
 	if (!response.ok) {
 		const error = new Error('Keycloak request failed');
@@ -44,13 +44,18 @@ const login = async (req, res) => {
 	if (!textField(req.body?.username, 320) || !textField(req.body?.password, 4096))
 		return res.status(400).json({ error: 'Username and password are required' });
 	try {
-		const result = await keycloakPostRequest(`${tokenEndpoint()}/token`, {
-			...clientCredentials(),
-			grant_type: 'password',
-			username: req.body.username,
-			password: req.body.password,
-			scope: 'openid profile email'
-		});
+		// Allow slower LDAP authentication while keeping stalled logins bounded.
+		const result = await keycloakPostRequest(
+			`${tokenEndpoint()}/token`,
+			{
+				...clientCredentials(),
+				grant_type: 'password',
+				username: req.body.username,
+				password: req.body.password,
+				scope: 'openid profile email'
+			},
+			60000
+		);
 		return res.status(200).json({ ...result, timestamp: Date.now() });
 	} catch (error) {
 		return tokenFailure(res, error);
