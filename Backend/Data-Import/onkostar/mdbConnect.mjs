@@ -2,6 +2,7 @@ import { createPool } from 'mariadb';
 import { states } from './sqlStatements.mjs';
 import fs from 'node:fs/promises';
 import { argv } from 'node:process';
+import { appendQueryResult } from './jsonExport.mjs';
 
 // Optional: für lokale Runs ohne Docker (harmlos, wenn dotenv nicht installiert ist)
 try {
@@ -54,13 +55,6 @@ async function startOmockTmp() {
 	await fs.writeFile(OMOCK_JSON_TMP, '\n{\n', 'utf8');
 }
 
-async function appendOmockEntry(key, rows) {
-	const prefix = omockHasEntries ? ',\n' : '';
-	const entry = `"${key}": ` + JSON.stringify(rows, null, 2);
-	await fs.writeFile(OMOCK_JSON_TMP, prefix + entry, { flag: 'a' });
-	omockHasEntries = true;
-}
-
 async function finishOmockTmp() {
 	await fs.writeFile(OMOCK_JSON_TMP, '\n}\n', { flag: 'a' });
 }
@@ -69,14 +63,21 @@ async function runQuery(conn, key) {
 	const sql = states[key];
 	if (!sql) throw new Error(`Unbekannter Query-Key: ${key}`);
 
-	const rows = await conn.query(sql);
-
-	// identisch wie zuvor: out.txt als "key": [..], Zeilen sammeln
-	const out = `"${key}": ` + JSON.stringify(rows, null, 2) + ',\n';
-	await fs.writeFile(OUT_TXT, out, { flag: 'a' });
-	await appendOmockEntry(key, rows);
-
-	return rows;
+	console.log(`ONKOSTAR export started: ${key}`);
+	try {
+		const rows = await conn.query(sql);
+		await appendQueryResult({
+			outTxtPath: OUT_TXT,
+			omockPath: OMOCK_JSON_TMP,
+			key,
+			rows,
+			hasExistingEntries: omockHasEntries
+		});
+		omockHasEntries = true;
+		console.log(`ONKOSTAR export completed: ${key} (${rows.length} rows)`);
+	} catch (error) {
+		throw new Error(`ONKOSTAR export failed: ${key}`, { cause: error });
+	}
 }
 
 /**
@@ -148,8 +149,7 @@ async function main() {
 		conn = await pool.getConnection();
 
 		for (const key of cols) {
-			const rows = await runQuery(conn, key);
-			console.dir(rows, { depth: null });
+			await runQuery(conn, key);
 		}
 	} finally {
 		if (conn) {
