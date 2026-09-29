@@ -74,10 +74,13 @@ If prebuilt images are available for your deployment, you can use the image-only
 
 ```bash
 cp .env.example .env
+docker compose -f compose-image.yaml pull
 docker compose -f compose-image.yaml up -d
 ```
 
-`compose.yaml` and `compose-image.yaml` are expected to deliver the same runtime experience for a given `OVIS_IMPORT_MODE`. The supported equivalence boundary is runtime behavior: container environment, normalized frontend HTML/public config, and importer mode selection. Byte-identical frontend bundles or identical image digests are not required as long as the served behavior matches.
+`compose.yaml` and `compose-image.yaml` deliver the same runtime experience when the frontend image was built for the deployment's base path and proxy mode. The published `ovisadmin/ovis-frontend:latest` image is built for a root-path deployment (`OVIS_PUBLIC_BASE_PATH=`) behind nginx (`NGINX_PROXY_MODE=true`). Public UI settings such as import mode, language, theme, navigation flags, and site text are read from the container environment at runtime and do not require rebuilding that image.
+
+`OVIS_PUBLIC_BASE_PATH` and the frontend's Express URL are build-time settings. For a subpath deployment or direct frontend-to-Express mode, use `compose.yaml` or publish a custom frontend image with matching `OVIS_PUBLIC_BASE_PATH`, `NGINX_PROXY_MODE`, `APP_DOMAIN`, and `EXPRESS_PORT` build arguments. Byte-identical frontend bundles or identical image digests are not required when comparing supported configurations, but normalized frontend HTML/public config and behavior should match.
 
 ## Architecture Overview
 

@@ -1,7 +1,9 @@
 services:
 
-  # Production Frontend (image-only - no build)
+  # Production Frontend (image-only - no build).
+  # The published ovisadmin image is compiled for root-path, nginx-proxy deployments.
   ovis-frontend:
+    restart: unless-stopped
     image: ${OVIS_GENERAL_IMAGE_NAMESPACE:-ovisadmin}/ovis-frontend:${OVIS_IMAGE_TAG:-latest}
     ports:
       - "127.0.0.1:${FRONTEND_PORT:-5173}:5173"
@@ -17,8 +19,9 @@ services:
       # Must be lowercase: demo|ccp|onkostar|credos
       - PUBLIC_IMPORT_MODE=${OVIS_IMPORT_MODE:-demo}
       - PUBLIC_LDAP_ENABLED=${PUBLIC_LDAP_ENABLED:-false}
-      - PUBLIC_LOGIN_ENABLED=${PUBLIC_LOGIN_ENABLED:-false}
+      # Must match the value used to build a custom frontend image; ovisadmin images use root.
       - OVIS_PUBLIC_BASE_PATH=${OVIS_PUBLIC_BASE_PATH:-}
+      - PUBLIC_LOGIN_ENABLED=${PUBLIC_LOGIN_ENABLED:-false}
       - PUBLIC_SYSTEM_START_LANGUAGE=${PUBLIC_SYSTEM_START_LANGUAGE:-en}
       - PUBLIC_SYSTEM_COLOR_THEME=${PUBLIC_SYSTEM_COLOR_THEME:-CCCMunich}
       - PUBLIC_NAV_PATIENT_COHORT_ENABLED=${PUBLIC_NAV_PATIENT_COHORT_ENABLED:-true}
@@ -89,6 +92,7 @@ services:
 
   ## Resolver: GraphQL
   ovis-backend-apollo:
+    restart: unless-stopped
     image: ${OVIS_GENERAL_IMAGE_NAMESPACE:-ovisadmin}/ovis-backend-apollo:${OVIS_IMAGE_TAG:-latest}
     # Internal only - no port exposure. Access via frontend internal proxy at /api/graphql
     environment:
@@ -132,6 +136,7 @@ services:
       - ./Backend/MongoDB/Preprocessing/ops4.mjs:/ops-data/ops4.mjs:ro
 
   ovis-backend-database-mongodb:
+    restart: unless-stopped
     image: ${OVIS_GENERAL_IMAGE_NAMESPACE:-ovisadmin}/ovis-backend-mongodb:${OVIS_IMAGE_TAG:-latest}
     environment:
       - OVIS_ROOT_USERNAME=${OVIS_ROOT_USERNAME:-ovis-root}
@@ -142,6 +147,7 @@ services:
       - mongo_conf:/data/configdb
 
   ovis-backend-mongodb-data-preprocessing:
+    restart: unless-stopped
     image: ${OVIS_GENERAL_IMAGE_NAMESPACE:-ovisadmin}/ovis-backend-preprocessor:${OVIS_IMAGE_TAG:-latest}
     environment:
       - HTTP_PROXY=${OVIS_HTTP_PROXY:-}
@@ -198,14 +204,14 @@ services:
     command: ["node", "./Preprocessing/catalogue-service.mjs"]
 
   ovis-backend-data-import:
+    restart: unless-stopped
     # Single image-runtime switch for importer image selection.
     # Must be lowercase: demo|ccp|onkostar|credos
     image: ${OVIS_DATA_IMPORT_IMAGE:-${OVIS_GENERAL_IMAGE_NAMESPACE:-ovisadmin}/ovis-backend-data-import-${OVIS_IMPORT_MODE:-demo}:${OVIS_IMAGE_TAG:-latest}}
     depends_on:
       ovis-backend-mongodb-data-preprocessing:
         condition: service_healthy
-    # Allow overriding the env file path (useful for CI / restricted environments)
-    env_file: ${OVIS_DATA_IMPORT_ENV_FILE:-.env}
+    env_file: .env
     environment:
       - HTTP_PROXY=${OVIS_HTTP_PROXY:-}
       - HTTPS_PROXY=${OVIS_HTTPS_PROXY:-}
@@ -246,6 +252,7 @@ services:
     entrypoint: ["bash", "/restore/mongodb-restore.sh"]
 
   mongodb-backup:
+    restart: unless-stopped
     image: ${OVIS_GENERAL_IMAGE_NAMESPACE:-ovisadmin}/ovis-backend-mongodb:${OVIS_IMAGE_TAG:-latest}
     container_name: mongodb-backup
     depends_on:
@@ -268,6 +275,7 @@ services:
 
   # Authentication Services
   postgres:
+    restart: unless-stopped
     image: ghcr.io/baosystems/postgis:13-3.5
     container_name: ovis-postgres
     volumes:
@@ -278,6 +286,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
 
   keycloak:
+    restart: unless-stopped
     image: ${OVIS_GENERAL_IMAGE_NAMESPACE:-ovisadmin}/ovis-keycloak:${OVIS_IMAGE_TAG:-latest}
     container_name: ovis-keycloak
     depends_on:
@@ -299,7 +308,7 @@ services:
       KEYCLOAK_HOSTNAME: ${APP_DOMAIN}
       APP_DOMAIN: ${APP_DOMAIN}
       KEYCLOAK_PORT: ${KEYCLOAK_PORT}
-      NGINX_PROXY_MODE: ${NGINX_PROXY_MODE}
+      NGINX_PROXY_MODE: ${NGINX_PROXY_MODE:-true}
       NGINX_SSL_ENABLED: ${NGINX_SSL_ENABLED}
       NGINX_HTTP_PORT: ${NGINX_HTTP_PORT}
       NGINX_HTTPS_PORT: ${NGINX_HTTPS_PORT}
@@ -335,6 +344,7 @@ services:
     entrypoint: ["/opt/keycloak/bin/ovis-entrypoint.sh"]
 
   express-auth:
+    restart: unless-stopped
     image: ${OVIS_GENERAL_IMAGE_NAMESPACE:-ovisadmin}/ovis-express-auth:${OVIS_IMAGE_TAG:-latest}
     container_name: ovis-express-auth
     ports:
@@ -364,7 +374,7 @@ services:
       - APP_DOMAIN=${APP_DOMAIN}
       - OVIS_PUBLIC_ORIGIN=${OVIS_PUBLIC_ORIGIN:-}
       - FRONTEND_PORT=${FRONTEND_PORT}
-      - NGINX_PROXY_MODE=${NGINX_PROXY_MODE}
+      - NGINX_PROXY_MODE=${NGINX_PROXY_MODE:-true}
       - NGINX_SSL_ENABLED=${NGINX_SSL_ENABLED}
       - NGINX_HTTP_PORT=${NGINX_HTTP_PORT}
       - NGINX_HTTPS_PORT=${NGINX_HTTPS_PORT}
@@ -372,17 +382,18 @@ services:
       - keycloak
 
   nginx:
+    restart: unless-stopped
     image: nginx:1
     container_name: nginx-ovis
     ports:
-      - "${NGINX_HTTP_PORT}:${NGINX_HTTP_PORT}"
-      - "${NGINX_HTTPS_PORT}:${NGINX_HTTPS_PORT}"
+      - "${NGINX_HTTP_PORT:-80}:${NGINX_HTTP_PORT:-80}"
+      - "${NGINX_HTTPS_PORT:-443}:${NGINX_HTTPS_PORT:-443}"
     environment:
-      - APP_DOMAIN=${APP_DOMAIN}
-      - NGINX_PROXY_MODE=${NGINX_PROXY_MODE}
-      - NGINX_SSL_ENABLED=${NGINX_SSL_ENABLED}
-      - NGINX_HTTP_PORT=${NGINX_HTTP_PORT}
-      - NGINX_HTTPS_PORT=${NGINX_HTTPS_PORT}
+      - APP_DOMAIN=${APP_DOMAIN:-localhost}
+      - NGINX_PROXY_MODE=${NGINX_PROXY_MODE:-true}
+      - NGINX_SSL_ENABLED=${NGINX_SSL_ENABLED:-false}
+      - NGINX_HTTP_PORT=${NGINX_HTTP_PORT:-80}
+      - NGINX_HTTPS_PORT=${NGINX_HTTPS_PORT:-443}
       # Internal upstream addresses are always the same
       - NGINX_KEYCLOAK_UPSTREAM=keycloak:8080
       - NGINX_FRONTEND_UPSTREAM=ovis-frontend:5173
@@ -391,12 +402,10 @@ services:
       - NGINX_SSL_KEY=/etc/nginx/certs/privkey.pem
       - NGINX_WORKER_PROCESSES=${NGINX_WORKER_PROCESSES}
     volumes:
-      # Nginx configuration template and entrypoint
       - ./Setup/nginx/nginx.conf.template:/etc/nginx/nginx.conf.template:ro
       - ./Setup/nginx/entrypoint.sh:/entrypoint.sh:ro
-      # SSL certificates (uses SSL_CERT_FILE/SSL_KEY_FILE if set, otherwise falls back to site-config certs)
-      - ${SSL_CERT_FILE:-${OVIS_SITE_CERTS_DIR:-./Setup/Certificates}/cert.pem}:/etc/nginx/certs/cert.pem:ro
-      - ${SSL_KEY_FILE:-${OVIS_SITE_CERTS_DIR:-./Setup/Certificates}/privkey.pem}:/etc/nginx/certs/privkey.pem:ro
+      - ${SSL_CERT_FILE:-./Setup/Certificates/cert.pem}:/etc/nginx/certs/cert.pem:ro
+      - ${SSL_KEY_FILE:-./Setup/Certificates/privkey.pem}:/etc/nginx/certs/privkey.pem:ro
     entrypoint: ["/bin/sh", "-c", "cp /entrypoint.sh /tmp/entrypoint.sh && sed -i 's/\\r$$//' /tmp/entrypoint.sh && /bin/sh /tmp/entrypoint.sh"]
     depends_on:
       ovis-backend-apollo:
