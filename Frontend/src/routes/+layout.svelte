@@ -116,6 +116,7 @@
   let currentUserDB: any;
   let isInitializing = true;
   let lastUpdate: string | null = null; // State für Ausgabe
+  let lastUpdateRequestNumber = 0;
   let showMobilePortraitHint = false;
   let mobileLayoutFrame: number | undefined;
   let filterTrackingStartedAt = 0;
@@ -241,7 +242,7 @@
 
       // Patient-derived catalogue is available only after authentication.
       cataloguePollingInterval = setInterval(async () => {
-        if (get(authStore)) await loadCatalogue();
+        if (get(authStore)) await Promise.all([loadCatalogue(), loadLastUpdate()]);
       }, 30000); // Poll every 30 seconds
 
       platformConfigPollingInterval = setInterval(() => {
@@ -253,22 +254,6 @@
     } finally {
       isInitializing = false;
     }
-    //Zeigt die Zeit des letzten Datenbankupdates an
-    try {
-      const res = await getLastMetaData();
-      if (res?.executedAt) {
-        // Formatieren ins deutsche Datum, wenn gewünscht:
-        lastUpdate = new Date(res.executedAt).toLocaleString("de-DE", {
-          day: "2-digit",
-          month: "2-digit",
-          year: "numeric",
-          hour: "2-digit",
-          minute: "2-digit"
-        });
-      }
-    } catch (err) {
-      console.error("Fehler beim Laden von lastMetaData:", err);
-    }
   });
 
   authStore.subscribe(async (authValue) => {
@@ -277,6 +262,8 @@
       catalogueJSON = Promise.resolve('[]');
       lastCatalogueRevision = null;
       catalogueRequestNumber++;
+      lastUpdate = null;
+      lastUpdateRequestNumber++;
       storeLoaded = false;
     }
     if (authValue && !isInitializing) {
@@ -284,6 +271,29 @@
       await runInitLogic();
     }
   });
+
+  async function loadLastUpdate() {
+    if (!get(authStore)) return;
+    const requestNumber = ++lastUpdateRequestNumber;
+    const requestUser = get(userStore).currentUser;
+    try {
+      const res = await getLastMetaData();
+      if (!get(authStore) || get(userStore).currentUser !== requestUser || requestNumber !== lastUpdateRequestNumber) return;
+
+      const executedAt = res?.executedAt ? new Date(res.executedAt) : null;
+      lastUpdate = executedAt && !Number.isNaN(executedAt.getTime())
+        ? executedAt.toLocaleString("de-DE", {
+            day: "2-digit",
+            month: "2-digit",
+            year: "numeric",
+            hour: "2-digit",
+            minute: "2-digit"
+          })
+        : null;
+    } catch (err) {
+      console.error("Fehler beim Laden von lastMetaData:", err);
+    }
+  }
 
   async function loadCatalogue() {
     const requestNumber = ++catalogueRequestNumber;
@@ -322,8 +332,8 @@
 
     sessionStartTime = Date.now();
 
-    // Load initial catalogue
-    await loadCatalogue();
+    // Both requests require an established session, including after a fresh login.
+    await Promise.all([loadCatalogue(), loadLastUpdate()]);
 
     const storeValue = get(userStore);
     currentUser = storeValue.currentUser;
@@ -400,6 +410,7 @@ function startUpdateTimer() {
 }
 
   onDestroy(async () => {
+    lastUpdateRequestNumber++;
     clearInterval(updateInterval);
     clearTimeout(inactivityTimer);
     if (cataloguePollingInterval) clearInterval(cataloguePollingInterval);
@@ -558,7 +569,7 @@ function startUpdateTimer() {
 <footer class="site-footer">
   <div class="footer-outer footer-bar">
     <!-- Links -->
-    <div class="footer-left">{$t("lastUpdate")}: {lastUpdate}</div>
+    <div class="footer-left">{$t("lastUpdate")}: {lastUpdate ?? '—'}</div>
 
     <!-- Mitte -->
     <nav aria-label="Footer">

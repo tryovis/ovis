@@ -118,6 +118,11 @@ export const getLastMetaData = () => {
       `
     })
   })
-  .then(resp => resp.json())
-  .then(result => result.data.getLastMetaData)
+  .then(async (resp) => {
+    if (!resp.ok) throw new Error(`Last data update request failed (${resp.status})`);
+    const result = await resp.json();
+    if (result.errors?.length) throw new Error('Last data update query failed');
+    if (result.data?.getLastMetaData === undefined) throw new Error('Invalid last data update response');
+    return result.data.getLastMetaData;
+  })
 }

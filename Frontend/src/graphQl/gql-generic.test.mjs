@@ -31,7 +31,7 @@ function categoryClient(response) {
 		},
 		{ filename: path.basename(filename) }
 	);
-	return { getCategoryChart: exports.getCategoryChart, request: () => request };
+	return { ...exports, request: () => request };
 }
 
 test('a successful empty category response remains an empty result', async () => {
@@ -85,4 +85,26 @@ test('malformed category results reject while valid missing-value categories are
 		json: async () => ({ data: { getCategoryChart: chart } })
 	});
 	assert.equal(await client.getCategoryChart('phase', 'study', '{}'), chart);
+});
+
+test('last data update returns the stored timestamp or an explicitly absent import', async () => {
+	for (const metadata of [null, { executedAt: '2026-10-01T02:15:00.000Z' }]) {
+		const client = categoryClient({
+			ok: true,
+			json: async () => ({ data: { getLastMetaData: metadata } })
+		});
+		assert.equal(await client.getLastMetaData(), metadata);
+		assert.match(client.request().query, /getLastMetaData\s*\{\s*executedAt/);
+	}
+});
+
+test('last data update rejects authentication, GraphQL and malformed responses', async () => {
+	for (const response of [
+		{ ok: false, status: 401 },
+		{ ok: false, status: 503 },
+		{ ok: true, json: async () => ({ data: { getLastMetaData: null }, errors: [{ message: 'denied' }] }) },
+		{ ok: true, json: async () => ({ data: {} }) }
+	]) {
+		await assert.rejects(categoryClient(response).getLastMetaData(), /Last data update|Invalid last data update/);
+	}
 });
