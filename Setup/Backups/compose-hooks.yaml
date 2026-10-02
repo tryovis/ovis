@@ -1,0 +1,162 @@
+# Compose reads lifecycle commands from this file even when it is stopping
+# containers created before the update. Keep the commands self-contained:
+# replacing a singly bind-mounted script in Git can leave its old inode mounted.
+x-backup-hook-environment: &backup-hook-environment
+  MONGO_BACKUP_COLLECTIONS: ${MONGO_BACKUP_COLLECTIONS:-user,platformConfiguration,platformDocument}
+  MONGO_BACKUP_REQUIRED_COLLECTIONS: ${MONGO_BACKUP_REQUIRED_COLLECTIONS:-usageEvent,platformConfiguration,platformDocument}
+
+services:
+  mongodb-backup-lifecycle:
+    pre_stop:
+      - environment:
+          <<: *backup-hook-environment
+          MONGO_HOST: ovis-backend-database-mongodb
+        command:
+          - bash
+          - -euc
+          - |
+            # This directory is already mounted in older backup containers.
+            backup_root=$${BACKUP_ROOT:-/var/backups/mongodb}
+            database=onc_test
+            collections=(user usageEvent platformConfiguration platformDocument)
+            IFS=',' read -ra configured <<< "$${MONGO_BACKUP_COLLECTIONS:-},$${MONGO_BACKUP_REQUIRED_COLLECTIONS:-}"
+            for collection in "$${configured[@]}"; do
+              collection="$${collection#"$${collection%%[![:space:]]*}"}"
+              collection="$${collection%"$${collection##*[![:space:]]}"}"
+              [[ -n "$$collection" ]] || continue
+              if [[ ! "$$collection" =~ ^[a-zA-Z_][a-zA-Z0-9_.-]*$$ ]]; then
+                echo 'Invalid MongoDB backup collection name; refusing shutdown' >&2
+                exit 1
+              fi
+              collections+=("$$collection")
+            done
+            mapfile -t collections < <(printf '%s\n' "$${collections[@]}" | LC_ALL=C sort -u)
+            collections_json='['
+            separator=''
+            for collection in "$${collections[@]}"; do
+              collections_json+="$$separator\"$$collection\""
+              separator=,
+            done
+            collections_json+=']'
+
+            if command -v mongosh >/dev/null 2>&1; then
+              mongo_shell=(mongosh --quiet --host "$$MONGO_HOST")
+            elif command -v mongo >/dev/null 2>&1; then
+              mongo_shell=(mongo --quiet --host "$$MONGO_HOST")
+            else
+              echo 'MongoDB shell unavailable; refusing shutdown' >&2
+              exit 1
+            fi
+
+            # Clear the old checkpoint first, so a failed new snapshot cannot
+            # authorize deletion of the database volume using an older marker.
+            "$${mongo_shell[@]}" --eval "
+              const result = db.getSiblingDB('ovis_backup').getCollection('shutdownCheckpoint').deleteOne({_id: 'latest'});
+              if (result.acknowledged !== true) throw new Error('Cannot clear shutdown checkpoint');
+            " >/dev/null
+
+            hash_script="
+              const result = db.getSiblingDB('$$database').runCommand({dbHash: 1, collections: $$collections_json});
+              if (result.ok !== 1 || typeof result.md5 !== 'string' || !/^[0-9a-f]{32}$$/.test(result.md5)) {
+                throw new Error('Cannot verify MongoDB backup state');
+              }
+              print(result.md5);
+            "
+            hash_before=$$("$${mongo_shell[@]}" --eval "$$hash_script")
+            [[ "$$hash_before" =~ ^[0-9a-f]{32}$$ ]] || { echo 'Invalid MongoDB state hash; refusing shutdown' >&2; exit 1; }
+            timestamp=$$(date -u +%Y%m%d-%H%M%S-%N)
+            staging=$$(mktemp -d "$${TMPDIR:-/tmp}/ovis-shutdown.XXXXXX")
+            archive_tmp=''
+            cleanup() {
+              rm -rf -- "$$staging"
+              [[ -z "$$archive_tmp" ]] || rm -f -- "$$archive_tmp"
+            }
+            trap cleanup EXIT
+            mkdir -p "$$staging/$$database"
+
+            for collection in "$${collections[@]}"; do
+              if ! mongodump --host "$$MONGO_HOST" --db "$$database" --collection "$$collection" --out "$$staging" >/dev/null 2>&1; then
+                absent=$$("$${mongo_shell[@]}" --eval "print(db.getSiblingDB('$$database').getCollectionInfos({name: '$$collection'}).length)")
+                if [[ "$$absent" != 0 ]]; then
+                  echo 'MongoDB shutdown backup failed; refusing volume removal' >&2
+                  exit 1
+                fi
+                rm -f -- "$$staging/$$database/$$collection.bson" "$$staging/$$database/$$collection.metadata.json"
+              fi
+            done
+            hash_after=$$("$${mongo_shell[@]}" --eval "$$hash_script")
+            if [[ "$$hash_before" != "$$hash_after" ]]; then
+              echo 'MongoDB changed during shutdown backup; refusing volume removal' >&2
+              exit 1
+            fi
+
+            # Legacy backup retention only removes directories. Publishing one
+            # archive file keeps this snapshot safe from the old running loop.
+            printf '%s\n' "$$timestamp" > "$$staging/.ovis-snapshot"
+            printf "$$database/%s\n" "$${collections[@]}" > "$$staging/.ovis-collections"
+            mkdir -p "$$backup_root"
+            archive_tmp=$$(mktemp "$$backup_root/.ovis-shutdown.pending.XXXXXX")
+            tar -C "$$staging" -cf "$$archive_tmp" .ovis-snapshot .ovis-collections "$$database"
+            mv -f -- "$$archive_tmp" "$$backup_root/.ovis-shutdown.tar"
+            archive_tmp=''
+            "$${mongo_shell[@]}" --eval "
+              const result = db.getSiblingDB('ovis_backup').getCollection('shutdownCheckpoint').replaceOne(
+                {_id: 'latest'},
+                {_id: 'latest', database: '$$database', collections: $$collections_json, hash: '$$hash_after', timestamp: '$$timestamp'},
+                {upsert: true}
+              );
+              if (result.acknowledged !== true) throw new Error('Cannot publish shutdown checkpoint');
+            " >/dev/null
+            echo 'MongoDB shutdown backup completed and verified'
+
+  mongodb-database-lifecycle:
+    pre_stop:
+      - environment:
+          <<: *backup-hook-environment
+        command:
+          - bash
+          - -euc
+          - |
+            collections=(user usageEvent platformConfiguration platformDocument)
+            IFS=',' read -ra configured <<< "$${MONGO_BACKUP_COLLECTIONS:-},$${MONGO_BACKUP_REQUIRED_COLLECTIONS:-}"
+            for collection in "$${configured[@]}"; do
+              collection="$${collection#"$${collection%%[![:space:]]*}"}"
+              collection="$${collection%"$${collection##*[![:space:]]}"}"
+              [[ -n "$$collection" ]] || continue
+              if [[ ! "$$collection" =~ ^[a-zA-Z_][a-zA-Z0-9_.-]*$$ ]]; then
+                echo 'Invalid MongoDB backup collection name; refusing shutdown' >&2
+                exit 1
+              fi
+              collections+=("$$collection")
+            done
+            mapfile -t collections < <(printf '%s\n' "$${collections[@]}" | LC_ALL=C sort -u)
+            collections_json='['
+            separator=''
+            for collection in "$${collections[@]}"; do
+              collections_json+="$$separator\"$$collection\""
+              separator=,
+            done
+            collections_json+=']'
+            if command -v mongosh >/dev/null 2>&1; then
+              mongo_shell=(mongosh --quiet --host 127.0.0.1)
+            elif command -v mongo >/dev/null 2>&1; then
+              mongo_shell=(mongo --quiet --host 127.0.0.1)
+            else
+              echo 'MongoDB shell unavailable; refusing shutdown' >&2
+              exit 1
+            fi
+            "$${mongo_shell[@]}" --eval "
+              const checkpoint = db.getSiblingDB('ovis_backup').getCollection('shutdownCheckpoint').findOne({_id: 'latest'});
+              const expectedCollections = $$collections_json;
+              if (!checkpoint || checkpoint.database !== 'onc_test' ||
+                  JSON.stringify(checkpoint.collections) !== JSON.stringify(expectedCollections) ||
+                  typeof checkpoint.hash !== 'string' || !/^[0-9a-f]{32}$$/.test(checkpoint.hash) ||
+                  typeof checkpoint.timestamp !== 'string' || !/^[0-9]{8}-[0-9]{6}-[0-9]{9}$$/.test(checkpoint.timestamp)) {
+                throw new Error('No matching successful shutdown backup; refusing database volume removal');
+              }
+              const result = db.getSiblingDB(checkpoint.database).runCommand({dbHash: 1, collections: expectedCollections});
+              if (result.ok !== 1 || result.md5 !== checkpoint.hash) {
+                throw new Error('MongoDB changed after its shutdown backup; refusing database volume removal');
+              }
+              print('MongoDB shutdown checkpoint verified');
+            "

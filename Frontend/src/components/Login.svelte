@@ -6,7 +6,7 @@
 	import { userStore } from '../store/userStore';
 	import { login } from '../keyCloakHandlers/authentication.js';
 	import { tokenService } from '../services/tokenService.js';
-	import { publicAssetPath } from '$lib/path-utils';
+	import { iconPath, publicAssetPath } from '$lib/path-utils';
 	import { env } from '$env/dynamic/public';
 	import { resolveChartDisplayPreferences } from '../store/chartDisplayPreferences.js';
 	import {
@@ -34,7 +34,6 @@
 	const technicalAdminName = env.PUBLIC_SITE_SPECIFIC_TECHNICAL_ADMIN_NAME?.trim() || 'Local Admin';
 	const technicalAdminEmail = env.PUBLIC_SITE_SPECIFIC_TECHNICAL_ADMIN_EMAIL?.trim() || '';
 	let language = $platformConfigStore.systemLanguage;
-	$: language = $platformConfigStore.systemLanguage;
 	let hasLDAP: boolean = env.PUBLIC_LDAP_ENABLED === 'true';
 	let isDemo: boolean =
 		env.PUBLIC_IMPORT_MODE?.trim().toUpperCase() === 'DEMO' &&
@@ -68,7 +67,14 @@
 	async function autoLogin() {
 		try {
 			// Anonymous demo access never assumes a database administrator identity.
-			const defaultUser = { _id: '', role: 'demo', userFilter: [], darkMode: false, pseudonymization: true, language: $platformConfigStore.systemLanguage };
+			const defaultUser = {
+				_id: '',
+				role: 'demo',
+				userFilter: [],
+				darkMode: false,
+				pseudonymization: true,
+				language: $platformConfigStore.systemLanguage
+			};
 
 			const chartPreferences = resolveChartDisplayPreferences(defaultUser);
 			const userAppearance = resolveUserAppearance(defaultUser, $platformConfigStore);
@@ -93,6 +99,10 @@
 			console.error('Auto-login error:', error);
 			isLoadingAuth = false;
 		}
+	}
+
+	function toggleLanguage() {
+		language = language === 'en' ? 'de' : 'en';
 	}
 
 	async function handleLoginClick() {
@@ -181,6 +191,18 @@
 		class="background"
 		style="background-image: url('{publicAssetPath('/loginBackground.png')}')"
 	>
+		<button
+			type="button"
+			class="language-switch"
+			on:click={toggleLanguage}
+			aria-label={language === 'de' ? 'Switch to English' : 'Auf Deutsch wechseln'}
+			title={language === 'de' ? 'English' : 'Deutsch'}
+		>
+			<img
+				src={iconPath(`${language === 'de' ? 'en' : 'de'}.png`)}
+				alt={language === 'de' ? 'English' : 'Deutsch'}
+			/>
+		</button>
 		<div class="login-container">
 			<img src={publicAssetPath('/Ovis_logo.svg')} alt="Ovis Logo" class="logo" />
 
@@ -209,8 +231,7 @@
 						role="button"
 						tabindex="0"
 						on:click={() => (showContactInfo = false)}
-						on:keydown={(event) =>
-							handleKeyboardAction(event, () => (showContactInfo = false))}
+						on:keydown={(event) => handleKeyboardAction(event, () => (showContactInfo = false))}
 					>
 						{language === 'en' ? 'Back' : 'Zurück'}
 					</div>
@@ -246,8 +267,7 @@
 						role="button"
 						tabindex="0"
 						on:click={() => (showChangePassword = false)}
-						on:keydown={(event) =>
-							handleKeyboardAction(event, () => (showChangePassword = false))}
+						on:keydown={(event) => handleKeyboardAction(event, () => (showChangePassword = false))}
 					>
 						{language === 'en' ? 'Back' : 'Zurück'}
 					</div>
@@ -282,8 +302,7 @@
 						role="button"
 						tabindex="0"
 						on:click={() => (showAccessInfo = false)}
-						on:keydown={(event) =>
-							handleKeyboardAction(event, () => (showAccessInfo = false))}
+						on:keydown={(event) => handleKeyboardAction(event, () => (showAccessInfo = false))}
 					>
 						{language === 'en' ? 'Back' : 'Zurück'}
 					</div>
@@ -340,6 +359,24 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
+	}
+	.language-switch {
+		position: absolute;
+		top: 20px;
+		right: 20px;
+		padding: 0;
+		border: 0;
+		background: transparent;
+		cursor: pointer;
+	}
+	.language-switch img {
+		display: block;
+		width: 30px;
+		height: auto;
+	}
+	.language-switch:focus-visible {
+		outline: 2px solid currentColor;
+		outline-offset: 4px;
 	}
 	.login-container {
 		background: rgba(255, 255, 255, 0.8);

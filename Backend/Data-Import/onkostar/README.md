@@ -27,6 +27,7 @@ Run from this directory:
 ```sh
 node --test jsonExport.test.mjs containerCommand.test.mjs sqlStatements.test.mjs
 python therapy_sql_test.py
+python patient_sql_test.py
 ```
 
 The JSON regression test generates more characters than the runtime's actual

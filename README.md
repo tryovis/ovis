@@ -8,7 +8,7 @@ See [CHANGELOG.md](CHANGELOG.md) for user-facing changes and public release note
 
 ### Prerequisites
 
-*   Docker and Docker Compose installed.
+*   Docker and Docker Compose 2.30.0 or newer installed (required for the automatic shutdown backup hooks).
 *   Git installed.
 *   Credentials for the FHIR server (if applicable, see Configuration).
 
@@ -42,6 +42,9 @@ See [CHANGELOG.md](CHANGELOG.md) for user-facing changes and public release note
     > GraphQL is an internal API route used by the frontend/backend integration and is not a user-facing entrypoint.
 
 4.  **Stop Services:**
+
+    Keep `Setup/Backups/mongodb` on the host. With the stack running, the updated Compose files automatically save a final MongoDB backup during `down -v`; see [MongoDB Backups & Restore](#mongodb-backups--restore) for recovery and shutdown limits.
+
     ```bash
     # Production mode
     docker compose down
@@ -250,15 +253,38 @@ The `compose.yaml` file defines the following services:
 
 Two helper services keep your MongoDB data resilient:
 
-*   **`mongodb-backup`** runs a lightweight `mongo` container that executes `Setup/Backups/scripts/mongodb-backup.sh` on a schedule. It always connects to `ovis-backend-database-mongodb` and backs up the fixed `onc_test` database. Configure these deployment choices in `.env` as needed:
-    *   **`MONGO_BACKUP_COLLECTIONS`** – Comma-separated collections to export (default `user`).
-    *   **`MONGO_BACKUP_RETENTION`** – Number of snapshots to retain; set to `0` to disable pruning (default `0`).
+*   **`mongodb-backup`** executes `Setup/Backups/scripts/mongodb-backup.sh` on a schedule. It always connects to `ovis-backend-database-mongodb` and backs up the fixed `onc_test` database. A snapshot becomes available to restore only after all existing configured collections are successfully dumped; incomplete dumps stay outside the published snapshot directories. A collection not yet created in an older database may be skipped only after MongoDB confirms it is absent. Configure these deployment choices in `.env` as needed:
+    *   **`MONGO_BACKUP_COLLECTIONS`** – Comma-separated collections to export (default `user,platformConfiguration,platformDocument`).
+    *   **`MONGO_BACKUP_RETENTION`** – Number of scheduled snapshots to retain; set to `0` to disable pruning (default `0`). The latest verified shutdown archive is retained separately.
     *   **`MONGO_BACKUP_INTERVAL_SECONDS`** – Delay between backups in seconds (default `21600`, i.e. six hours).
-*   **`mongodb-restore`** is a one-shot init container that runs on every `docker compose up`. It restores the fixed `onc_test` database from the latest snapshot whenever the target collections are empty. Configure it with:
-    *   **`MONGO_RESTORE_COLLECTIONS`** – Collections that must exist before skipping restore (default `user`).
-    *   **`MONGO_RESTORE_IGNORE_IDS`** – Seed-record IDs ignored when deciding whether restore is necessary (default `ovis-root`).
+*   **`mongodb-restore`** is a one-shot init container. At stack startup it restores each empty target collection in `onc_test` independently, while preserving collections that already contain data. Configure it with:
+    *   **`MONGO_RESTORE_COLLECTIONS`** – Comma-separated collections eligible for restore (default `user,platformConfiguration,platformDocument`).
+    *   **`MONGO_RESTORE_IGNORE_IDS`** – Seed-record IDs ignored only in the `user` collection when deciding whether restore is necessary (default `ovis-root`).
 
-With both services enabled, a fresh stack start will bring MongoDB back to its latest snapshot before the GraphQL/API containers connect. Manual restores remain available when you want to seed staging or experiment locally:
+Both scripts always include `user`, `usageEvent`, `platformConfiguration` and `platformDocument`, even when an older `.env` explicitly lists only `user` and `usageEvent`. This protects the platform settings and PDFs uploaded through the admin area. `MONGO_BACKUP_REQUIRED_COLLECTIONS` and `MONGO_RESTORE_REQUIRED_COLLECTIONS` can add collections but cannot exclude these four. Older snapshots without platform documents remain usable for the collections they contain. The example `.env` files set a 10-second interval and retain three snapshots; the defaults above apply when those variables are unset.
+
+Snapshots live in the host directory `Setup/Backups/mongodb`, which survives `docker compose down -v`. Keep this directory when updating or replacing the checkout. With Docker Compose 2.30.0 or newer, the updated Compose files run a final backup before stopping the database, including on the first shutdown of an existing running installation after `git pull`. The hooks are supplied by the current Compose configuration, so the backup container does not need a separate recreation step. The API stops accepting writes first, and MongoDB verifies that its protected collections match the saved shutdown snapshot before allowing shutdown. A failed backup or verification aborts this shutdown instead of proceeding with database removal.
+
+Both update paths keep the usual commands: update the checkout, remove the database volume in the evening, and start again the next day. No separate backup command is needed:
+
+```bash
+# Local build: shut down in the evening, rebuild/start the next day
+git pull
+docker compose down -v
+docker compose up --build -d
+
+# Prebuilt images: use this Compose file for both shutdown and startup
+git pull
+docker compose -f compose-image.yaml down -v
+docker compose -f compose-image.yaml pull
+docker compose -f compose-image.yaml up -d
+```
+
+Shutdown hooks require running containers. If an older MongoDB container is already stopped or has crashed before this update, bring the stack up normally before using `down -v` so the hooks can capture its existing data. Hard kills and host failures cannot guarantee a final snapshot; the last successful saved backup remains available. On a fresh database, restoration runs before the API starts. Documents already missing from both MongoDB and the saved snapshots must be uploaded again; an update cannot reconstruct them.
+
+For regression checks, run `node --test Setup/Backups/scripts/mongodb-backup-restore.test.mjs Setup/Backups/scripts/mongodb-lifecycle.test.mjs`. These checks exercise the Bash scripts and shutdown hooks with mocked MongoDB tools and render both Compose configurations; they require Bash and the Docker Compose CLI, but no Docker daemon.
+
+Manual restores remain available when you want to seed staging or experiment locally:
 
 ```bash
 # Restore the user collection from a specific snapshot
