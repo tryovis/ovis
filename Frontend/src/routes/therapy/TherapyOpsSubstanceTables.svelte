@@ -170,6 +170,7 @@
 			>{$t("substances")}</button>
 	</div>
 	<Headline
+		headlineExportContext={{ filterActive: false, filter: null, selection: { collection: 'therapy', grouping: showOpsFull ? 'ops' : 'substance' } }}
 		headlineTitle={''}
 		headlineTooltip={"bla"}
 		headlineMaximize={maximizeTherapyOpsSubstanceTable}

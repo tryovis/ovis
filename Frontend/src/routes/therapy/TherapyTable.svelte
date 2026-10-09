@@ -154,6 +154,7 @@ function stringifyOpsObject(remainingData:any){
 </script>
 
 <Headline
+	headlineExportContext={{ filterActive: false, filter: null, selection: { collection: 'therapy' } }}
 	headlineTitle={$t("therapyDetails")}
 	headlineTooltip={'TOOLTIP'}
 	headlineMaximize={maximizeTherapyTable}

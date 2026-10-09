@@ -778,6 +778,7 @@
 <!-- prettier-ignore -->
 <lens-data-passer bind:this={dataPasser}></lens-data-passer>
 <Headline
+	headlineExportContext={{ filterActive: false, filter: null, selection: { collection: 'users' } }}
 	headlineTitle={'Users'}
 	headlineTooltip={'TOOLTIP'}
 	headlineMaximize={null}

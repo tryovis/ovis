@@ -24,6 +24,7 @@
     const survivalIcon = iconPath('km-kurve.png') 
     const supplementaryIcon = iconPath('plus.png') 
     const studyIcon = iconPath('study.png') 
+    const exportIcon = iconPath('download-icon.svg')
     const organIcon = iconPath('organ.png') 
     const breastIcon = iconPath('breast.png') 
     const colonIcon = iconPath('colon.png') 
@@ -61,6 +62,7 @@
    // { path: '/colon', text: 'Organspezifisch &rarr; Darm', icon: colonIcon },
    // { path: '/prostate', text: 'Organspezifisch &rarr; Prostata',icon: prostateIcon },
     { path: '/study', text: $t("studies"), icon: studyIcon },
+    { path: '/export', text: $t("export"), icon: exportIcon },
     { path: '/settings', text: $t("userSettings"), icon: settingsIcon },
     { path: '/filter-edit', text: $t("editFilters"), icon: editIcon },
     { path: '/user-management', text: $t("userManagement"), icon: userManagementIcon },

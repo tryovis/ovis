@@ -10,6 +10,7 @@
 	import { singlePatientStore } from '../../store/singlePatientStore.js';
 	import { addUserFilter } from '../../components/UserFilter';
 	import { navConfig } from '../../config/navigation';
+	import { getNavigationAvailability } from '../../config/navigation-availability';
 	import { appPath, iconPath } from '$lib/path-utils';
 
 	type FilterActiveState = {
@@ -93,6 +94,7 @@
 	const survivalIcon = iconPath('km-kurve.png');
 	const supplementaryIcon = iconPath('plus.png');
 	const studyIcon = iconPath('study.png');
+	const exportIcon = iconPath('download-icon.svg');
 	const molecularDiagnosticIcon = iconPath('dna.png');
 	const bioMaterialIcon = iconPath('bioMaterial.png');
 	const adminIcon = iconPath('tools.svg');
@@ -108,7 +110,6 @@
 		icon: string;
 		labelKey: string;
 		enabled: boolean;
-		hideForCcp?: boolean;
 		requiresSelection?: boolean;
 	};
 
@@ -120,8 +121,6 @@
 		labelKey?: string;
 		labelType?: 'text' | 'tnm' | 'supplementary';
 		text?: string;
-		requireCcp?: boolean;
-		requireNonCcp?: boolean;
 		hideForRoles?: string[];
 	};
 
@@ -208,8 +207,7 @@
 			route: 'consultation',
 			icon: consultationIcon,
 			labelKey: 'consultations',
-			enabled: navConfig.timeline.consultation,
-			hideForCcp: true
+			enabled: navConfig.timeline.consultation
 		},
 		{
 			id: 'status',
@@ -291,16 +289,21 @@
 			route: 'bio-material',
 			icon: bioMaterialIcon,
 			enabled: navConfig.bioMaterial.enabled,
-			labelKey: 'bioMaterial',
-			requireCcp: true
+			labelKey: 'bioMaterial'
 		},
 		{
 			id: 'study',
 			route: 'study',
 			icon: studyIcon,
 			enabled: navConfig.study.enabled,
-			labelKey: 'studies',
-			requireNonCcp: true
+			labelKey: 'studies'
+		},
+		{
+			id: 'export',
+			route: 'export',
+			icon: exportIcon,
+			enabled: navConfig.export.enabled,
+			labelKey: 'export'
 		}
 	];
 
@@ -344,26 +347,23 @@
 		return () => document.removeEventListener('pointerdown', closeDropdownOnOutsidePointer);
 	});
 
-	const isDropdownItemVisible = (item: DropdownItem) => item.enabled && !(item.hideForCcp && isCCP);
-
-	const isLinkVisible = (item: LinkItem) => {
-		if (!item.enabled) return false;
-		if (item.requireCcp && !isCCP) return false;
-		if (item.requireNonCcp && isCCP) return false;
-		if (item.hideForRoles?.includes(currentRole)) return false;
+	const isLinkVisible = (item: LinkItem, availability: Record<string, boolean>, role: string) => {
+		if (!(availability[item.id] ?? item.enabled)) return false;
+		if (item.hideForRoles?.includes(role)) return false;
 		return true;
 	};
 
-	$: visiblePatientItems = patientItems.filter((item) => item.enabled);
+	$: navigationAvailability = getNavigationAvailability(navConfig, isCCP);
+	$: visiblePatientItems = patientItems.filter((item) => navigationAvailability[item.id]);
 	$: patientMenuVisible = visiblePatientItems.length > 0;
-	$: visibleTherapyItems = therapyItems.filter((item) => isDropdownItemVisible(item));
+	$: visibleTherapyItems = therapyItems.filter((item) => navigationAvailability[item.id]);
 	$: therapyMenuVisible = visibleTherapyItems.length > 0;
-	$: visibleTimelineItems = timelineItems.filter((item) => isDropdownItemVisible(item));
+	$: visibleTimelineItems = timelineItems.filter((item) => navigationAvailability[item.id]);
 	$: timelineMenuVisible = visibleTimelineItems.length > 0;
 	$: visibleAdminItems = adminItems.filter((item) => item.enabled);
 	$: adminMenuVisible = currentRole !== 'user' && visibleAdminItems.length > 0;
-	$: mainLinksFiltered = mainLinks.filter((item) => isLinkVisible(item));
-	$: topLinksFiltered = topLinks.filter((item) => isLinkVisible(item));
+	$: mainLinksFiltered = mainLinks.filter((item) => isLinkVisible(item, navigationAvailability, currentRole));
+	$: topLinksFiltered = topLinks.filter((item) => isLinkVisible(item, navigationAvailability, currentRole));
 </script>
 <lens-data-passer bind:this={dataPasser} />
 <div>

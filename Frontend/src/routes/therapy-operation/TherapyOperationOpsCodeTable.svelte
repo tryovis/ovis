@@ -129,6 +129,7 @@
 </script>
 
 <Headline
+	headlineExportContext={{ filterActive: true, filter, selection: { collection: 'therapy', generalType: 'operation', grouping: 'opsCode' } }}
 	headlineTitle={$t("opsCodeFrequencies")}
 	headlineTooltip={$t("tooltip_TherapyOperationOPSCodeTable")}
 	headlineMaximize={maximizeTherapyOperationOpsCodeTable}

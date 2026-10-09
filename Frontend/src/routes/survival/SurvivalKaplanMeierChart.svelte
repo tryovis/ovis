@@ -1,4 +1,6 @@
 <script lang="ts">
+	import type { ExportContext } from '$lib/export-context';
+	let exportContext: ExportContext = {};
 	import { KaplanMeierWithGrouping, InitSvg, dsurv } from './kaplan-meier-chart-function';
 	import {
 		buildKaplanMeierTableData,
@@ -305,12 +307,15 @@
 
 		if (vecin.length === 0 || dataKey !== lastDataKey) {
 			filter = currentFilter;
+			const requestContext = { filterActive: true, filter: currentFilter,
+				selection: { model: 'kaplanMeier', type: selectedChartType, stratification: selectedStratificationType } };
 			const result = await getSurvivalKaplanMeierChart(
 				selectedChartType,
 				selectedStratificationType,
 				filter
 			);
 			if (requestId !== paintRequestId) return;
+			exportContext = requestContext;
 
 			vecin = result.filter((element: null) => element !== null);
 			vecin = vecin.filter((entry) => entry.status !== 2);
@@ -514,6 +519,8 @@
 
 <div class="survival-km-root" bind:this={chartRoot}>
 <Headline
+	headlineExportContext={{ ...exportContext, selection: { ...exportContext.selection, confidence: selectedConfidenceType, timeUnit: selectedTimeType, leftSlider, rightSlider } }}
+	headlineLoading={updating}
 	headlineTitle={$t('kaplanMeierTitle')}
 	headlineTooltip={$t('tooltip_kaplanmeier')}
 	headlineMaximize={maximizeSurvivalKaplanMeierChart}

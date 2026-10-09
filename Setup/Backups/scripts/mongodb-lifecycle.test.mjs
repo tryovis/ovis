@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 
 const scripts = path.dirname(fileURLToPath(import.meta.url));
 const repository = path.resolve(scripts, '../../..');
-const collections = ['platformConfiguration', 'platformDocument', 'usageEvent', 'user'];
+const collections = ['exportAudit', 'platformConfiguration', 'platformDocument', 'usageEvent', 'user'];
 const bash = [process.env.OVIS_TEST_BASH,
 	...(process.platform === 'win32' ? ['C:/Program Files/Git/bin/bash.exe'] : []), 'bash']
 	.filter(Boolean).find(candidate => spawnSync(candidate, ['-c', 'exit 0']).status === 0);

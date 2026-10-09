@@ -112,15 +112,21 @@ function runPipeline(documents, pipeline) {
 	return pipeline.reduce((rows, stage) => {
 		if (stage.$match) return rows.filter((doc) => matches(doc, stage.$match));
 		if (stage.$unwind) {
-			const { path, preserveNullAndEmptyArrays } = stage.$unwind;
+			const { path, preserveNullAndEmptyArrays, includeArrayIndex } = stage.$unwind;
 			const field = path.slice(1);
 			return rows.flatMap((doc) => {
 				const value = getValue(doc, field);
 				if (Array.isArray(value) && value.length)
-					return value.map((item) => ({ ...doc, [field]: item }));
-				if (value != null && !Array.isArray(value)) return [doc];
+					return value.map((item, index) => ({
+						...doc,
+						[field]: item,
+						...(includeArrayIndex ? { [includeArrayIndex]: index } : {})
+					}));
+				if (value != null && !Array.isArray(value))
+					return [{ ...doc, ...(includeArrayIndex ? { [includeArrayIndex]: null } : {}) }];
 				if (!preserveNullAndEmptyArrays) return [];
 				const result = { ...doc };
+				if (includeArrayIndex) result[includeArrayIndex] = null;
 				if (Array.isArray(value)) delete result[field];
 				return [result];
 			});
@@ -235,6 +241,29 @@ test('radiation page and export counts use the full row set independently of pag
 		all.push(...rows.map((row) => row.therapyID));
 	}
 	assert.deepEqual(all, ['r1', 'r1', 'r2', 'r3', 'r4', 'r5']);
+});
+
+test('radiation offset pages split within one parent without losing or repeating details', async () => {
+	for (const sorting of [{}, { sortField: 'therapyOccurrenceDate', sortDirection: 'desc' }]) {
+		const complete = await rowsAndCount(sorting);
+		const paged = [];
+		for (let offset = 0; offset < complete.count; offset += 1) {
+			const { rows, count, context } = await rowsAndCount({ ...sorting, limit: 1, offset });
+			assert.equal(count, complete.count);
+			assert.equal(rows.length, 1);
+			const rowPipeline = context.calls[0].pipeline;
+			assert.equal(rowPipeline.find((stage) => stage.$sort).$sort._radiationIndex, 1);
+			paged.push(...rows);
+		}
+		assert.deepEqual(paged, complete.rows);
+		assert.deepEqual(
+			paged.filter((row) => row._id === 'r1').map((row) => [row._radiationIndex, row.type]),
+			[
+				[0, 'Teletherapie'],
+				[1, 'Brachytherapie']
+			]
+		);
+	}
 });
 
 test('radiation column aliases filter and sort the same rows that are counted', async () => {

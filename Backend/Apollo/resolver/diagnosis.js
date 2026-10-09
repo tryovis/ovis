@@ -157,7 +157,15 @@ module.exports = {
 		}
 	},
 	Diagnosis: {
-		ICDO: (diagnosis) => [legacyIcdo(diagnosis)]
+		ICDO: (diagnosis) => [legacyIcdo(diagnosis)],
+		// Preprocessing stores the chronological ECOG history as an array, while the
+		// public schema exposes text. Preserve every assessment, including repeated zeroes.
+		ECOG: (diagnosis) => {
+			const values = (Array.isArray(diagnosis.ECOG) ? diagnosis.ECOG : [diagnosis.ECOG]).filter(
+				(value) => value !== null && value !== undefined
+			);
+			return values.length ? values.map(String).join(', ') : null;
+		}
 	},
 	PatientCohort: {
 		ICDO: legacyIcdo

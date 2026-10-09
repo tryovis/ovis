@@ -3,7 +3,7 @@
 # replacing a singly bind-mounted script in Git can leave its old inode mounted.
 x-backup-hook-environment: &backup-hook-environment
   MONGO_BACKUP_COLLECTIONS: ${MONGO_BACKUP_COLLECTIONS:-user,platformConfiguration,platformDocument}
-  MONGO_BACKUP_REQUIRED_COLLECTIONS: ${MONGO_BACKUP_REQUIRED_COLLECTIONS:-usageEvent,platformConfiguration,platformDocument}
+  MONGO_BACKUP_REQUIRED_COLLECTIONS: ${MONGO_BACKUP_REQUIRED_COLLECTIONS:-usageEvent,exportAudit,platformConfiguration,platformDocument}
 
 services:
   mongodb-backup-lifecycle:
@@ -18,7 +18,7 @@ services:
             # This directory is already mounted in older backup containers.
             backup_root=$${BACKUP_ROOT:-/var/backups/mongodb}
             database=onc_test
-            collections=(user usageEvent platformConfiguration platformDocument)
+            collections=(user usageEvent exportAudit platformConfiguration platformDocument)
             IFS=',' read -ra configured <<< "$${MONGO_BACKUP_COLLECTIONS:-},$${MONGO_BACKUP_REQUIRED_COLLECTIONS:-}"
             for collection in "$${configured[@]}"; do
               collection="$${collection#"$${collection%%[![:space:]]*}"}"
@@ -117,7 +117,7 @@ services:
           - bash
           - -euc
           - |
-            collections=(user usageEvent platformConfiguration platformDocument)
+            collections=(user usageEvent exportAudit platformConfiguration platformDocument)
             IFS=',' read -ra configured <<< "$${MONGO_BACKUP_COLLECTIONS:-},$${MONGO_BACKUP_REQUIRED_COLLECTIONS:-}"
             for collection in "$${configured[@]}"; do
               collection="$${collection#"$${collection%%[![:space:]]*}"}"

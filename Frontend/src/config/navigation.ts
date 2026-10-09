@@ -48,6 +48,9 @@ export const navConfig = {
   study: {
     enabled: flag(env.PUBLIC_NAV_STUDY_ENABLED, true)
   },
+  export: {
+    enabled: flag(env.PUBLIC_NAV_EXPORT_ENABLED, true)
+  },
   userManagement: {
     enabled: flag(env.PUBLIC_NAV_USER_MANAGEMENT_ENABLED, true)
   },

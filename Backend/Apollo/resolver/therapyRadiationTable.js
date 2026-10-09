@@ -47,7 +47,12 @@ function radiationFilter(filter) {
 	return JSON.stringify(ast);
 }
 
-async function buildTherapyRadiationAggregation(input, context, count = false) {
+async function buildTherapyRadiationAggregation(
+	input,
+	context,
+	count = false,
+	{ allFields = false } = {}
+) {
 	const args = {
 		...input,
 		filter: radiationFilter(input.filter),
@@ -60,14 +65,35 @@ async function buildTherapyRadiationAggregation(input, context, count = false) {
 	const build = count ? countAggregationArry : aggregationArry;
 	return [
 		{ $match: { generalType: 'radiation' } },
-		{ $unwind: { path: '$radiation', preserveNullAndEmptyArrays: true } },
 		{
-			$set: Object.fromEntries(radiationFields.map((field) => [field, `$radiation.${field}`]))
+			$unwind: {
+				path: '$radiation',
+				preserveNullAndEmptyArrays: true,
+				includeArrayIndex: '_radiationIndex'
+			}
 		},
-		{ $unset: 'radiation' },
+		...(allFields
+			? [
+					// Keep parent identity/cohort fields on collisions, and the original nested
+					// detail for lossless custom-field access. Known detail fields retain the
+					// existing logical radiation view's filter semantics.
+					{ $replaceRoot: { newRoot: { $mergeObjects: ['$radiation', '$$ROOT'] } } },
+					{
+						$set: Object.fromEntries(radiationFields.map((field) => [field, `$radiation.${field}`]))
+					}
+			  ]
+			: [
+					{
+						$set: Object.fromEntries(radiationFields.map((field) => [field, `$radiation.${field}`]))
+					},
+					{ $unset: 'radiation' }
+			  ]),
 		// Apply the complete cohort and row filters to the same flattened rows for
 		// both queries. Missing details still form one row; multiple details form several.
-		...(await build(args, context.collections.therapy, context.db))
+		...(await build(args, context.collections.therapy, context.db, {
+			// Each detail shares its parent's _id, so offset pages also need its array position.
+			stableSortFields: { _radiationIndex: 1 }
+		}))
 	];
 }
 

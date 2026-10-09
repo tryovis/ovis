@@ -37,6 +37,7 @@
 	},
 	"type": "module",
 	"dependencies": {
+		"@noble/hashes": "2.4.0",
 		"@samply/lens": "^0.4.4-ovis-preview",
 		"chart.js": "^4.4.1",
 		"chartjs-adapter-moment": "^1.0.1",

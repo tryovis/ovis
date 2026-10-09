@@ -5,6 +5,12 @@ async function createRuntimeIndexes(database, collections) {
 		usageEvents.createIndex({ type: 1, userId: 1 }),
 		usageEvents.createIndex({ type: 1, targetType: 1, module: 1 })
 	]);
+	const exportAudits = database.collection(collections.exportAudit || 'exportAudit');
+	await Promise.all([
+		exportAudits.createIndex({ createdAt: -1, _id: -1 }),
+		exportAudits.createIndex({ userId: 1, createdAt: -1 }),
+		exportAudits.createIndex({ sha256: 1 })
+	]);
 	const analysisIndexes = [
 		[collections.diagnosis, { patID: 1, diagnosisDate: 1, tumorID: 1 }],
 		...['kaplanmeier', 'tnm', 'histology', 'status'].map((key) => [

@@ -325,6 +325,7 @@
 	class:maximized={maximizePatientCohortDeathChart}
 >
 	<Headline
+		headlineExportContext={{ filterActive: true, filter, selection: { collection: 'patient', chart: 'death' } }}
 		headlineTitle={$t('vitalStatus')}
 		headlineTooltip={$t('tooltip_PatientCohortDeathChart')}
 		headlineMaximize={maximizePatientCohortDeathChart}

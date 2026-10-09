@@ -1,23 +1,20 @@
 import assert from 'node:assert/strict';
-import { rm } from 'node:fs/promises';
-import test, { after } from 'node:test';
-import { pathToFileURL } from 'node:url';
+import test from 'node:test';
 
 import { build } from 'esbuild';
 
-const outfile = '/tmp/ovis-tableDownload-test.mjs';
-after(() => rm(outfile, { force: true }));
-
-await build({
+const bundled = await build({
 	entryPoints: ['Frontend/src/lib/table-download.ts'],
-	outfile,
+	write: false,
 	bundle: true,
 	format: 'esm',
 	platform: 'node',
 	logLevel: 'silent'
 });
 
-const tableDownload = await import(pathToFileURL(outfile).href);
+const tableDownload = await import(
+	`data:text/javascript;base64,${Buffer.from(bundled.outputFiles[0].text).toString('base64')}`
+);
 
 test('serializeTableCsv preserves the existing semicolon export shape', () => {
 	// Given
@@ -73,6 +70,12 @@ test('saveTableCsv requests a save location before loading and streams every dyn
 			index === 35_000 ? 'Hash # bleibt; vollständig\nmit "Zitat" und Umlaut ä' : `value-${index}`
 	}));
 	const environment = {
+		beginAudit: async ({ fileName }) => ({
+			id: 'test-audit',
+			fileName,
+			prepare: async () => {},
+			complete: async () => {}
+		}),
 		document: null,
 		createObjectUrl: () => assert.fail('Blob fallback must not run when a file handle exists'),
 		revokeObjectUrl: () => assert.fail('Blob fallback must not run when a file handle exists'),
@@ -128,6 +131,12 @@ test('saveTableCsv falls back to a Blob URL instead of a data URL', async () => 
 		}
 	};
 	const environment = {
+		beginAudit: async ({ fileName }) => ({
+			id: 'test-audit',
+			fileName,
+			prepare: async () => {},
+			complete: async () => {}
+		}),
 		document: {
 			createElement: () => link,
 			body: { appendChild: () => {}, removeChild: () => {} }

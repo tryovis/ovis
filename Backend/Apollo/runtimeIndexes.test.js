@@ -34,9 +34,9 @@ test('Apollo startup indexes populated analysis collections without touching stu
 
 	assert.deepEqual(
 		[...new Set(calls.map(({ name }) => name))],
-		['usageEvent', 'diagnosis', 'kaplanMeier', 'tnm', 'histology', 'status']
+		['usageEvent', 'exportAudit', 'diagnosis', 'kaplanMeier', 'tnm', 'histology', 'status']
 	);
-	assert.equal(calls.filter(({ operation }) => operation === 'createIndex').length, 8);
+	assert.equal(calls.filter(({ operation }) => operation === 'createIndex').length, 11);
 	assert.deepEqual(
 		calls.find((call) => call.operation === 'createIndex' && call.name === 'diagnosis')
 			.specification,
@@ -66,6 +66,10 @@ test('Apollo startup does not create analysis indexes on missing or empty collec
 		histology: 'histology',
 		status: 'status'
 	});
-	assert.equal(indexes.length, 3);
-	assert.ok(indexes.every(({ name }) => name === 'usageEvent'));
+	assert.equal(indexes.length, 6);
+	assert.ok(indexes.every(({ name }) => ['usageEvent', 'exportAudit'].includes(name)));
+	assert.deepEqual(
+		indexes.filter(({ name }) => name === 'exportAudit').map(({ specification }) => specification),
+		[{ createdAt: -1, _id: -1 }, { userId: 1, createdAt: -1 }, { sha256: 1 }]
+	);
 });

@@ -1038,6 +1038,8 @@ async function loadInputData() {
 
 const deleteCollections = async (cols2delete) => {
 	if (cols2delete.length === 0) return;
+	// Export history is persistent application state, never imported clinical data.
+	if (cols2delete.includes('exportAudit')) throw new Error('Export audit history cannot be reset by preprocessing');
 	const expanded = new Set(cols2delete);
 	if (expanded.has('study')) expanded.add('studyPatient');
 	const delitions = [...expanded].map(async (it) => {

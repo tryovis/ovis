@@ -1,16 +1,11 @@
 import assert from 'node:assert/strict';
-import { rm } from 'node:fs/promises';
-import test, { after } from 'node:test';
-import { pathToFileURL } from 'node:url';
+import test from 'node:test';
 
 import { build } from 'esbuild';
 
-const outfile = '/tmp/ovis-tableExport-test.mjs';
-after(() => rm(outfile, { force: true }));
-
-await build({
+const bundled = await build({
 	entryPoints: ['Frontend/src/graphQl/table-page.ts'],
-	outfile,
+	write: false,
 	bundle: true,
 	format: 'esm',
 	platform: 'node',
@@ -35,7 +30,9 @@ await build({
 	]
 });
 
-const { fetchAllTableRows } = await import(pathToFileURL(outfile).href);
+const { fetchAllTableRows } = await import(
+	`data:text/javascript;base64,${Buffer.from(bundled.outputFiles[0].text).toString('base64')}`
+);
 
 test('fetchAllTableRows exports every filtered row independently of the visible page', async () => {
 	// Given

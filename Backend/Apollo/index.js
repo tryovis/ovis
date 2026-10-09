@@ -20,6 +20,8 @@ const tnmResolver = require('./resolver/tnmMetastases.js');
 const followupResolver = require('./resolver/followUp.js');
 const splyResovler = require('./resolver/supplementary.js');
 const analyticsResolver = require('./resolver/analytics.js');
+const exportAuditResolver = require('./resolver/exportAudit.js');
+const clinicalExportResolver = require('./resolver/clinicalExport.js');
 const platformResolver = require('./resolver/platform.js');
 const coxResolver = require('./resolver/cox.js');
 
@@ -38,6 +40,8 @@ const stdy = require('./schema/study.graphql');
 const followup = require('./schema/followUp.graphql');
 const spplmntry = require('./schema/supplementary.graphql');
 const analytics = require('./schema/analytics.graphql');
+const exportAudit = require('./schema/exportAudit.graphql');
+const clinicalExport = require('./schema/clinicalExport.graphql');
 const platform = require('./schema/platform.graphql');
 const cox = require('./schema/cox.graphql');
 
@@ -69,6 +73,7 @@ const COLLECTIONS = {
 	bioMaterial: 'bioMaterial',
 	status: 'status',
 	usageEvent: 'usageEvent',
+	exportAudit: 'exportAudit',
 	platformConfiguration: 'platformConfiguration',
 	platformDocument: 'platformDocument'
 };
@@ -86,6 +91,8 @@ const resolvers = [
 	followupResolver,
 	splyResovler,
 	analyticsResolver,
+	exportAuditResolver,
+	clinicalExportResolver,
 	platformResolver,
 	coxResolver
 ];
@@ -106,6 +113,8 @@ const typeDefs = [
 	stdy,
 	spplmntry,
 	analytics,
+	exportAudit,
+	clinicalExport,
 	platform,
 	cox
 ];

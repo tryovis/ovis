@@ -1,5 +1,7 @@
 <script lang="ts">
 	// @ts-nocheck
+	import type { ExportContext } from '$lib/export-context';
+	let exportContext: ExportContext = {};
 	import { Chart, registerables } from 'chart.js';
 	import type { ChartConfiguration } from 'chart.js';
 	import { onDestroy, onMount, tick } from 'svelte';
@@ -116,8 +118,10 @@
 				? JSON.stringify(dataPasser.getAstAPI())
 				: JSON.stringify({ operand: 'OR', children: [] });
 			filter = JSON.stringify(await addUserFilter(JSON.parse(filter)));
-			const studies = await getStudyPatientChart(filter);
+			const requestedFilter = filter;
+			const studies = await getStudyPatientChart(requestedFilter);
 			if (!studyRequest.isCurrent(request)) return;
+			exportContext = { filterActive: true, filter: requestedFilter, selection: { collection: 'studyPatient' } };
 
 			inputArray = buildStudyChartRows(studies);
 			data = inputArray;
@@ -247,6 +251,7 @@
 <div class="study-patient-chart-root">
 	<lens-data-passer bind:this={dataPasser} />
 	<Headline
+		headlineExportContext={{ ...exportContext, selection: { ...exportContext.selection, leftSlider, rightSlider } }}
 		headlineTitle={$t('studyPatientChartTitle')}
 		headlineTooltip={$t('tooltip_StudyPatientChart')}
 		headlineMaximize={maximizeStudyPatientChart}

@@ -1,3 +1,11 @@
+import type { ExportContext } from './export-context';
+import {
+	beginExport,
+	createExportFingerprint,
+	triggerBlobDownload,
+	type ExportAuditFactory
+} from './export-workflow';
+
 export type TableRow = Readonly<Record<string, unknown>>;
 
 export type TableExportProgress = Readonly<{
@@ -10,6 +18,7 @@ type TableExportRequest = Readonly<{
 	downloadName: string;
 	headers: readonly string[];
 	fields: readonly string[];
+	context?: ExportContext;
 	getRows: (
 		onProgress: (loadedRows: number, expectedRows: number) => void
 	) => Promise<readonly TableRow[] | null>;
@@ -23,6 +32,7 @@ type TableDownloadEnvironment = Readonly<{
 	requestSaveFile?: (fileName: string) => Promise<FileSystemFileHandle>;
 	scheduleCleanup: (cleanup: () => void) => void;
 	yieldControl: () => Promise<void>;
+	beginAudit?: ExportAuditFactory;
 }>;
 
 type CsvChunk = Readonly<{
@@ -122,28 +132,65 @@ export async function saveTableCsv(
 	request: TableExportRequest,
 	environment: TableDownloadEnvironment = browserDownloadEnvironment()
 ): Promise<TableDownloadResult> {
-	const fileName = request.downloadName.toLowerCase().endsWith('.csv')
+	const originalFileName = request.downloadName.toLowerCase().endsWith('.csv')
 		? request.downloadName
 		: `${request.downloadName}.csv`;
-	let fileHandle: FileSystemFileHandle | undefined;
-	if (environment.requestSaveFile) {
-		try {
-			fileHandle = await environment.requestSaveFile(fileName);
-		} catch (error) {
-			if (isDomExceptionNamed(error, 'AbortError')) return 'cancelled';
-			if (!isDomExceptionNamed(error, 'SecurityError')) throw error;
-		}
-	}
-
-	const tableData = await request.getRows((current, total) =>
-		request.onProgress({ phase: 'fetching', current, total })
+	const session = await beginExport(
+		{
+			fileName: originalFileName,
+			kind: 'TABLE',
+			format: 'CSV',
+			context: {
+				...request.context,
+				selection: {
+					...request.context?.selection,
+					fields: [...request.fields],
+					headers: [...request.headers]
+				}
+			}
+		},
+		environment.beginAudit
 	);
-	if (!tableData) return 'empty';
-
-	const writable = fileHandle ? await fileHandle.createWritable() : undefined;
-	const blobParts: BlobPart[] = [];
+	if (!session) return 'cancelled';
+	const fileName = session.fileName;
+	let fileHandle: FileSystemFileHandle | undefined;
+	let writable: FileSystemWritableFileStream | undefined;
+	let released = false;
 	try {
+		if (environment.requestSaveFile) {
+			try {
+				fileHandle = await environment.requestSaveFile(fileName);
+			} catch (error) {
+				if (isDomExceptionNamed(error, 'AbortError')) {
+					await session.complete('CANCELLED');
+					return 'cancelled';
+				}
+				// Confirmation can consume transient activation; retain the audited Blob fallback.
+				if (!isDomExceptionNamed(error, 'SecurityError')) throw error;
+			}
+		}
+		const tableData = await request.getRows((current, total) =>
+			request.onProgress({ phase: 'fetching', current, total })
+		);
+		if (!tableData) {
+			await session.complete('CANCELLED');
+			return 'empty';
+		}
+		// Fingerprint exact UTF-8 bytes, including BOM, without a second whole CSV in memory.
+		// Persist before writing any patient data to the destination.
+		const encoder = new TextEncoder();
+		const fingerprint = createExportFingerprint();
 		for (const chunk of createCsvChunks(request.headers, request.fields, tableData)) {
+			fingerprint.update(encoder.encode(chunk.content));
+			await environment.yieldControl();
+		}
+		const metadata = { ...fingerprint.digest(), rowCount: tableData.length };
+		await session.prepare(metadata);
+		writable = fileHandle ? await fileHandle.createWritable() : undefined;
+		const blobParts: BlobPart[] = [];
+		const writtenFingerprint = createExportFingerprint();
+		for (const chunk of createCsvChunks(request.headers, request.fields, tableData)) {
+			writtenFingerprint.update(encoder.encode(chunk.content));
 			if (writable) await writable.write(chunk.content);
 			else blobParts.push(chunk.content);
 			request.onProgress({
@@ -153,28 +200,26 @@ export async function saveTableCsv(
 			});
 			await environment.yieldControl();
 		}
-		if (writable) await writable.close();
+		if (writtenFingerprint.digest().sha256 !== metadata.sha256)
+			throw new Error('Export data changed during serialization');
+		if (writable) {
+			await writable.close();
+			released = true;
+			await session.complete('SAVED');
+			return 'saved';
+		}
+		triggerBlobDownload(new Blob(blobParts, { type: CSV_MIME_TYPE }), fileName, environment);
+		released = true;
+		await session.complete('DOWNLOAD_STARTED');
+		return 'download-started';
 	} catch (error) {
-		if (writable) await writable.abort(error);
+		if (!released) {
+			try {
+				if (writable) await writable.abort(error);
+			} finally {
+				await session.complete('FAILED');
+			}
+		}
 		throw error;
 	}
-
-	if (writable) return 'saved';
-
-	const blob = new Blob(blobParts, { type: CSV_MIME_TYPE });
-	const objectUrl = environment.createObjectUrl(blob);
-	const link = environment.document.createElement('a');
-	link.href = objectUrl;
-	link.download = fileName;
-	link.style.display = 'none';
-	let linkAppended = false;
-	try {
-		environment.document.body.appendChild(link);
-		linkAppended = true;
-		link.click();
-	} finally {
-		if (linkAppended) environment.document.body.removeChild(link);
-		environment.scheduleCleanup(() => environment.revokeObjectUrl(objectUrl));
-	}
-	return 'download-started';
 }

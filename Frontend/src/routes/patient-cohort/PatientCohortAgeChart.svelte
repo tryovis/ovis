@@ -262,6 +262,7 @@
 
 <div class="patient-cohort-age-root" class:maximized={maximizePatientCohortAgeChart}>
 	<Headline
+		headlineExportContext={{ filterActive: true, filter, selection: { collection: 'patient', chart: 'age' } }}
 		headlineTitle={translate('ageAtDiagnosis')}
 		headlineTooltip={translate('tooltip_PatientCohortAgeChart')}
 		headlineMaximize={maximizePatientCohortAgeChart}

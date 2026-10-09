@@ -1,0 +1,19 @@
+module.exports = `#graphql
+  enum ExportCollection {
+    patient diagnosis therapy radiation histology tnm progress metastasis
+    tumorBoard consultation status molecularMarker bioMaterial studyPatient
+    supplementary diagnostic study kaplanMeier followUp
+  }
+
+  enum ExportFieldType { TEXT NUMBER DATE }
+
+  type ExportField {
+    id: String!
+    type: ExportFieldType!
+  }
+
+  extend type Query {
+    getExportFields(collection: ExportCollection!, filter: String): [ExportField!]!
+    getExportRows(collection: ExportCollection!, filter: String, offset: Int! = 0, limit: Int! = 1000): [String!]!
+  }
+`;

@@ -31,6 +31,7 @@ try {
 	const excludedCollections = [
 		'user',
 		'usageEvent',
+		'exportAudit',
 		'platformConfiguration',
 		'platformDocument',
 		'ops'

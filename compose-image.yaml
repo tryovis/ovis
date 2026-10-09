@@ -43,6 +43,7 @@ services:
       - PUBLIC_NAV_MOLECULAR_ENABLED=${PUBLIC_NAV_MOLECULAR_ENABLED:-true}
       - PUBLIC_NAV_BIO_MATERIAL_ENABLED=${PUBLIC_NAV_BIO_MATERIAL_ENABLED:-true}
       - PUBLIC_NAV_STUDY_ENABLED=${PUBLIC_NAV_STUDY_ENABLED:-true}
+      - PUBLIC_NAV_EXPORT_ENABLED=${PUBLIC_NAV_EXPORT_ENABLED:-false}
       - PUBLIC_NAV_USER_MANAGEMENT_ENABLED=${PUBLIC_NAV_USER_MANAGEMENT_ENABLED:-true}
       - PUBLIC_QUICKTOOLS_GENDER_BUTTONS=${PUBLIC_QUICKTOOLS_GENDER_BUTTONS:-M|m;W|w;Other|other}
       - PUBLIC_QUICKTOOLS_GENDER_OTHER_EXCLUSIONS=${PUBLIC_QUICKTOOLS_GENDER_OTHER_EXCLUSIONS:-m;w}
@@ -249,7 +250,7 @@ services:
       - MONGO_RESTORE_DBS=onc_test
       - MONGO_RESTORE_COLLECTIONS=${MONGO_RESTORE_COLLECTIONS:-user,platformConfiguration,platformDocument}
       # Required independently of an older site's explicit collection list.
-      - MONGO_RESTORE_REQUIRED_COLLECTIONS=${MONGO_RESTORE_REQUIRED_COLLECTIONS:-usageEvent,platformConfiguration,platformDocument}
+      - MONGO_RESTORE_REQUIRED_COLLECTIONS=${MONGO_RESTORE_REQUIRED_COLLECTIONS:-usageEvent,exportAudit,platformConfiguration,platformDocument}
       - MONGO_RESTORE_IGNORE_IDS=${MONGO_RESTORE_IGNORE_IDS:-ovis-root}
       - OVIS_IMPORT_MODE=${OVIS_IMPORT_MODE:-demo}
     volumes:
@@ -275,7 +276,7 @@ services:
       - MONGO_BACKUP_DBS=onc_test
       - MONGO_BACKUP_COLLECTIONS=${MONGO_BACKUP_COLLECTIONS:-user,platformConfiguration,platformDocument}
       # Required independently of an older site's explicit collection list.
-      - MONGO_BACKUP_REQUIRED_COLLECTIONS=${MONGO_BACKUP_REQUIRED_COLLECTIONS:-usageEvent,platformConfiguration,platformDocument}
+      - MONGO_BACKUP_REQUIRED_COLLECTIONS=${MONGO_BACKUP_REQUIRED_COLLECTIONS:-usageEvent,exportAudit,platformConfiguration,platformDocument}
       - MONGO_BACKUP_RETENTION=${MONGO_BACKUP_RETENTION:-0}
       - BACKUP_INTERVAL_SECONDS=${MONGO_BACKUP_INTERVAL_SECONDS:-21600}
     volumes:

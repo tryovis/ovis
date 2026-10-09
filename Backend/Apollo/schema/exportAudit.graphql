@@ -1,0 +1,67 @@
+module.exports = `#graphql
+  enum ExportAuditKind { TABLE CHART FILTER }
+  enum ExportAuditFormat { CSV PNG JSON }
+  enum ExportAuditOutcome { SAVED DOWNLOAD_STARTED CANCELLED FAILED }
+  enum ExportAuditStatus { CREATED PREPARED SAVED DOWNLOAD_STARTED CANCELLED FAILED }
+
+  input ExportAuditInput {
+    route: String!
+    title: String!
+    kind: ExportAuditKind!
+    format: ExportAuditFormat!
+    fileName: String!
+    filterActive: Boolean!
+    filter: String
+    selection: String
+    policyVersion: String!
+    appVersion: String!
+  }
+
+  type ExportAuditCreated {
+    id: ID!
+    fileName: String!
+    createdAt: Float!
+  }
+
+  type ExportAuditRecord {
+    id: ID!
+    fileName: String!
+    createdAt: Float!
+    preparedAt: Float
+    completedAt: Float
+    userId: String!
+    userRole: String!
+    anonymousDemo: Boolean!
+    metadataSource: String!
+    kind: ExportAuditKind!
+    format: ExportAuditFormat!
+    route: String!
+    title: String!
+    filterActive: Boolean!
+    filter: String
+    mandatoryFilter: String
+    effectiveFilter: String
+    selection: String
+    policyVersion: String!
+    appVersion: String!
+    sizeBytes: Float
+    sha256: String
+    rowCount: Int
+    status: ExportAuditStatus!
+  }
+
+  type ExportAuditPage {
+    total: Int!
+    records: [ExportAuditRecord!]!
+  }
+
+  extend type Query {
+    getExportAudits(search: String, offset: Int = 0, limit: Int = 50): ExportAuditPage!
+  }
+
+  extend type Mutation {
+    createExportAudit(input: ExportAuditInput!): ExportAuditCreated!
+    prepareExportAudit(id: ID!, sizeBytes: Float!, sha256: String!, rowCount: Int): Boolean!
+    completeExportAudit(id: ID!, outcome: ExportAuditOutcome!): Boolean!
+  }
+`;

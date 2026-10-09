@@ -21,6 +21,7 @@
 	import { trackUsageEvent } from '$lib/usage-tracking';
 	import { createPointerTooltipStyle } from '$lib/tooltip-popover';
 	import { addChartQueryItem } from '../tableFilterItems';
+	import type { ExportContext } from '$lib/export-context';
 
 	let filterActive = true;
 
@@ -70,6 +71,8 @@
 	let mounted = false;
 	let loadedSvgPath = '';
 	let currentCatalog = '';
+	let exportContext: ExportContext = {};
+	let exportLoading = true;
 	let tooltipText = '';
 	let currentColor = '';
 	let tooltip: HTMLElement | null = null;
@@ -257,6 +260,9 @@
 	async function initializeSVG(): Promise<void> {
 		const root = svgRoot;
 		if (!root || !inputArray?.length) return;
+		const token = loadToken;
+		const wasLoading = exportLoading;
+		exportLoading = true;
 
 		maxCount = Math.max(...inputArray.map((item) => item.count));
 
@@ -265,6 +271,7 @@
 
 		isToggled = false;
 		setMaxLevel();
+		if (!wasLoading && token === loadToken && root === svgRoot) exportLoading = false;
 	}
 
 	function normalizeSvgViewport(svg: SVGSVGElement): void {
@@ -294,6 +301,8 @@
 		if (!host) return;
 
 		const token = ++loadToken;
+		const requestedLevel = Number(currentLevel);
+		exportLoading = true;
 		try {
 			const response = await fetch(source);
 			if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -323,6 +332,16 @@
 
 		try {
 			await handleSvgLoad(loadedRoot, token);
+			if (token !== loadToken || source !== currentSVG || requestedLevel !== Number(currentLevel)) return;
+			exportContext = {
+				filterActive: true,
+				filter,
+				selection: {
+					collection: SVGType, currentSVG: source, currentLevel: requestedLevel,
+					currentCatalog, showLegend
+				}
+			};
+			exportLoading = false;
 		} catch (error) {
 			if (token !== loadToken) return;
 			console.error('Failed to initialize SVG map:', source, error);
@@ -1015,6 +1034,7 @@
 	style={`--svg-target-width:${currentSVGWidth}px; --svg-target-height:${currentSVGHeight}px;`}
 >
 	<Headline
+		headlineExportContext={exportContext}
 		{headlineTitle}
 		{headlineTooltip}
 		headlineMaximize={maxStoreValue}
@@ -1026,7 +1046,7 @@
 		headlineInitialLogarithm={showLogarithmStoreValue}
 		headlineChartJSElement={null}
 		headlineD3Element={svgRoot}
-		headlineLoading={null}
+		headlineLoading={exportLoading || currentSVG !== exportContext.selection?.currentSVG || Number(currentLevel) !== exportContext.selection?.currentLevel}
 		on:maximized={handleMaximized}
 		on:chartToggled={handleChartToggled}
 		on:logarithmToggled={handleLogarithmToggled}

@@ -43,6 +43,8 @@
 	let timelineMetric: UsageMetric = 'ONLINE_TIME';
 	let timelineInterval: UsageInterval = 'DAY';
 	let moduleTarget: UsageTargetType = 'ALL';
+	let exportedTimeline: { metric: UsageMetric; interval: UsageInterval } | null = null;
+	let exportedModuleTarget: UsageTargetType | null = null;
 	let maximized: ChartId | null = null;
 	let userLoading = true;
 	let timelineLoading = true;
@@ -143,7 +145,9 @@
 		timelineLoading = true;
 		timelineError = false;
 		try {
-			timelineData = await getUsageTimeline(timelineMetric, timelineInterval);
+			const selection = { metric: timelineMetric, interval: timelineInterval };
+			timelineData = await getUsageTimeline(selection.metric, selection.interval);
+			exportedTimeline = selection;
 			renderTimelineChart();
 		} catch (error) {
 			timelineError = true;
@@ -157,7 +161,9 @@
 		moduleLoading = true;
 		moduleError = false;
 		try {
-			moduleData = await getUsageByModule(moduleTarget);
+			const target = moduleTarget;
+			moduleData = await getUsageByModule(target);
+			exportedModuleTarget = target;
 			renderModuleChart();
 		} catch (error) {
 			moduleError = true;
@@ -288,6 +294,7 @@
 	>
 		<Headline
 			headlineTitle={$t('analyticsUserMetricTitle')}
+			headlineExportContext={{ filterActive: false, filter: null, selection: { module: 'analytics', chart: 'users', metric: userMetric } }}
 			headlineTooltip={$t('analyticsUserMetricTooltip')}
 			headlineMaximize={maximized === 'users'}
 			headlineIsChart={true}
@@ -333,6 +340,7 @@
 	>
 		<Headline
 			headlineTitle={$t('analyticsTimelineTitle')}
+			headlineExportContext={{ filterActive: false, filter: null, selection: { module: 'analytics', chart: 'timeline', ...exportedTimeline } }}
 			headlineTooltip={$t('analyticsTimelineTooltip')}
 			headlineMaximize={maximized === 'timeline'}
 			headlineIsChart={true}
@@ -384,6 +392,7 @@
 	>
 		<Headline
 			headlineTitle={$t('analyticsModuleTitle')}
+			headlineExportContext={{ filterActive: false, filter: null, selection: { module: 'analytics', chart: 'modules', target: exportedModuleTarget } }}
 			headlineTooltip={$t('analyticsModuleTooltip')}
 			headlineMaximize={maximized === 'modules'}
 			headlineIsChart={true}
@@ -423,6 +432,7 @@
 	>
 		<Headline
 			headlineTitle={$t('analyticsReportTitle')}
+			headlineExportContext={{ filterActive: false, filter: null, selection: { module: 'analytics', report: 'usage' } }}
 			headlineTooltip={$t('analyticsReportTooltip')}
 			headlineIsChart={false}
 			headlineInputTableData={reportExportRows}

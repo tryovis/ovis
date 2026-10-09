@@ -8,6 +8,8 @@
 	import { addUserFilter } from './UserFilter';
 	import ChartStatusLine from './ChartStatusLine.svelte';
 	import Headline from './Headline.svelte';
+	import type { ExportContext } from '$lib/export-context';
+	let exportContext: ExportContext = {};
 	import { prepareCategoryChart } from './categoryChartModel.js';
 	import { getCategoryChart } from '../graphQl/gql-generic';
 	import { withFixedFilter } from '../graphQl/scoped-filter';
@@ -118,8 +120,11 @@
 				? JSON.stringify(dataPasser.getAstAPI())
 				: JSON.stringify({ operand: 'OR', children: [] });
 			filter = withFixedFilter(JSON.stringify(await addUserFilter(JSON.parse(filter))), selectedFixedFilter) ?? '';
-			const result = await getCategoryChart(selectedValue, selectedCollection, filter);
+			const requestedFilter = filter;
+			const result = await getCategoryChart(selectedValue, selectedCollection, requestedFilter);
 			if (!categoryRequest.isCurrent(request)) return;
+			exportContext = { filterActive: true, filter: requestedFilter,
+				selection: { collection: selectedCollection, grouping: selectedValue, fixedFilter: selectedFixedFilter } };
 
 			rawInputArray = {
 				label: Array.isArray(result?.label) ? [...result.label] : [],
@@ -358,6 +363,7 @@
 
 <div class="generic-category-root" class:maximized={maxStoreValue}>
 	<Headline
+		headlineExportContext={exportContext}
 		{headlineTitle}
 		{headlineTooltip}
 		headlineMaximize={maxStoreValue}

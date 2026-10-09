@@ -5,6 +5,8 @@
 	import noUiSlider from 'nouislider';
 	import '../nouislider.css';
 	import Headline from './Headline.svelte';
+	import type { ExportContext } from '$lib/export-context';
+	let exportContext: ExportContext = {};
 	import { userStore } from '../store/userStore.js';
 	import { createEventDispatcher, onDestroy, onMount } from 'svelte';
 	import { t } from '../store/languageStore.js';
@@ -190,6 +192,10 @@
 
 		splitTimeDropdown();
 		filter = await buildFilter();
+		const requestContext = { filterActive: true, filter, selection: {
+			collection, grouping: initialDropdownValue, datediff: initialDatediff,
+			eventType: selectedEventType, timeUnit: initialTimeUnit
+		} };
 
 		const pcd = await getTimeChart(
 			collection,
@@ -202,6 +208,7 @@
 
 		// Ignore stale responses if the user changed filters quickly.
 		if (seq !== requestSeq) return;
+		exportContext = requestContext;
 
 		const newInputVector = (pcd ?? []).filter(
 			(item: any) => item && item.label && item.label.trim() !== ''
@@ -573,6 +580,9 @@
 
 <div class="time-chart-root">
 <Headline
+	headlineExportContext={{ ...exportContext, selection: { ...exportContext.selection,
+		leftSlider, rightSlider, indicator: selectedDimensionType } }}
+	headlineLoading={updating}
 	{headlineTitle}
 	headlineTooltip={$t('tooltip_timeChart')}
 	headlineMaximize={maxStoreValue}

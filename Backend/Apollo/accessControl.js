@@ -9,6 +9,11 @@ const MANAGEMENT_QUERIES = new Set([
 	'getUsageReport',
 	'dbmeta'
 ]);
+const EXPORT_AUDIT_MUTATIONS = new Set([
+	'createExportAudit',
+	'prepareExportAudit',
+	'completeExportAudit'
+]);
 const ROLES = new Set(['user', 'manager', 'admin', 'super-admin']);
 const SELF_FIELDS = new Set([
 	'language',
@@ -41,6 +46,7 @@ const isManager = (security) => ['manager', 'admin', 'super-admin'].includes(sec
 const PRIVATE_COLLECTIONS = new Set([
 	'user',
 	'usageEvent',
+	'exportAudit',
 	'platformDocument',
 	'platformConfiguration'
 ]);
@@ -90,7 +96,10 @@ function parseClinicalFilter(raw, context) {
 			}
 			if (
 				context.security?.user?.pseudonymization &&
-				IDENTITY_FIELDS.has(node.key.replace(/^!/, ''))
+				node.key
+					.replace(/^!/, '')
+					.split('.')
+					.some((part) => IDENTITY_FIELDS.has(part))
 			) {
 				throw securityError('Patient names are not available to this account');
 			}
@@ -322,6 +331,11 @@ function createAccessControl({ env = process.env, fetchImpl = globalThis.fetch }
 										return resolver(parent, args, context, info);
 									requireRead(security);
 									if (type === 'Query') {
+										if (field === 'getExportAudits') {
+											if (!isAdministrator(security))
+												throw securityError('Administrator permission required');
+											return resolver(parent, args, context, info);
+										}
 										if (field === 'getUser') {
 											requireUser(security);
 											if (!isManager(security)) return [security.user];
@@ -330,6 +344,12 @@ function createAccessControl({ env = process.env, fetchImpl = globalThis.fetch }
 											throw securityError('Management permission required');
 										}
 										if (!MANAGEMENT_QUERIES.has(field) && field !== 'getUser') {
+											if (
+												typeof args.collection === 'string' &&
+												!clinicalCollections(context).has(args.collection)
+											) {
+												throw securityError('This collection is not available');
+											}
 											if (
 												field === 'getValueOptions' &&
 												(!clinicalCollections(context).has(args.collection) ||
@@ -341,6 +361,10 @@ function createAccessControl({ env = process.env, fetchImpl = globalThis.fetch }
 											}
 											args = await clinicalArguments(field, args, context, info);
 										}
+										return resolver(parent, args, context, info);
+									}
+									if (EXPORT_AUDIT_MUTATIONS.has(field)) {
+										requireUser(security);
 										return resolver(parent, args, context, info);
 									}
 									requireUser(security);
@@ -409,4 +433,4 @@ function createAccessControl({ env = process.env, fetchImpl = globalThis.fetch }
 	return { authenticate, protectResolvers, sessionHandler };
 }
 
-module.exports = { createAccessControl };
+module.exports = { createAccessControl, parseClinicalFilter };

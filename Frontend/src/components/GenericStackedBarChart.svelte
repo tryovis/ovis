@@ -15,6 +15,7 @@
 	import ChartStatusLine from './ChartStatusLine.svelte';
 	import { addChartQueryItem } from '../tableFilterItems';
 	import { get } from 'svelte/store';
+	import type { ExportContext } from '$lib/export-context';
 
 	type Complication = {
 		category: (string | null | undefined)[];
@@ -37,6 +38,7 @@
 	});
 
 	let filter = JSON.stringify({ operand: 'OR', children: [] });
+	let exportContext: ExportContext = {};
 
 	export let headlineTitle: string;
 	export let maxStoreValue: boolean;
@@ -218,7 +220,12 @@
 			filter = JSON.stringify(dataPasser.getAstAPI());
 		}
 		filter = JSON.stringify(await addUserFilter(JSON.parse(filter)));
-		inputArray = normalizeInputArray(await getGraphData(filter));
+		const requestContext = {
+			filterActive: true, filter,
+			selection: { collection, chart: chartIdName }
+		};
+		inputArray = normalizeInputArray(await getGraphData(requestContext.filter));
+		exportContext = requestContext;
 
 		const heightChartDiv = chartRoot?.closest('.box_level2')?.clientHeight || 0;
 		plotHeightMin = Math.max(120, heightChartDiv - 50);
@@ -592,6 +599,8 @@
 	bind:this={chartRoot}
 >
 <Headline
+	headlineExportContext={exportContext}
+	headlineLoading={!mounted}
 	{headlineTitle}
 	headlineTooltip={tooltip}
 	headlineMaximize={maxStoreValue}

@@ -5,6 +5,8 @@
 	import { t } from '../store/languageStore';
 	import { iconPath } from '$lib/path-utils';
 	import { createDownloadName, downloadCanvasChart, downloadSvgChart } from '$lib/chart-download';
+	import type { ExportContext } from '$lib/export-context';
+	import { ExportAuditError } from '$lib/export-workflow';
 	import { showViewportTooltip } from '$lib/tooltip-popover';
 	import HeadlineTableExport from './HeadlineTableExport.svelte';
 
@@ -24,6 +26,7 @@
 	const continueIcon = iconPath('continue.svg');
 
 	export let headlineTitle: string;
+	export let headlineDownload = true;
 	export let headlineIcon: string | null = null;
 	export let headlineStatus: string | null = null;
 	export let headlineTooltip: string | null = null;
@@ -47,6 +50,9 @@
 	export let headlineNull: boolean | null = null;
 	export let headlineIsPaused: boolean | null = null;
 	export let headlineLoadingComplete: boolean | null = null;
+	export let headlineExportContext: ExportContext | undefined = undefined;
+	export let headlineGetExportContext: (() => ExportContext | Promise<ExportContext>) | null = null;
+	let exportingChart = false;
 
 	let downloadName: string;
 
@@ -89,11 +95,33 @@
 		dispatch('nullToggled', { headlineNull });
 	}
 
-	function exportChart() {
-		if (headlineChartJSElement != null) {
-			downloadCanvasChart(headlineChartJSElement, downloadName);
-		} else if (headlineD3Element != null) {
-			downloadSvgChart(headlineD3Element, downloadName);
+	function getExportContext(): ExportContext | Promise<ExportContext> {
+		const title = headlineTitle;
+		const display = { chartMode: headlineIsChart, top5: headlineInitialTop5,
+			top10: headlineInitialTop10, logarithm: headlineInitialLogarithm, showNull: headlineNull };
+		const snapshot = (context?: ExportContext): ExportContext => JSON.parse(JSON.stringify({
+			title, ...context, selection: { ...context?.selection, ...display }
+		}));
+		if (!headlineGetExportContext) return snapshot(headlineExportContext);
+		return Promise.resolve(headlineGetExportContext()).then(snapshot);
+	}
+
+	async function exportChart() {
+		if (exportingChart || headlineLoading) return;
+		exportingChart = true;
+		try {
+			const pendingContext = getExportContext();
+			const context = pendingContext instanceof Promise ? await pendingContext : pendingContext;
+			if (headlineChartJSElement != null) {
+				await downloadCanvasChart(headlineChartJSElement, downloadName, context);
+			} else if (headlineD3Element != null) {
+				await downloadSvgChart(headlineD3Element, downloadName, context);
+			}
+		} catch (error) {
+			console.error('Chart export failed', error);
+			showToast(get(t)(error instanceof ExportAuditError ? error.message : 'exportDownloadFailed'));
+		} finally {
+			exportingChart = false;
 		}
 	}
 
@@ -220,18 +248,21 @@
 					<img src={headlineNull ? nulloffIcon : nullonIcon} alt="Toggle" class="iconRound" />
 				</button>
 			{/if}
-			{#if headlineIsChart}
+			{#if headlineIsChart && headlineDownload}
 				<button
 					on:mouseenter={handleMouseEnter}
 					class="iconRoundButton tooltip"
 					on:click={exportChart}
+					disabled={exportingChart || Boolean(headlineLoading)}
+					aria-busy={exportingChart}
 				>
 					<span class="tooltiptext" style={tooltipPosition}>Download {translate('chart')}</span>
 					<img src={downloadIcon} alt="download" class="iconRound" />
 				</button>
-			{:else}
+			{:else if headlineDownload}
 				<HeadlineTableExport
 					{downloadName}
+					getExportContext={getExportContext}
 					tableData={headlineInputTableData}
 					getTableDataForExport={headlineGetTableDataForExport}
 					headers={headlineInputTableHeader}

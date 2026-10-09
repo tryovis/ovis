@@ -97,6 +97,7 @@
 
 
 <Headline
+	headlineExportContext={{ filterActive: true, filter, selection: { collection: 'therapy', generalType: 'systemic', grouping: 'substance' } }}
 	headlineTitle={$t("activeSubstancesFrequencies")}
 	headlineTooltip={$t("tooltip_TherapySystemicSubstanceTable")}
 	headlineMaximize={maximizeTherapySystemicSubstanceTable}

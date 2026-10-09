@@ -1,5 +1,7 @@
 <script lang="ts">
 	// @ts-nocheck
+	import type { ExportContext } from '$lib/export-context';
+	let exportContext: ExportContext = {};
 	import { Chart, registerables } from 'chart.js';
 	import type { ChartConfiguration, ChartDataset } from 'chart.js';
 	import { onMount } from 'svelte';
@@ -142,7 +144,9 @@
 		}
 		filter = JSON.stringify(await addUserFilter(JSON.parse(filter)));
 
+		const requestedContext = { filterActive: true, filter, selection: { model: 'followUpAssessment', intervalStart, intervalEnd, includeTherapy, includeVitaldate } };
 		getSurvivalFollowUpAssessment(intervalStart, intervalEnd, includeTherapy, includeVitaldate,filter).then((result) => {
+			exportContext = requestedContext;
 			inputArray = result;
 
 			// Logarithmisch transformiere die Daten
@@ -181,7 +185,9 @@
 
 	function createBarChart() {
 		updating = true;
+		const requestedContext = { filterActive: true, filter, selection: { model: 'followUpAssessment', intervalStart, intervalEnd, includeTherapy, includeVitaldate } };
 		getSurvivalFollowUpAssessment(intervalStart, intervalEnd, includeTherapy, includeVitaldate, filter).then((result) => {
+			exportContext = requestedContext;
 			let inputArray = result;
 			
 			let ctx = document.getElementById('chart2').getContext('2d');
@@ -263,6 +269,7 @@
 				denominator: inputArray.followup[index]?.denominator ?? null,
 				numerator: inputArray.followup[index]?.numerator ?? null
 			}));
+			data = tableData;
 			survivalFollowUpAssessmentTable = createTable(
 					"progress",
 					dataPasser,
@@ -272,11 +279,11 @@
 					tableShownRows,
 					sortingIndex
 			);
+			updating = false;
+		}).catch((error) => {
+			updating = false;
+			console.error('Could not load follow-up assessment', error);
 		});
-
-
-
-		updating = false;
 	}
 
 	function getFollowUpColor(primaryColor: string, percentage: number): string {
@@ -334,6 +341,8 @@
 <div class="follow-up-root">
 <lens-data-passer bind:this={dataPasser} />
 <Headline
+	headlineExportContext={exportContext}
+	headlineLoading={updating}
 	headlineTitle={$t("followUpAnalysisTitle")}
 	headlineTooltip={$t("tooltip_follow_up")}
 	headlineMaximize={maximizeSurvivalFollowUpAssessment}

@@ -1,5 +1,7 @@
 <script lang="ts">
 	// @ts-nocheck
+	import type { ExportContext } from '$lib/export-context';
+	let exportContext: ExportContext = {};
 	import { Chart, registerables } from 'chart.js';
 	import type { ChartConfiguration, ChartDataset } from 'chart.js';
 	import { onMount, tick } from 'svelte';
@@ -303,6 +305,9 @@
 			requestedFilter
 		);
 		if (loadToken !== chartLoadToken) return;
+		exportContext = { filterActive: true, filter: requestedFilter,
+			selection: { collection: 'diagnosis', genderWise: requestedSelectedGender,
+				grouping: requestedSelectedFeature.value, abscissa: requestedSelectedAbscissa.value } };
 
 		barChartData = [];
 		barChartData2 = [];
@@ -674,6 +679,7 @@
 
 <div class="diagnosis-bar-chart-root">
 <Headline
+	headlineExportContext={{ ...exportContext, selection: { ...exportContext.selection, leftSlider, rightSlider } }}
 	headlineTitle={$t('tumorFrequencies')}
 	headlineTooltip={$t('tooltip_DiagnosisBarChart')}
 	headlineMaximize={maximizeDiagnosisBarChart}

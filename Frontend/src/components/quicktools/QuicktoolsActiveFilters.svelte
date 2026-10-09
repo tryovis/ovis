@@ -10,6 +10,9 @@
 	import { reloadOnly } from '../../store/reloadStore.js';
 	import { appPath, iconPath } from '$lib/path-utils';
 	import { escapeHtml } from '$lib/escape-html';
+	import { saveExportBlob, ExportAuditError } from '$lib/export-workflow';
+	import { showToast } from '../../store/toastStore';
+	let exportingFilter = false;
 
 	let dataPasser: LensDataPasser;
 
@@ -261,7 +264,10 @@
 		}
 	}
 
-	function downloadCurrentAst() {
+	async function downloadCurrentAst() {
+		if (exportingFilter) return;
+		exportingFilter = true;
+		const snapshot = JSON.stringify(currentAst, null, 2);
 		const currentDate = new Date();
 
 		const monthNames = [
@@ -285,14 +291,19 @@
 			'_' +
 			currentDate.getFullYear();
 
-		const dataStr =
-			'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(currentAst, null, 2));
-		const downloadAnchorNode = document.createElement('a');
-		downloadAnchorNode.setAttribute('href', dataStr);
-		downloadAnchorNode.setAttribute('download', 'ovis_filter_' + formattedDate + '.json');
-		document.body.appendChild(downloadAnchorNode);
-		downloadAnchorNode.click();
-		downloadAnchorNode.remove();
+		try {
+			await saveExportBlob({
+				blob: new Blob([snapshot], { type: 'application/json;charset=utf-8' }),
+				fileName: 'ovis_filter_' + formattedDate + '.json',
+				kind: 'FILTER', format: 'JSON',
+				context: { title: 'Filter', filterActive: true, filter: snapshot,
+					selection: { requestedFilterActive: filterActive, content: 'query-ast' } }
+			});
+		} catch (error) {
+			showToast($t(error instanceof ExportAuditError ? error.message : 'exportDownloadFailed'));
+		} finally {
+			exportingFilter = false;
+		}
 	}
 
 	function uploadAst(event) {
@@ -395,7 +406,7 @@
         <img src={angleRightIcon} alt="next" class="iconRound {isNextDisabled ? 'disabled-icon' : ''}" />
     </button>
 
-    <button on:click={downloadCurrentAst} class="bottomButtons">
+    <button on:click={downloadCurrentAst} class="bottomButtons" disabled={exportingFilter} aria-busy={exportingFilter}>
         <img src={downloadIcon} alt="download" class="iconRound" />
     </button>
 

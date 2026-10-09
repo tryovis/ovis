@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 
 const scripts = path.dirname(fileURLToPath(import.meta.url));
 const repository = path.resolve(scripts, '../../..');
-const protectedCollections = ['user', 'usageEvent', 'platformConfiguration', 'platformDocument'];
+const protectedCollections = ['user', 'usageEvent', 'exportAudit', 'platformConfiguration', 'platformDocument'];
 const shell = [
 	process.env.OVIS_TEST_BASH,
 	...(process.platform === 'win32' ? ['C:/Program Files/Git/bin/bash.exe'] : []),
@@ -246,7 +246,7 @@ test('a collection absent in an older database does not prevent backing up exist
 	assert.equal(result.code, 0, result.output);
 	assert.equal(f.snapshots().length, 2);
 	assert.deepEqual(fs.readdirSync(path.join(f.root, 'backups', f.snapshots().at(-1), 'onc_test')).filter(name => name.endsWith('.bson')).sort(),
-		['platformDocument.bson', 'usageEvent.bson', 'user.bson']);
+		['exportAudit.bson', 'platformDocument.bson', 'usageEvent.bson', 'user.bson']);
 });
 
 test('restore fills empty collections without overwriting populated collections or selecting hidden staging directories', shellOptions, t => {
@@ -261,7 +261,7 @@ test('restore fills empty collections without overwriting populated collections 
 	const result = f.restore();
 	assert.equal(result.status, 0, result.stderr || result.stdout);
 	const restores = f.events().filter(event => event.command === 'mongorestore');
-	assert.deepEqual(restores.map(event => event.collection).sort(), ['custom', 'platformDocument']);
+	assert.deepEqual(restores.map(event => event.collection).sort(), ['custom', 'exportAudit', 'platformDocument']);
 	assert.ok(restores.every(event => event.source.includes('20260101-120000') && event.drop));
 	assert.deepEqual(fs.readFileSync(path.join(f.root, 'live/platformConfiguration.bson')), existingSettings);
 	for (const event of f.events().filter(event => event.command === 'mongosh')) {

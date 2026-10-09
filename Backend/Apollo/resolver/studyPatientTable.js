@@ -454,6 +454,7 @@ module.exports = {
 	buildStudyPatientCountAggregation,
 	buildStudyPatientTableAggregation,
 	filterAstToParticipationMatch,
+	globalParticipationMatch,
 	getStudyCategoryChart,
 	getStudyOverview,
 	getStudyOverviewCount,
@@ -462,5 +463,6 @@ module.exports = {
 	getStudyPatientTable,
 	matchingPatientIDs,
 	matchingStudyKeys,
-	parseAstFilter
+	parseAstFilter,
+	studyOverviewMembership
 };

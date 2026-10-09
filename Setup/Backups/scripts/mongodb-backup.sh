@@ -6,9 +6,9 @@ LOG_TS_FORMAT="%Y-%m-%dT%H:%M:%S%z"
 MONGO_HOST=${MONGO_HOST:-ovis-backend-database-mongodb}
 MONGO_BACKUP_DBS=${MONGO_BACKUP_DBS:-onc_test}
 MONGO_BACKUP_COLLECTIONS=${MONGO_BACKUP_COLLECTIONS:-user,platformConfiguration,platformDocument}
-MONGO_BACKUP_REQUIRED_COLLECTIONS=${MONGO_BACKUP_REQUIRED_COLLECTIONS:-usageEvent,platformConfiguration,platformDocument}
+MONGO_BACKUP_REQUIRED_COLLECTIONS=${MONGO_BACKUP_REQUIRED_COLLECTIONS:-usageEvent,exportAudit,platformConfiguration,platformDocument}
 # Site configuration may add collections, but cannot omit persistent application state.
-PROTECTED_COLLECTIONS=user,usageEvent,platformConfiguration,platformDocument
+PROTECTED_COLLECTIONS=user,usageEvent,exportAudit,platformConfiguration,platformDocument
 MONGO_BACKUP_RETENTION=${MONGO_BACKUP_RETENTION:-0}
 BACKUP_INTERVAL_SECONDS=${BACKUP_INTERVAL_SECONDS:-21600}
 BACKUP_ROOT=${BACKUP_ROOT:-/var/backups/mongodb}

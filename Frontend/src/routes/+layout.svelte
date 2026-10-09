@@ -3,6 +3,8 @@
   import Menubar from '../components/menubar/Menubar.svelte';
   import Quicktools from '../components/quicktools/Quicktools.svelte';
   import Disclaimer from '../components/Disclaimer.svelte';
+  import ExportConfirmation from '../components/ExportConfirmation.svelte';
+  import { initializeExportAuditing } from '$lib/export-audit-browser';
   import { onMount, onDestroy } from 'svelte';
   import { getUser, updateUser } from '../graphQl/gql-userManagement';
   import { getLastMetaData } from '../graphQl/gql-generic';
@@ -41,6 +43,7 @@
   } from '$lib/mobileViewport.js';
 
   const loadingIcon = iconPath('spinner.svg');
+  onMount(() => initializeExportAuditing());
 
   let filterActive = true;
   let showDatePicker = false;
@@ -492,6 +495,7 @@ function startUpdateTimer() {
 }
 
 </script>
+<ExportConfirmation />
 {#if showMobilePortraitHint && storeLoaded}
   <div class="mobile-orientation-hint" role="status" aria-live="polite">
     <div class="mobile-orientation-card">

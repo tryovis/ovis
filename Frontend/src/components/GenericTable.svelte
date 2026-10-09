@@ -9,6 +9,7 @@
 	import { t, locale, locales } from '../store/languageStore';
 	import { buildTableHeaders, filterColumnsForImportMode } from '../tableColumnVariants';
 	import { withFixedFilter } from '../graphQl/scoped-filter';
+	import type { ExportContext } from '$lib/export-context';
 	import {
 		calculateTableShownRowsForContainer,
 		getTablePanel,
@@ -128,6 +129,14 @@
 
 	let tableData: any[] = [];
 	let activePageRequest: TablePageRequest | null = null;
+	let exportSnapshot: {
+		request: TablePageRequest | null;
+		filter: string | null;
+		countTarget: string;
+		fetchRows: typeof getTableData;
+		columns: { data: string; numOfObj: boolean }[];
+		rows: Record<string, unknown>[];
+	} | null = null;
 	const totalCountCache = new Map<string, number>();
 	const filteredCountCache = new Map<string, number>();
 	let destroyed = false;
@@ -200,10 +209,10 @@
 		return withFixedFilter(JSON.stringify(await addUserFilter(JSON.parse(filter))), fixedFilter);
 	}
 
-	function prepareTableRows(rows: any[]) {
+	function prepareTableRows(rows: any[], rowColumns = columns) {
 		stringifyArray(rows);
 
-		columns.forEach((column: { numOfObj: boolean; data: string }) => {
+		rowColumns.forEach((column: { numOfObj: boolean; data: string }) => {
 			if (
 				column.numOfObj &&
 				rows[0] &&
@@ -264,27 +273,50 @@
 		return { ...page, rows };
 	}
 
+	async function getExportContext(): Promise<ExportContext> {
+		const request = activePageRequest ? structuredClone(activePageRequest) : null;
+		const selectedTitle = headlineTitle;
+		const selectedCollection = collection;
+		const selectedCountTarget = countCollection ?? collection;
+		const selectedFixedFilter = fixedFilter;
+		const active = filterActive;
+		const rows = structuredClone(tableData);
+		const fetchRows = getTableData;
+		const selectedColumns = columns.map(({ data, numOfObj }: { data: string; numOfObj: boolean }) => ({ data, numOfObj }));
+		const rawFilter = active ? JSON.stringify(dataPasser.getAstAPI()) : JSON.stringify({ operand: 'OR', children: [] });
+		const activeFilter = withFixedFilter(JSON.stringify(await addUserFilter(JSON.parse(rawFilter))), selectedFixedFilter);
+		exportSnapshot = { request, filter: activeFilter, countTarget: selectedCountTarget, fetchRows, rows, columns: selectedColumns };
+		return {
+			title: selectedTitle,
+			filterActive: true,
+			filter: activeFilter,
+			selection: { collection: selectedCollection, fixedFilter: selectedFixedFilter, requestedFilterActive: active,
+				columnFilters: request?.columnFilters ?? [], sortField: request?.sortField ?? null,
+				sortDirection: request?.sortDirection ?? null }
+		};
+	}
+
 	async function getExportTableData(
 		onProgress: (loadedRows: number, expectedRows: number) => void
 	): Promise<Record<string, unknown>[]> {
-		if (!activePageRequest) return tableData;
-
-		const activeFilter = await getActiveFilter();
-		const countTarget = countCollection ?? collection;
+		if (!exportSnapshot) await getExportContext();
+		const snapshot = exportSnapshot!;
+		if (!snapshot.request) return snapshot.rows;
+		const activeFilter = snapshot.filter;
 		const totalRows = await getTableCount(
-			countTarget,
+			snapshot.countTarget,
 			activeFilter,
-			activePageRequest.columnFilters
+			snapshot.request.columnFilters
 		);
 		const rows = await fetchAllTableRows({
-			baseRequest: activePageRequest,
+			baseRequest: snapshot.request,
 			totalRows,
 			pageSize: 1000,
 			onProgress,
-			fetchPage: (request) => fetchTableRows(getTableData, request, activeFilter)
+			fetchPage: (request) => fetchTableRows(snapshot.fetchRows, request, activeFilter)
 		});
 
-		return prepareTableRows(rows);
+		return prepareTableRows(rows, snapshot.columns);
 	}
 
 	onMount(async () => {
@@ -376,6 +408,7 @@
 	headlineInitialLogarithm={null}
 	headlineInputTableData={tableData}
 	headlineGetTableDataForExport={getExportTableData}
+	headlineGetExportContext={getExportContext}
 	headlineInputTableHeader={headers}
 	headlineInputTableFields={exportFields}
 	headlineChartJSElement={null}

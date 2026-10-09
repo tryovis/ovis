@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { iconPath } from '$lib/path-utils';
 	import { saveTableCsv, type TableExportProgress, type TableRow } from '$lib/table-download';
+	import type { ExportContext } from '$lib/export-context';
+	import { ExportAuditError } from '$lib/export-workflow';
 	import { showViewportTooltip } from '$lib/tooltip-popover';
 	import { locale, t } from '../store/languageStore';
 	import { showToast } from '../store/toastStore';
@@ -15,6 +17,8 @@
 	export let headers: readonly string[] | null = null;
 	export let fields: readonly string[] | null = null;
 	export let exportDisabled = false;
+	export let context: ExportContext | undefined = undefined;
+	export let getExportContext: (() => ExportContext | Promise<ExportContext>) | null = null;
 
 	const downloadIcon = iconPath('download-icon.svg');
 	const loadingIcon = iconPath('spinner.svg');
@@ -35,33 +39,37 @@
 	async function exportTable() {
 		if (isExporting || exportDisabled) return;
 		if (!headers) {
-			showToast('Keine Tabellendaten zum Exportieren verfügbar.');
+			showToast($t('exportNoPreview'));
 			return;
 		}
 
 		isExporting = true;
 		progress = null;
 		try {
-			const exportFields = fields ?? Object.keys(tableData?.[0] ?? {});
+			const currentRows = tableData ? structuredClone(tableData) : null;
+			const loadRows = getTableDataForExport;
+			const currentHeaders = [...headers];
+			const currentName = downloadName;
+			const exportFields = [...(fields ?? Object.keys(currentRows?.[0] ?? {}))];
+			const exportContext = JSON.parse(JSON.stringify((getExportContext ? await getExportContext() : context) ?? {}));
 			const result = await saveTableCsv({
-				downloadName,
-				headers,
+				downloadName: currentName,
+				headers: currentHeaders,
 				fields: exportFields,
+				context: exportContext,
 				getRows: async (onProgress) => {
-					if (getTableDataForExport) return getTableDataForExport(onProgress);
-					if (tableData) onProgress(tableData.length, tableData.length);
-					return tableData;
+					if (loadRows) return loadRows(onProgress);
+					if (currentRows) onProgress(currentRows.length, currentRows.length);
+					return currentRows;
 				},
 				onProgress: (nextProgress) => (progress = nextProgress)
 			});
 
-			if (result === 'saved') showToast('CSV-Datei wurde gespeichert.');
-			else if (result === 'download-started') showToast('CSV-Download wurde gestartet.');
-			else if (result === 'cancelled') showToast('CSV-Export wurde abgebrochen.');
-			else showToast('Keine Tabellendaten zum Exportieren verfügbar.');
+			if (result === 'saved' || result === 'download-started') showToast($t('exportCsvCreated'));
+			else if (result === 'empty') showToast($t('exportNoPreview'));
 		} catch (error) {
 			console.error('CSV export failed', error);
-			showToast('CSV-Export fehlgeschlagen. Bitte erneut versuchen.');
+			showToast($t(error instanceof ExportAuditError ? error.message : 'exportErrorSave'));
 		} finally {
 			isExporting = false;
 			progress = null;

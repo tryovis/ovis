@@ -297,6 +297,7 @@
 	class:maximized={maximizePatientCohortGenderChart}
 >
 	<Headline
+		headlineExportContext={{ filterActive: true, filter, selection: { collection: 'patient', chart: 'gender' } }}
 		headlineTitle={$t('distributionByGender')}
 		headlineTooltip={$t('tooltip_PatientCohortGenderChart')}
 		headlineMaximize={maximizePatientCohortGenderChart}

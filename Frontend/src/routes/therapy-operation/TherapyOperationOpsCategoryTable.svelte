@@ -89,6 +89,7 @@
 <lens-data-passer bind:this={dataPasser} />
 
 <Headline
+	headlineExportContext={{ filterActive: true, filter, selection: { collection: 'therapy', generalType: 'operation', grouping: 'opsCategory' } }}
 	headlineTitle={$t("opsCategoryFrequencies")}
 	headlineTooltip={$t("tooltip_TherapyOperationOPSCategoryTable")}
 	headlineMaximize={maximizeTherapyOperationOpsCategoryTable}

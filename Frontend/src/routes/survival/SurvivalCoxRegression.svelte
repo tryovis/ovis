@@ -1,4 +1,6 @@
 <script lang="ts">
+	import type { ExportContext } from '$lib/export-context';
+	let exportContext: ExportContext = {};
 	import { Chart, registerables, type ChartConfiguration, type Plugin } from 'chart.js';
 	import { onDestroy, onMount, tick } from 'svelte';
 	import Headline from '../../components/Headline.svelte';
@@ -163,8 +165,10 @@
 		try {
 			const filter = await activeFilter();
 			if (currentRequest !== requestId) return;
-			const next = await getSurvivalCoxRegression([selectedCovariate], filter, controller.signal);
+			const covariates = [selectedCovariate];
+			const next = await getSurvivalCoxRegression(covariates, filter, controller.signal);
 			if (currentRequest !== requestId) return;
+			exportContext = { filterActive: true, filter, selection: { model: 'cox', covariates } };
 			result = next;
 			modelLoaded = true;
 			if (next.status === 'ERROR') errorMessage = next.message || $t('coxGenericError');
@@ -574,6 +578,8 @@
 	style={`--primary-color: ${primaryColor}`}
 >
 	<Headline
+		headlineExportContext={exportContext}
+		headlineLoading={loading}
 		headlineTitle={$t('coxRegressionTitle')}
 		headlineStatus="(Testing)"
 		headlineTooltip={coxInfoTooltip}

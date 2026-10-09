@@ -1,5 +1,7 @@
 <script lang="ts">
 	// @ts-nocheck
+	import type { ExportContext } from '$lib/export-context';
+	let exportContext: ExportContext = {};
 	import Headline from '../../components/Headline.svelte';
 	import * as d3 from 'd3';
 	import { gridPlanes3D, cubes3D, lineStrips3D } from 'd3-3d';
@@ -276,6 +278,9 @@
 		initializeSvg();
 
 		updating = true;
+		const requestContext = { filterActive: true, filter, selection: { collection: 'tnm',
+			T: selectedTType.value, N: selectedNType.value, M: selectedMType.value,
+			time: selectedTimeType.value, type: selectedTNMType.value } };
 		const result = await getTNM3DChart(
 			selectedTType.value,
 			selectedNType.value,
@@ -288,6 +293,7 @@
 		updating = false;
 
 		tnmData = result as TnmDataRow[];
+		exportContext = requestContext;
 
 		initializeTable();
 		initializeSvgGroups();
@@ -529,6 +535,8 @@
 </script>
 
 <Headline
+	headlineExportContext={exportContext}
+	headlineLoading={updating}
 	headlineTitle={$t('tnm3DChart')}
 	headlineTooltip={$t('tooltip_tnm3dchart')}
 	headlineMaximize={maximizeTNM3DChart}
