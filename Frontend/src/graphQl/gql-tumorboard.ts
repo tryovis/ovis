@@ -1,4 +1,5 @@
 import { dataUrl, graphqlFetch } from './gql-url';
+import { wuerzburgTBExtension, wuerzburgTumorboardFields } from '../config/tumorboard';
 const localeOptions: Intl.DateTimeFormatOptions = {
 	day: '2-digit',
 	month: '2-digit',
@@ -29,6 +30,7 @@ export const getTumorboardTable = (
             praepost
             tbInternal
             recommendation
+            ${wuerzburgTBExtension ? wuerzburgTumorboardFields.join('\n') : ''}
   }
 }`,
 			variables: {

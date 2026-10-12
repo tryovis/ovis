@@ -3,6 +3,7 @@
 	import { maxStore } from '../../store/maxStore';
 	import { t, locale, locales } from '../../store/languageStore';
 	import { getTumorboardTable } from '../../graphQl/gql-tumorboard';
+	import { wuerzburgTBExtension, wuerzburgTumorboardFields } from '../../config/tumorboard';
 
 	let sortingIndex = 2;
 
@@ -32,7 +33,14 @@
 			header: $t('internalExternal'),
 			tooltip: $t('tumorBoardInternalExternal')
 		},
-		{ data: 'recommendation', header: $t('recommendation'), tooltip: $t('recommendation') }
+		{ data: 'recommendation', header: $t('recommendation'), tooltip: $t('recommendation') },
+		...(wuerzburgTBExtension
+			? wuerzburgTumorboardFields.map((field) => ({
+					data: field,
+					header: $t(field),
+					tooltip: $t(field)
+			  }))
+			: [])
 	];
 
 	let maximizeTumorboardTable: boolean;

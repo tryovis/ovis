@@ -1,5 +1,29 @@
 Data import requires a set of SQL files. These files are available only to users with a valid ONCOstar license and must be stored in this folder.
 
+## Würzburg tumorboard columns
+
+Set `wuerzburgTBExtension=true` in the deployment `.env` to select
+`tumorBoardWuerzburg.sql` and show its ten additional columns in the tumorboard
+table. Compose forwards this same setting to the frontend at runtime as
+`PUBLIC_WUERZBURG_TB_EXTENSION`; no second setting is needed. The default is
+`false`, which selects the standard SQL and hides the additional columns.
+
+The extra fields cover referrer, human genetics consultation, pathology report,
+therapy proposals, rationale, molecular analysis, NCT-MASTER, targeting, remarks
+and molecular counseling. They extend the existing UKW events. Standard events
+have null extension fields; the existing event selection and combined
+`recommendation` text are preserved.
+
+Deploy the updated importer, Apollo backend and frontend together. Recreate the
+frontend after changing the flag and rerun the tumorboard import and preprocessing
+to populate the new fields in existing installations.
+
+Run `python tumorboard_sql_test.py` from the importer directory to check synthetic
+standard/UKW events and field mappings. The check uses SQLite with MySQL scalar
+helpers and adapts ordered `GROUP_CONCAT`; it does not validate a live MariaDB
+import. The frontend query/flag contract can be checked from `Frontend` with
+`node --test src/graphQl/gql-tumorboard.test.mjs` (backend dependencies required).
+
 ## Patient vital date
 
 `patient.sql` includes `patient.letzte_information` as an additional candidate for

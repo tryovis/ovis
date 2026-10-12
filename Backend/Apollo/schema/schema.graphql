@@ -54,6 +54,16 @@ module.exports = `#graphql
         patID: String
         tumorBoardDaysSinceDiagnosis: Int
         recommendation: String
+        referrer: String
+        humanGeneticConsultation: String
+        pathologyReport: String
+        therapyProposals: String
+        rationaleTherapyRecommendation: String
+        molecularAnalysis: String
+        nctMaster: String
+        targetabilityAndTargeting: String
+        freeTextsAndRemarks: String
+        molecularCounseling: String
     }
 
     input iFilter {

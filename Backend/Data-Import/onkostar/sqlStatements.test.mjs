@@ -1,5 +1,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { execFile } from 'node:child_process';
+import { copyFile, mkdir, mkdtemp, readFile, readdir, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+import { promisify } from 'node:util';
+
+const execFileAsync = promisify(execFile);
 
 async function importStatements(patientMasters, cacheKey) {
 	const previousValue = process.env.ONKOSTAR_PATIENTENSTAEMME;
@@ -98,3 +105,42 @@ test('rejects non-numeric patient masters', async () => {
 		/ONKOSTAR_PATIENTENSTAEMME.*comma-separated positive integers/
 	);
 });
+
+for (const extensionFlag of [undefined, 'false']) {
+	test(`standard import works without the Wuerzburg SQL file when flag is ${extensionFlag}`, async () => {
+		const fixture = await mkdtemp(path.join(tmpdir(), 'ovis-standard-tumorboard-'));
+		try {
+			await mkdir(path.join(fixture, 'sql'));
+			const sqlDirectory = new URL('./sql/', import.meta.url);
+			for (const file of await readdir(sqlDirectory)) {
+				if (!file.endsWith('.sql') || file === 'tumorBoardWuerzburg.sql') continue;
+				await copyFile(new URL(file, sqlDirectory), path.join(fixture, 'sql', file));
+			}
+			const env = { ...process.env, ONKOSTAR_PATIENTENSTAEMME: '4' };
+			delete env.wuerzburgTBExtension;
+			if (extensionFlag !== undefined) env.wuerzburgTBExtension = extensionFlag;
+			const { stdout } = await execFileAsync(
+				process.execPath,
+				[
+					'--input-type=module',
+					'-e',
+					`const { states } = await import(${JSON.stringify(
+						new URL('./sqlStatements.mjs', import.meta.url).href
+					)});
+				 process.stdout.write(states.tumorBoard);`
+				],
+				{ cwd: fixture, env }
+			);
+			assert.equal(stdout, await readFile(new URL('tumorBoard.sql', sqlDirectory), 'utf8'));
+			assert.doesNotMatch(stdout, /dk_ukw_|referrer|molecularCounseling/);
+		} finally {
+			if (
+				path.dirname(path.resolve(fixture)) !== path.resolve(tmpdir()) ||
+				!path.basename(fixture).startsWith('ovis-standard-tumorboard-')
+			) {
+				throw new Error('Refusing to remove a fixture outside the test temporary directory');
+			}
+			await rm(fixture, { recursive: true, force: true });
+		}
+	});
+}

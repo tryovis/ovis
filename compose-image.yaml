@@ -18,6 +18,7 @@ services:
       # Single image-runtime switch for both frontend variant and importer selection.
       # Must be lowercase: demo|ccp|onkostar|credos
       - PUBLIC_IMPORT_MODE=${OVIS_IMPORT_MODE:-demo}
+      - PUBLIC_WUERZBURG_TB_EXTENSION=${wuerzburgTBExtension:-false}
       - PUBLIC_LDAP_ENABLED=${PUBLIC_LDAP_ENABLED:-false}
       # Must match the value used to build a custom frontend image; ovisadmin images use root.
       - OVIS_PUBLIC_BASE_PATH=${OVIS_PUBLIC_BASE_PATH:-}
