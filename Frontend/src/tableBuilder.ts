@@ -255,6 +255,7 @@ export function createTable(
 				},
 
 				createdCell: function (
+					this: { api: () => Api<unknown> },
 					cell: Node,
 					cellData: string | string[] | null,
 					_rowData: unknown,
@@ -263,7 +264,7 @@ export function createTable(
 				) {
 					const tableCell = cell as HTMLElement;
 					if (tableID !== 'userManagementTable') {
-						truncateCellData(tableCell, cellData, colIndex);
+						truncateCellData(tableCell, cellData, colIndex, this.api());
 					}
 
 					bindCellClickHandler(
@@ -334,7 +335,7 @@ export function createTable(
 					.each(function (this: HTMLTableCellElement, _colIdx: number) {
 						const cellData = api.cell(this).data() as string | string[] | null;
 						if (tableID !== 'userManagementTable') {
-							truncateCellData(this, cellData, _colIdx);
+							truncateCellData(this, cellData, _colIdx, api);
 						}
 						bindCellClickHandler(
 							() => dataTable,
@@ -434,15 +435,19 @@ export function createTable(
 function truncateCellData(
 	cell: HTMLElement,
 	cellData: string | string[] | null | undefined,
-	colIndex: number
+	colIndex: number,
+	api: Api<unknown>
 ) {
 	const processedCellData = Array.isArray(cellData) ? cellData.join(', ') : (cellData ?? '') + '';
+	const settings = api.settings()[0];
 	requestAnimationFrame(() => {
+		// A redraw can replace the table before this callback runs. Never use the
+		// jQuery DataTable() constructor here: it can resurrect a destroyed table.
+		if (!cell.isConnected || settings?.bDestroying || !settings?.aoColumns[colIndex]) return;
+
 		const charWidth = 7; // Average character width in pixels (adjust if necessary)
 		const cellWidth = jQuery(cell).width() ?? 0;
 		const truncateLength = Math.floor(cellWidth / charWidth);
-
-		const settings = jQuery(cell).closest('table').DataTable().settings()[0];
 
 		if (settings && settings.aoColumns) {
 			const columnType = settings.aoColumns[colIndex].type;

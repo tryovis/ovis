@@ -14,6 +14,7 @@ assert.ok(
 const out = path.resolve(process.env.OVIS_TEST_OUTPUT || 'table-resize-results');
 fs.mkdirSync(out, { recursive: true });
 const mobile = process.argv.includes('--mobile');
+const diagnosisChart = process.argv.includes('--diagnosis-chart');
 const browser = await chromium.launch({
 	headless: true,
 	...(process.env.OVIS_CHROMIUM ? { executablePath: process.env.OVIS_CHROMIUM } : {})
@@ -155,8 +156,15 @@ function respond(name, args) {
 		return [{ label: 'Deutschland', description: 'Deutschland', count: total }];
 	if (name === 'getTumors')
 		return {
-			category: ['2024'],
-			groups: [{ label: 'C30-C39', description: 'Synthetic', gender: 'm', count: [total] }]
+			category: diagnosisChart ? Array.from({ length: 35 }, (_, i) => String(1990 + i)) : ['2024'],
+			groups: diagnosisChart
+				? Array.from({ length: 17 }, (_, i) => ({
+						label: `SYN-${String(i).padStart(2, '0')}`,
+						description: `Synthetic diagnosis group ${i}`,
+						gender: 'm',
+						count: Array.from({ length: 35 }, (_, year) => i + year + 1)
+				  }))
+				: [{ label: 'C30-C39', description: 'Synthetic', gender: 'm', count: [total] }]
 		};
 	if (name === 'getCategoryChart') return { label: ['Synthetic'], count: [total] };
 	if (name === 'getTherapyGeneralComplicationChart') return { category: [], groups: [] };
@@ -453,10 +461,85 @@ async function run(target, viewport, count) {
 		throw error;
 	}
 }
+async function runDiagnosisChart() {
+	await page.goto(base + '/diagnosis');
+	await page.locator('#diagnosisBarChartTable_info').waitFor({ state: 'attached' });
+	const accept = page.getByRole('button', { name: 'Accept', exact: true });
+	if (await accept.count()) await accept.click();
+	const panel = page.locator('.diagnosis-bar-control-panel');
+	const maximize = panel.locator('button').filter({
+		has: page.locator('img[src*="window-maximize"], img[src*="window-minimize"]')
+	});
+	const toggleView = panel.locator('button').filter({
+		has: page.locator('img[src*="table.svg"], img[src*="chart-bar.svg"]')
+	});
+	async function check(name, rowCount, filtered = false) {
+		// Include the real 500 ms column-search debounce before checking stability.
+		await page.waitForTimeout(650);
+		const state = await panel.evaluate((element) => ({
+			wrappers: element.querySelectorAll('.dataTables_wrapper').length,
+			info: [...element.querySelectorAll('.dataTables_info')].map((node) => node.textContent),
+			pagination: element.querySelectorAll('.dataTables_paginate').length,
+			lengthControls: element.querySelectorAll('.dataTables_length').length,
+			globalSearch: element.querySelectorAll('.dataTables_filter').length,
+			filterRows: element.querySelectorAll('#diagnosisBarChartTable thead tr').length,
+			rows: element.querySelectorAll('#diagnosisBarChartTable tbody tr').length
+		}));
+		cases.push({ name, ...state });
+		assert.equal(state.wrappers, 1, `${name}: exactly one DataTable wrapper`);
+		assert.equal(state.pagination, 1, `${name}: exactly one pagination control`);
+		assert.equal(state.info.length, 1, `${name}: exactly one total`);
+		assert.equal(state.lengthControls, 0, `${name}: no default DataTable controls`);
+		assert.equal(state.globalSearch, 0, `${name}: no default search`);
+		assert.equal(state.filterRows, 2, `${name}: one header and one filter row`);
+		assert.equal(state.rows, rowCount, `${name}: correct page length`);
+		assert.ok(state.info[0].includes(filtered ? 'of 35 entries' : 'of 595 entries'), name);
+		console.log('PASS', name, JSON.stringify(state));
+	}
+	try {
+		await toggleView.click();
+		await check('diagnosis-table-normal', 8);
+		for (let i = 0; i < 3; i++) {
+			await maximize.click();
+			await check(`diagnosis-table-maximized-${i}`, 19);
+			await maximize.click();
+			await check(`diagnosis-table-restored-${i}`, 8);
+		}
+		const filter = page.locator('#diagnosisBarChartTable thead input').nth(2);
+		await filter.fill('SYN-03');
+		await filter.press('Tab');
+		await check('diagnosis-table-filtered', 8, true);
+		await maximize.click();
+		await check('diagnosis-table-filtered-maximized', 19, true);
+		assert.equal(await filter.inputValue(), 'SYN-03', 'Maximize retains column search');
+		await toggleView.click();
+		await panel.locator('canvas').waitFor({ state: 'visible' });
+		await maximize.click();
+		await maximize.click();
+		await toggleView.click();
+		await check('diagnosis-table-after-chart-toggle', 19, true);
+		await filter.fill('');
+		await filter.press('Tab');
+		await check('diagnosis-table-filter-cleared', 19);
+		await page.locator('#diagnosisBarChartTable_paginate .next').click();
+		await check('diagnosis-table-next-page', 19);
+		assert.match(await page.locator('#diagnosisBarChartTable_info').textContent(), /20 to 38/);
+		for (const index of [1, 0, 1]) {
+			await panel.locator('select.dropbtn').selectOption({ index });
+			await check(`diagnosis-table-grouping-${index}`, 19);
+		}
+		await page.screenshot({ path: path.join(out, 'diagnosis-chart-maximized.png') });
+	} catch (error) {
+		await page.screenshot({ path: path.join(out, 'diagnosis-chart-failed.png') });
+		throw error;
+	}
+}
 let failure;
 try {
 	const baseline = process.argv.includes('--baseline');
-	if (mobile) {
+	if (diagnosisChart) {
+		await runDiagnosisChart();
+	} else if (mobile) {
 		await run(targets[0], { width: 1280, height: 700 }, 101);
 		assert.equal(
 			await page.evaluate(() => document.documentElement.dataset.ovisMobileLayout),
@@ -468,7 +551,7 @@ try {
 			await run(target, { width: 1900, height: 1050 }, 101);
 			if (!baseline) await run(target, { width: 1900, height: 760 }, 101);
 		}
-	if (!baseline && !mobile)
+	if (!baseline && !mobile && !diagnosisChart)
 		for (const count of [0, 1, 3]) await run(targets[0], { width: 1900, height: 1050 }, count);
 	assert.deepEqual(
 		errors,

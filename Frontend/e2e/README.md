@@ -50,6 +50,14 @@ Each phase checks rendered rows against the requested page size and offset, stab
 
 Recorded on 2026-09-16 against an isolated Linux production build: the previous build requested page sizes 7, 6, 5, 4, 3, 2, 1 after maximizing. The fix passed all 90 desktop phases and 5 mobile landscape phases with zero browser errors. The accompanying table suites passed 29 tests on Linux and 19 portable tests on Windows; three older test files still use Linux-specific temporary import paths and were verified on Linux.
 
+Use `node e2e/tableResize.mjs --diagnosis-chart` for the diagnosis bar chart's table
+view. Its 595 synthetic entries reproduce the duplicate DataTable initialization
+that previously displayed both "10 of 19" and "19 of 595" after maximizing. It
+checks repeated maximize/restore, retained column filters across chart/table
+switches, pagination, and grouping changes, requiring exactly one wrapper and one
+pagination control throughout. `src/tableCellLifecycle.test.mjs` separately checks
+that deferred cell updates cannot resurrect destroyed tables.
+
 ## Filter editor combinations and request budget
 
 `filterEditor.mjs` uses the same local-only setup, packages and environment variables against an isolated production build. GraphQL, authentication and the catalogue use synthetic fixtures; no real users are updated.

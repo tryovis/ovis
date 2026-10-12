@@ -62,8 +62,6 @@
 	const tableShownRowsMin = 8;
 	const sortingIndex = 4;
 	const sortingIndexWithoutLongText = 3;
-	const aspectRatioMax = 2.3;
-	const aspectRatioMin = 2.6;
 
 	type InputType = {
 		category: string[];
@@ -80,7 +78,6 @@
 
 	let diagnosisBarChartTable: any;
 	let tableShownRows: number = tableShownRowsMin;
-	let aspectRatio: number = aspectRatioMin;
 	let selectedAbscissa = { value: 'years', label: $t('years') };
 	let oldSelectedAbscissa = { value: 'years', label: $t('years') };
 	let selectedAbscissaChanged = false;
@@ -164,7 +161,6 @@
 		selectedAbscissa;
 		selectedFeature;
 		selectedGender;
-		aspectRatio;
 		sliderChanged; //Schaltet immer wenn ich den Slider change zwischen true und false hin und her
 		registerAbscissaChange();
 		if (isMounted()) {
@@ -235,21 +231,16 @@
 		createBarChart();
 	});
 
-	function handleMaximized(event: any) {
+	async function handleMaximized(event: any) {
 		maximizeDiagnosisBarChart = event.detail.headlineMaximize;
 		maxStore.update((storeValues) => {
-			storeValues.maximizeDiagnosisBarChart = !storeValues.maximizeDiagnosisBarChart;
+			storeValues.maximizeDiagnosisBarChart = maximizeDiagnosisBarChart;
 			return storeValues; // Return the updated values
 		});
-		if (maximizeDiagnosisBarChart) {
-			aspectRatio = aspectRatioMax;
-			tableShownRows = tableShownRowsMax;
-			changeRowCount(diagnosisBarChartTable, tableShownRows);
-		} else {
-			aspectRatio = aspectRatioMin;
-			tableShownRows = tableShownRowsMin;
-			changeRowCount(diagnosisBarChartTable, tableShownRows);
-		}
+		tableShownRows = maximizeDiagnosisBarChart ? tableShownRowsMax : tableShownRowsMin;
+		await tick();
+		if (diagnosisBarChartTable) changeRowCount(diagnosisBarChartTable, tableShownRows);
+		chartInstance?.resize();
 	}
 
 	async function handleChartToggled(event: any) {
@@ -258,18 +249,9 @@
 			storeValues.DiagnosisBarChartShowChart = showChart;
 			return storeValues;
 		});
-		if (!showChart) {
-			await tick();
-			diagnosisBarChartTable = createTable(
-				'diagnosis',
-				dataPasser,
-				'diagnosisBarChartTable',
-				tableData,
-				columns,
-				tableShownRows,
-				showLongTextColumn ? sortingIndex : sortingIndexWithoutLongText
-			);
-		}
+		await tick();
+		if (showChart) chartInstance?.resize();
+		else diagnosisBarChartTable?.columns.adjust().draw(false);
 	}
 
 	function handleTop5Toggled(event: any) {
@@ -291,7 +273,6 @@
 		const requestedSelectedAbscissa = selectedAbscissa;
 		const requestedAbscissaKey = abscissaKey;
 		const requestedShowTop5 = showTop5;
-		const requestedAspectRatio = aspectRatio;
 		const requestedFilter = filter;
 
 		tableData = [];
@@ -360,6 +341,7 @@
 			{ data: 'count' } //Anzahl
 		];
 		await redrawDiagnosisBarChartTable();
+		if (loadToken !== chartLoadToken) return;
 
 		diagnosisBarChartTable = createTable(
 			'diagnosis',
@@ -481,7 +463,6 @@
 						}
 					}
 				},
-				aspectRatio: requestedAspectRatio,
 				plugins: {
 					legend: {
 						display: true,
