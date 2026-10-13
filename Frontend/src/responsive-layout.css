@@ -1,0 +1,118 @@
+/* The desktop/tablet shell follows the actual window. Phone landscape keeps
+   its existing browser-managed 1600px viewport in app.css. */
+html:not([data-ovis-mobile-layout='landscape']) .outer-div {
+	width: min(100%, var(--ovis-layout-max-width));
+	height: 100dvh;
+	min-height: 680px;
+	display: grid;
+	grid-template-rows: minmax(0, 1fr) auto;
+}
+
+html:not([data-ovis-mobile-layout='landscape']) .grid-container {
+	height: 100%;
+	min-height: 0;
+	grid-template-columns: clamp(240px, 20vw, 300px) minmax(0, 1fr);
+	grid-template-rows: auto minmax(0, 1fr);
+}
+
+html:not([data-ovis-mobile-layout='landscape']) .content-view {
+	height: auto;
+	min-height: 0;
+	overflow: hidden;
+}
+
+html:not([data-ovis-mobile-layout='landscape']) .grid-container-quicktools {
+	display: flex;
+	flex-direction: column;
+	height: auto;
+	min-height: 0;
+	overflow: auto;
+}
+
+html:not([data-ovis-mobile-layout='landscape']) .grid-container-quicktools > div {
+	display: flex;
+	flex-direction: column;
+	flex: 1 0 auto;
+	height: auto;
+	min-height: 0;
+}
+
+html:not([data-ovis-mobile-layout='landscape']) .grid-container-quicktools > div > .box_style {
+	flex: 0 0 auto;
+}
+
+html:not([data-ovis-mobile-layout='landscape']) .grid-container-quicktools > div > .user_panel:first-child {
+	flex-basis: auto;
+	overflow: visible;
+}
+
+html:not([data-ovis-mobile-layout='landscape']) .grid-container-quicktools > div > .filter-view {
+	display: flex;
+	flex-direction: column;
+	flex: 1 0 180px;
+	min-height: 180px;
+}
+
+html:not([data-ovis-mobile-layout='landscape']) .filter-view > .query-output {
+	flex: 1 1 auto;
+	height: 0;
+	min-height: 110px;
+	max-height: none;
+}
+
+html:not([data-ovis-mobile-layout='landscape']) .filter-view > .quicktool-label-container,
+html:not([data-ovis-mobile-layout='landscape']) .filter-view > .filter-history-controls {
+	flex: 0 0 auto;
+}
+
+/* Keep every route's original grid areas and proportions. The grid and its
+   panels follow the available height, including on taller 4:3 displays. */
+.outer-div .content-view > [class*='grid-container-'] {
+	height: 100%;
+	min-height: 0;
+	overflow: hidden;
+}
+
+.outer-div .content-view > [class*='grid-container-'] > .box_level2 {
+	min-width: 0;
+	min-height: 0;
+}
+
+.outer-div .grid-container-tnm .tnm-3d-chart {
+	display: flex !important;
+	flex-direction: column;
+}
+
+.outer-div .grid-container-tnm .tnm-3d-chart .chart-container {
+	flex: 1 1 auto;
+	height: auto;
+	min-height: 0;
+}
+
+.outer-div .grid-container-tnm .tnm-3d-chart svg {
+	width: 100%;
+	height: 100%;
+}
+
+@container ovis-layout (max-width: 1399px) {
+	/* The feature picker sits at the right edge: open nested choices inward. */
+	.outer-div .diagnosis-chart-controls .hdropdown:last-child .menu li ul li > ul {
+		left: auto;
+		right: 100%;
+	}
+
+	.outer-div .diagnosis-chart-controls .hdropdown:last-child .menu li ul li > ul::after {
+		left: auto;
+		right: -10px;
+	}
+
+	.outer-div .site-footer .footer-bar {
+		grid-template-columns: minmax(0, 1fr) auto;
+	}
+
+	.outer-div .site-footer nav {
+		grid-column: 1 / -1;
+		grid-row: 2;
+		padding: 4px 8px;
+	}
+}

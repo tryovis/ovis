@@ -18,7 +18,7 @@
 	import { reloadOnly } from '../../store/reloadStore';
 	import { addChartQueryItem } from '../../tableFilterItems';
 	import type { AggregatedValue } from '../../types/query';
-	import { responsiveChartFontSize, usesMobileLandscapeLayout } from '$lib/responsiveChartSizing';
+	import { responsiveChartFontSize } from '$lib/responsiveChartSizing';
 
 	// Reactive translation function
 	const translate = (key: string): string => get(t)(key);
@@ -192,7 +192,7 @@
 			},
 			options: {
 				responsive: true,
-				maintainAspectRatio: !usesMobileLandscapeLayout(),
+				maintainAspectRatio: false,
 				scales: {
 					x: {
 						type: 'linear',
@@ -303,11 +303,6 @@
 
 <style>
 	.patient-cohort-age-root {
-		display: contents;
-	}
-
-	:global(html[data-ovis-mobile-layout='landscape'])
-		.patient-cohort-age-root:not(.maximized) {
 		display: flex;
 		flex-direction: column;
 		height: 100%;
@@ -315,18 +310,14 @@
 		overflow: hidden;
 	}
 
-	:global(html[data-ovis-mobile-layout='landscape'])
-		.patient-cohort-age-root:not(.maximized)
-		.patient-cohort-age-chart-view {
+	.patient-cohort-age-chart-view {
 		display: flex;
 		flex: 1 1 auto;
 		min-height: 0;
 		overflow: hidden;
 	}
 
-	:global(html[data-ovis-mobile-layout='landscape'])
-		.patient-cohort-age-root:not(.maximized)
-		.chart-container {
+	.patient-cohort-age-root .chart-container {
 		position: relative;
 		flex: 1 1 auto;
 		width: 100%;
@@ -334,10 +325,7 @@
 		min-height: 0;
 	}
 
-	:global(html[data-ovis-mobile-layout='landscape'])
-		.patient-cohort-age-root:not(.maximized)
-		.chart-container
-		canvas {
+	.patient-cohort-age-root .chart-container canvas {
 		display: block;
 		width: 100% !important;
 		height: 100% !important;

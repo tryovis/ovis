@@ -53,11 +53,8 @@
 	let loadingComplete: boolean = true;
 
 	let tableShownRows: number = 0;
-	let tableShownRowsNormalMax: number;
+	// Tall dashboard panels use their measured capacity, just like maximized tables.
 	const tableShownRowsMax = 50;
-
-	if (tableIdName.includes('patientCohort')) tableShownRowsNormalMax = 19;
-	else tableShownRowsNormalMax = 20;
 
 	let tooltip = '<p><b>' + headlineTitle + '</b><hr></p>';
 
@@ -182,12 +179,10 @@
 		// A hidden sibling panel has no capacity to measure. Keep its existing
 		// page size until it is visible again instead of loading a one-row page.
 		if (!tableContainer?.clientWidth) return tableShownRows || 10;
-		const measuredMobileRows = calculateMobileShownRows(rowHeight);
-		const rowLimit =
-			maxStoreValue || usesMobileLandscapeLayout() ? tableShownRowsMax : tableShownRowsNormalMax;
+		const measuredRows = calculateMobileShownRows(rowHeight);
 		return Math.min(
-			rowLimit,
-			measuredMobileRows ??
+			tableShownRowsMax,
+			measuredRows ??
 				calculateTableShownRowsForContainer(tableContainer, 10, rowHeight, maxStoreValue)
 		);
 	}

@@ -4,6 +4,29 @@ All notable public changes to OVIS are documented here.
 
 This GitHub repository is the public open-source distribution of OVIS. Development happens in an internal GitLab repository, and public updates are published here after the source tree is sanitized for open-source release.
 
+## 1.5.0 - 2026-10-13
+
+### Export
+
+- **Export builder:** create CSV exports from the selected patient group, choose and reorder fields across clinical datasets, combine related records and preview the result before downloading. Available fields follow the imported data and enabled modules.
+- **Export history:** downloads require a data-protection confirmation and record the authenticated user, export ID, file hash and result. Administrators can review the export history.
+- **Configuration:** both `.env.example` files now enable the export menu with `PUBLIC_NAV_EXPORT_ENABLED=true`. Existing installations can enable it in their own `.env` and recreate the frontend.
+
+### Layout and usability
+
+- **Desktop layout:** taller and narrower desktop windows, including 4:3 displays, retain the established dashboard arrangement while tables, charts and the filter area use the available height.
+- **Navigation and filter editor:** improved menu wrapping, submenu and tooltip positioning, and scrolling within the filter editor.
+- **Charts:** age and Kaplan-Meier charts follow their container size; maximizing the diagnosis chart no longer creates duplicate tables.
+- **Systemic therapy and progress:** corrected the German and English labels for planned and performed cycles and removed the obsolete vital-status choice from the progress chart.
+
+### Data and administration
+
+- **Demo data:** added unique report IDs to all 5,589 progress records, completed histology and report IDs for all eight diagnoses of the single-view example patient, and corrected 71 systemic therapy protocol labels.
+- **Onkostar:** included KIS information when selecting the latest vital date and improved large JSON exports. Optional Wuerzburg tumour-board detail columns follow the existing configuration flag.
+- **Updates and login:** preserved administrator-uploaded documents across volume-reset updates, restored independent language selection on the login screen, refreshed the data-update timestamp after login, and allowed more time for LDAP authentication.
+
+Existing demo databases require a reimport and preprocessing to receive the updated demo records.
+
 ## 1.4.0 - 2026-09-16
 
 ### Therapies and demo data

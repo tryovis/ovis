@@ -24,10 +24,7 @@
 	import { configStore } from '../../store/configStore';
 	import { addUserFilter } from '../../components/UserFilter';
 	import { iconPath } from '$lib/path-utils';
-	import {
-		usesCompactChartLayout,
-		usesMobileLandscapeLayout
-	} from '$lib/responsiveChartSizing';
+	import { usesMobileLandscapeLayout } from '$lib/responsiveChartSizing';
 
 	let SurvivalKaplanMeierChartShowChart: boolean;
 	let SurvivalKaplanMeierChartSelectedTimeType: string;
@@ -207,6 +204,21 @@
 	let chartContainer: HTMLDivElement;
 	let chartRoot: HTMLDivElement;
 	let mounted = false;
+
+	onMount(() => {
+		let lastWidth = 0;
+		let lastHeight = 0;
+		const observer = new ResizeObserver(() => {
+			const width = chartContainer?.clientWidth ?? 0;
+			const height = chartContainer?.clientHeight ?? 0;
+			if (!width || !height || (width === lastWidth && height === lastHeight)) return;
+			lastWidth = width;
+			lastHeight = height;
+			if (mounted && showChart && !updating) requestRenderChart(false);
+		});
+		observer.observe(chartContainer);
+		return () => observer.disconnect();
+	});
 
 	onMount(async () => {
 		await import('@samply/lens');
@@ -399,16 +411,11 @@
 			rightSlider,
 			kmI18n,
 			cachedTimeExtent,
-			usesCompactChartLayout()
-				? {
-					width: Math.max(
-						320,
-						chartContainer?.clientWidth || chartRoot?.clientWidth || currentWidth
-					),
-					height: Math.max(180, (chartRoot?.clientHeight || 810) - 120),
-					compact: usesMobileLandscapeLayout()
-				}
-				: undefined
+			{
+				width: Math.max(320, chartContainer?.clientWidth || chartRoot?.clientWidth || currentWidth),
+				height: Math.max(180, chartContainer?.clientHeight || (chartRoot?.clientHeight || 810) - 120),
+				compact: usesMobileLandscapeLayout()
+			}
 		);
 
 		for (let i = 0; i < gvec.length; ++i) {

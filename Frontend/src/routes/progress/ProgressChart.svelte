@@ -12,7 +12,6 @@
         {label:'Primärtumor',value:'tumorState' },
         {label:'Verlaufsgrund',value:'progressReason'},
         {label:'Verlaufsquelle',value:'progressSource'},
-        {label:'Vitalstatus',value:'vitalState'},
 	];
 
 	let maximizeProgressChart: boolean;
@@ -31,7 +30,11 @@
   		ProgressChartShowTop5 = value.ProgressChartShowTop5;
 		ProgressChartShowNull = value.ProgressChartShowNull;
 		ProgressChartShowLogarithm = value.ProgressChartShowLogarithm;
-		ProgressChartInitialDropdown = value.ProgressChartInitialDropdown;
+		ProgressChartInitialDropdown = dropdownObject.some(
+			(option) => option.value === value.ProgressChartInitialDropdown
+		)
+			? value.ProgressChartInitialDropdown
+			: 'overallAssessment';
 	});
 
 	function handleMaximized(event: any) {

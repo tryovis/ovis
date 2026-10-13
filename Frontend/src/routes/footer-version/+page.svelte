@@ -15,6 +15,25 @@
 
   let entries: Entry[] = [
           {
+            id: "v1.5.0",
+            version: "1.5.0",
+            date: "13.10.2026",
+            title: "Export Builder, Adaptive Dashboards and Data Improvements",
+            changes: [
+              "Export builder: create CSV exports for the selected patient group, choose and reorder fields across clinical datasets, combine related records and preview the result before downloading",
+              "Export history: downloads require a data-protection confirmation and record the user, export ID, file hash and result; administrators can review the history",
+              "Export configuration: enabled in both example environment files; existing installations can set PUBLIC_NAV_EXPORT_ENABLED=true in their own .env and recreate the frontend",
+              "Desktop layout: taller and narrower windows, including 4:3 displays, retain the dashboard arrangement while tables, charts and the filter area use the available height",
+              "Navigation and filter editor: improved menu wrapping, submenu and tooltip positioning, and scrolling within the filter editor",
+              "Charts: age and Kaplan-Meier charts follow their container size; maximizing the diagnosis chart no longer creates duplicate tables",
+              "Systemic therapy and progress: corrected planned/performed cycle labels in German and English and removed the obsolete vital-status choice from the progress chart",
+              "Demo data: report IDs for all 5,589 progress records, complete histology and report IDs for the eight diagnoses of the single-view example patient, and 71 corrected systemic therapy protocol labels; existing demo databases require a reimport",
+              "Onkostar: included KIS information in the latest vital date, improved large JSON exports and connected optional Wuerzburg tumour-board detail columns to the existing configuration flag",
+              "Updates and login: preserved administrator-uploaded documents across volume-reset updates, restored independent login language selection, refreshed the data-update timestamp after login and allowed more time for LDAP authentication"
+            ],
+            expanded: true
+          },
+          {
             id: "v1.4.0",
             version: "1.4.0",
             date: "16.09.2026",
@@ -37,7 +56,7 @@
               "Access: assigned patient groups are respected in patient details, timelines and studies without appearing as removable personal filters; anonymous demo visitors no longer receive administrator privileges",
               "Update note for administrators: date and age corrections for existing records take effect after a normal source data reimport; the new Onkostar therapy details require a source reimport and reprocessing of the affected therapy data"
             ],
-            expanded: true
+            expanded: false
           },
           {
             id: "v1.3.0",

@@ -4,6 +4,31 @@
 copies this file at build time. A file supplied through `OVIS_SITE_OMOCK_FILE`
 takes precedence over the bundled copy.
 
+## Single-view diagnosis history
+
+Demo patient `12345902` (`Solar Arrow`) has a histology code and a unique
+synthetic diagnosis `reportID` on each of its eight diagnoses. Six missing
+histologies were filled with code/text pairs already used in the demo; the two
+existing histologies are preserved. Report IDs use `DEMO-D-<six-digit tumorID>`,
+for example `DEMO-D-004171`. Both fields are stored directly in `diagnosis`, as
+requested by the single-view history table. The preprocessing sample contains
+the same additions.
+
+These are synthetic UI fixtures, not clinical findings or registry-issued IDs.
+Dates and other diagnosis fields remain unchanged. Rebuild the bundled demo
+importer and reimport the demo to update an existing database; a browser reload
+alone does not refresh the stored records.
+
+## Systemic therapy protocols
+
+The 71 systemic demo records that duplicated the encoded substance list in
+`protocol` now use readable names, for example `Carboplatin / Paclitaxel`.
+These are descriptive demo labels derived from the existing substance names,
+not inferred clinical regimen names. Each combination remains one protocol.
+The original `substance` values retain their names, ATC codes and import
+separators. Missing protocols and the three existing `Test` values are preserved.
+The bundled preprocessing sample contains the same protocol corrections.
+
 ## Radiation therapies
 
 All 1,057 radiation therapies now have at least one single-radiation detail.
@@ -61,6 +86,28 @@ After import, use `/therapy-radiation`, `/therapy-nuclear` and `/therapy-other`
 to test table columns, category charts, filters and CSV exports.
 
 ## Refreshing a local demo
+
+### Progress report IDs
+
+All 5,589 progress records contain a unique synthetic `reportID`, from
+`DEMO-V-000001` to `DEMO-V-005589`, in bundled input order. The preprocessing
+sample uses the same IDs. Existing progress values are preserved. These IDs are
+demo fixtures and are not registry-issued identifiers.
+
+The `/progress` table already requests and displays this field in `R-ID`
+(`M-ID` in German). For an existing local demo, wait until preprocessing is idle,
+then refresh only its progress collection from the repository root:
+
+```sh
+docker compose cp Backend/Data-Import/demo/omock.json ovis-backend-mongodb-data-preprocessing:/app/Preprocessing/omock.json
+docker compose exec -T ovis-backend-mongodb-data-preprocessing node ./Preprocessing/preprocessor.mjs progress
+```
+
+Reload the browser afterward. Rebuild the importer image as well so future
+imports use the updated bundled file. An external `OVIS_SITE_OMOCK_FILE` still
+takes precedence and must contain its own report IDs.
+
+### Therapy fixtures
 
 Rebuilding the importer updates its
 bundled file; an existing database also needs its materialised therapy data and

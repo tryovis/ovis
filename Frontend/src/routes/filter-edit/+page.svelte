@@ -349,6 +349,7 @@
 {#if username && !['admin', 'super-admin'].includes(currentRole)}
 	As a normal "user" you do not have permission to change specific user permissions.
 {:else}
+	<div class="filter-editor-page">
 	<div class="box_style box_level1 table-chart">
 		<h1 style="padding-left:10px">
 			Filter {$t('edit')}
@@ -382,7 +383,6 @@
 		<fieldset
 			disabled={!ready || saving || !editable}
 			class="box_style box_level3 editor-fields"
-			style="height: 600px; overflow: auto;"
 		>
 			{#if $currentAst}
 				{#each $currentAst.children as innerAND, innerANDindex}
@@ -595,11 +595,22 @@
 		</div>
 		{#if saveError}<p role="alert">{saveError}</p>{/if}
 	{/if}
+	</div>
 {/if}
 
 <style>
+	.filter-editor-page {
+		display: flex;
+		flex-direction: column;
+		height: 100%;
+		min-height: 0;
+	}
+	.filter-editor-page > :global(.table-chart) {
+		flex: 0 0 auto;
+	}
 	.editor-loading {
-		height: 600px;
+		flex: 1 1 0;
+		min-height: 0;
 		flex-direction: column;
 		gap: 1rem;
 	}
@@ -610,8 +621,12 @@
 		margin: 0;
 	}
 	.editor-fields {
+		flex: 1 1 0;
+		min-height: 0;
 		min-width: 0;
 		margin-inline: 0;
+		height: auto;
+		overflow: auto;
 	}
 	.box_style {
 		border: 1px solid var(--border-color);
@@ -704,12 +719,19 @@
 		z-index: 999;
 		top: 100%; /* Abstand vom übergeordneten Element */
 
-		max-width: 400px;
-		width: auto; /* Damit der Tooltip sich an den Inhalt anpasst */
+		max-width: min(400px, calc(100vw - 32px));
+		width: max-content;
 
 		transition: opacity 0.5s; /* Hinzugefügte Übergangseigenschaft */
 		opacity: 0; /* Anfangszustand: Tooltip ist unsichtbar */
-		white-space: nowrap; /* Kein Zeilenumbruch */
+		white-space: normal;
+	}
+
+	@container ovis-layout (max-width: 1399px) {
+		.infotooltip .infotooltiptext {
+			left: auto;
+			right: 0;
+		}
 	}
 
 	.infotooltip:hover .infotooltiptext {

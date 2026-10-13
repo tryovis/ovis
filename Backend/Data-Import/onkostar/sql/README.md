@@ -24,6 +24,20 @@ helpers and adapts ordered `GROUP_CONCAT`; it does not validate a live MariaDB
 import. The frontend query/flag contract can be checked from `Frontend` with
 `node --test src/graphQl/gql-tumorboard.test.mjs` (backend dependencies required).
 
+## Progress report IDs
+
+`progress.sql` already exports `reportID` from `lkr_meldung.tan`, linked through
+`lkr_meldungsteil.prozedur_id` to `dk_verlauf.id`. Only reports with `art IN (3, 5)`
+and a non-null TAN are included. Multiple TANs for one procedure are deduplicated,
+sorted and joined with commas. A progress record without a matching report keeps
+a null `reportID`.
+
+The preprocessor preserves this field in the `progress` collection. GraphQL
+`getCourses` exposes it as `course.reportID`, and `/progress` displays it in `R-ID`
+(`M-ID` in German). Existing database records require a refreshed Onkostar export
+and progress preprocessing to show newly available IDs. This mapping does not
+establish whether a particular live installation has matching registry reports.
+
 ## Patient vital date
 
 `patient.sql` includes `patient.letzte_information` as an additional candidate for

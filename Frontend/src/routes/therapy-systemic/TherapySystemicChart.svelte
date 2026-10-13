@@ -5,11 +5,11 @@
 	import { t, locale, locales } from "../../store/languageStore";
 	import { configStore } from '../../store/configStore';
 
-	let dropdownObject = [
+	$: dropdownObject = [
 		{label: $t("measure"), value: 'subType'},
         {label: $t("protocol"), value: 'protocol'},
-        {label: "Geplante Zyklen", value: 'cyclesPlanned'},
-        {label: "Geplante Zyklen", value: 'cyclesPerformed'},
+        {label: $t("cyclesPlanned"), value: 'cyclesPlanned'},
+        {label: $t("cyclesPerformed"), value: 'cyclesPerformed'},
 		{label: $t("doseDeviation"), value: 'doseDeviation'},
 	];
 

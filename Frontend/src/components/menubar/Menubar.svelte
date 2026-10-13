@@ -518,7 +518,21 @@
 	/* The dropdown container */
 	.dropdown {
 		float: left;
-		overflow: hidden;
+		position: relative;
+		overflow: visible;
+	}
+
+	.navbar {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		box-sizing: border-box;
+		overflow: visible;
+	}
+
+	.navbar > a,
+	.navbar > .dropdown > .dropbtn {
+		white-space: nowrap;
 	}
 	/* Navbar container */
 
@@ -558,7 +572,9 @@
 		min-width: 160px;
 		box-shadow: 0px 8px 16px 0px rgba(0, 0, 0, 0.2);
 		z-index: 1;
-		margin-top: 45px;
+		top: 100%;
+		left: 0;
+		margin-top: 0;
 	}
 
 	.notallowed{

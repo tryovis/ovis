@@ -1,5 +1,6 @@
 <script lang="ts">
   import '../app.css';
+  import '../responsive-layout.css';
   import Menubar from '../components/menubar/Menubar.svelte';
   import Quicktools from '../components/quicktools/Quicktools.svelte';
   import Disclaimer from '../components/Disclaimer.svelte';
@@ -179,7 +180,7 @@
     const viewportHeight = window.visualViewport?.height ?? window.innerHeight;
     const isCoarsePointer = window.matchMedia('(pointer: coarse)').matches;
     const shortestScreenSide = Math.min(window.screen.width, window.screen.height);
-    const isPhoneSized = shortestScreenSide <= 900;
+    const isPhoneSized = shortestScreenSide <= 600;
     const isMobileDevice = isCoarsePointer && isPhoneSized;
     const screenOrientation = window.screen.orientation?.type;
     const isLandscape = screenOrientation
