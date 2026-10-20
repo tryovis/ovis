@@ -72,9 +72,13 @@ type TablePageResult = {
 	filtered: number;
 };
 
+type TableCellClickHandlers = Record<string, (row: Record<string, unknown>) => void | Promise<void>>;
+
 type ServerSideTableOptions = {
 	fetchPage?: (request: TablePageRequest) => Promise<TablePageResult>;
 	fixedFilter?: string | null;
+	// When supplied, only these columns select rows; display-only columns stay inert.
+	cellClickHandlers?: TableCellClickHandlers;
 };
 
 const normalizeColumnSearch = (value: string): string =>
@@ -274,7 +278,8 @@ export function createTable(
 						colIndex,
 						collection,
 						effectiveEnableCellClick,
-						applySelectionScope
+						applySelectionScope,
+						effectiveServerSideOptions?.cellClickHandlers
 					);
 				}
 			}
@@ -344,7 +349,8 @@ export function createTable(
 							_colIdx,
 							collection,
 							effectiveEnableCellClick,
-							applySelectionScope
+							applySelectionScope,
+							effectiveServerSideOptions?.cellClickHandlers
 						);
 					});
 			});
@@ -584,10 +590,25 @@ function bindCellClickHandler(
 	colIndex: number,
 	collection: string,
 	enableCellClick: boolean,
-	beforeSelect?: () => boolean | void
+	beforeSelect?: () => boolean | void,
+	cellClickHandlers?: TableCellClickHandlers
 ) {
 	if (!enableCellClick) {
 		tableCell.onclick = null;
+		return;
+	}
+
+	if (cellClickHandlers) {
+		tableCell.onclick = function () {
+			const table = getDataTable();
+			const columnName = table.settings()[0]?.aoColumns[colIndex]?.data;
+			const selectRow = cellClickHandlers[columnName];
+			if (!selectRow) return;
+			const row = tableCell.closest('tr');
+			const rowData = row ? table.row(row).data() : undefined;
+			if (!rowData || beforeSelect?.() === false) return;
+			return selectRow(rowData as Record<string, unknown>);
+		};
 		return;
 	}
 

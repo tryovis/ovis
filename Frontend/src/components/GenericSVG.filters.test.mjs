@@ -26,11 +26,23 @@ for (const node of parsed.statements) {
 		)
 	)
 		statements.push(node.getText(parsed));
-	if (ts.isFunctionDeclaration(node) && ['handleClick', 'setCatalog'].includes(node.name?.text)) {
+	if (
+		ts.isFunctionDeclaration(node) &&
+		['handleClick', 'setCatalog', 'handleMapTableRowClick', 'processSVGColoring', 'processMetastasis'].includes(node.name?.text)
+	) {
 		statements.push(node.getText(parsed));
 	}
 }
-assert.equal(statements.length, 3, 'exercise the real map insertion, click and field mapping');
+assert.equal(statements.length, 6, 'exercise the real map/table insertion, click and field mapping');
+const tableSource = ts.createSourceFile(
+	'tableBuilder.ts',
+	fs.readFileSync(new URL('../tableBuilder.ts', import.meta.url), 'utf8'),
+	ts.ScriptTarget.Latest,
+	true
+);
+statements.push(tableSource.statements.find(
+	(node) => ts.isFunctionDeclaration(node) && node.name?.text === 'bindCellClickHandler'
+).getText(tableSource));
 const executable = ts.transpileModule(statements.join('\n'), {
 	compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.None }
 }).outputText;
@@ -75,7 +87,11 @@ function createMap({
 	const catalogue = [
 		{
 			key: type,
-			childCategories: ['ICD_ICD10Group', 'ICD_ICD10_3', 'state', 'radiation_areaGrouped'].map(
+			childCategories: [
+				'ICD_ICD10Group', 'ICD_ICD10_3', 'ICD_ICD10',
+				'countryCode', 'state', 'county', 'postalCode',
+				'radiation_supArea', 'radiation_subArea', 'radiation_areaGrouped', 'metastasisLocation'
+			].map(
 				(key) => ({
 					key,
 					name: `Catalogue label for ${key}`,
@@ -94,8 +110,17 @@ function createMap({
 		currentLevel: level,
 		maxLevel,
 		currentCatalog: '',
+		filter: JSON.stringify({ operand: 'AND', children: [] }),
 		currentColor: '#123456',
 		currentSVG: `/svg/${type}/level${level}.svg`,
+		tableName: `${type}MapTable`,
+		tableShownRows: 20,
+		sortingIndex: 1,
+		svgRoot: null,
+		tick: async () => {},
+		document: { getElementById: () => ({}) },
+		t: (key) => key,
+		createTable: (...args) => ({ args }),
 		dataPasser: {
 			getQueryAPI: () => query,
 			setQueryStoreAPI: (next) => {
@@ -139,7 +164,28 @@ function createMap({
 	});
 	vm.runInContext(executable, context);
 	context.setCatalog();
-	return { context, events, reloads, query: () => plain(query) };
+	return {
+		context, events, reloads, query: () => plain(query),
+		async tableCell(column, rows) {
+			if (type === 'metastasis') {
+				context.getTNMBodyMap = async () => rows;
+				await context.processMetastasis();
+			} else {
+				await context.processSVGColoring(rows);
+			}
+			const args = context.mapTable.args;
+			const row = args[3][0];
+			const cell = { closest: () => ({}) };
+			context.bindCellClickHandler(
+				() => ({
+					settings: () => [{ aoColumns: [{ data: column }] }],
+					row: () => ({ data: () => row })
+				}),
+				cell, row[column], 0, args[0], args[8], undefined, args[9].cellClickHandlers
+			);
+			return cell;
+		}
+	};
 }
 
 test('first C34 bodymap click writes the scoped diagnosis before immediate reload with an empty catalogue', async () => {
@@ -205,5 +251,94 @@ test('grouped radiation selections preserve the description used as the filter v
 	await map.context.handleClick('thorax', 'Thorax');
 	assert.equal(map.query()[0][0].system, 'therapy');
 	assert.equal(map.query()[0][0].key, 'radiation_areaGrouped');
+	assert.equal(map.query()[0][0].values[0].value, 'Thorax');
+});
+
+for (const [level, key, label] of [
+	[1, 'ICD_ICD10Group', 'C81-C96'],
+	[2, 'ICD_ICD10_3', 'C81'],
+	[3, 'ICD_ICD10', 'C81.1']
+]) {
+	for (const column of ['label', 'longText']) {
+		test(`bodymap ${column} click at level ${level} selects ${key} and its code`, async () => {
+			const map = createMap({ assignedFilter: null, level });
+			const cell = await map.tableCell(column, [{ label, description: 'Long diagnosis description', count: 6 }]);
+			await cell.onclick();
+			const selected = map.query()[0][0];
+			assert.equal(selected.key, key);
+			assert.equal(selected.system, 'diagnosis');
+			assert.equal(selected.values[0].value, label);
+			assert.equal(map.reloads.length, 1);
+			assert.deepEqual(map.query(), map.reloads[0]);
+		});
+	}
+}
+
+test('bodymap counts and rows without a code never create display-column filters', async () => {
+	for (const [column, label] of [['count', 'C81'], ['label', ''], ['longText', null]]) {
+		const map = createMap({ assignedFilter: null });
+		const cell = await map.tableCell(column, [{ label, description: 'Description only', count: 6 }]);
+		await cell.onclick();
+		assert.deepEqual(map.query(), []);
+		assert.equal(map.reloads.length, 0);
+	}
+});
+
+test('bodymap table selection respects assigned filters and deduplicates label/description clicks', async () => {
+	const fixed = createMap({ level: 1 });
+	const fixedCell = await fixed.tableCell('longText', [{ label: 'C30-C39', description: 'Atmungsorgane', count: 6 }]);
+	await fixedCell.onclick();
+	assert.deepEqual(fixed.query(), []);
+	const prior = [[personalItem('diagnosisDate', '2026')], [personalItem('ICD_ICD10_3', 'C32')]];
+	const map = createMap({ assignedFilter: null, initialQuery: prior, maxLevel: 2 });
+	for (const column of ['label', 'longText']) {
+		const cell = await map.tableCell(column, [{ label: 'C81', description: 'Hodgkin', count: 6 }]);
+		await cell.onclick();
+	}
+	assert.deepEqual(map.query()[0][0], prior[0][0]);
+	assert.deepEqual(map.query()[1], prior[1]);
+	assert.equal(map.query()[0].length, 2);
+	assert.deepEqual(map.query()[0][1].values.map(({ value }) => value), ['C81']);
+});
+
+for (const [type, level, key, label, description, columns] of [
+	['patient', 1, 'countryCode', 'DE', 'Deutschland', ['label', 'longText']],
+	['patient', 2, 'state', 'Bayern', '', ['label']],
+	['patient', 3, 'county', 'Würzburg', '', ['label']],
+	['patient', 4, 'postalCode', '01067', 'Dresden', ['label', 'longText']],
+	['therapy', 1, 'radiation_supArea', '1', 'ZNS', ['label', 'longText']],
+	['therapy', 2, 'radiation_subArea', '1.1.', 'Ganzhirn', ['label', 'longText']],
+	['metastasis', 1, 'metastasisLocation', 'OSS', '', ['label']]
+]) {
+	for (const column of columns) {
+		test(`${type} map ${column} click at level ${level} selects ${key} and its original value`, async () => {
+			const map = createMap({ type, level, maxLevel: level, assignedFilter: null });
+			const cell = await map.tableCell(column, [{ label, description, count: 6 }]);
+			assert.ok(map.context.mapTable.args[4].some(({ data }) => data === column));
+			await cell.onclick();
+			const selected = map.query()[0][0];
+			assert.equal(selected.key, key);
+			assert.equal(selected.system, type);
+			assert.equal(selected.values[0].value, label);
+			assert.equal(map.reloads.length, 1);
+			assert.deepEqual(map.query(), map.reloads[0]);
+		});
+	}
+	test(`${type} map count at level ${level} does not create a filter`, async () => {
+		const map = createMap({ type, level, maxLevel: level, assignedFilter: null });
+		const cell = await map.tableCell('count', [{ label, description, count: 6 }]);
+		await cell.onclick();
+		assert.deepEqual(map.query(), []);
+		assert.equal(map.reloads.length, 0);
+	});
+}
+
+test('radiation table preserves the grouped-description selection used by the map', async () => {
+	const map = createMap({ type: 'therapy', level: 1, maxLevel: 1, assignedFilter: null });
+	map.context.currentCatalog = 'radiation_areaGrouped';
+	const cell = await map.tableCell('longText', [{ label: 'thorax', description: 'Thorax', count: 6 }]);
+	await cell.onclick();
+	assert.equal(map.query()[0][0].key, 'radiation_areaGrouped');
+	assert.equal(map.query()[0][0].system, 'therapy');
 	assert.equal(map.query()[0][0].values[0].value, 'Thorax');
 });

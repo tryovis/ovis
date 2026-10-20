@@ -70,6 +70,8 @@
 	let tableName = SVGType + 'MapTable';
 	let mounted = false;
 	let loadedSvgPath = '';
+	let mapAvailable = true;
+	$: showMap = mapAvailable && showChartStoreValue;
 	let currentCatalog = '';
 	let exportContext: ExportContext = {};
 	let exportLoading = true;
@@ -133,14 +135,14 @@
 					filter
 				);
 
-				if (result.groups.length <= 1) {
-					currentLevel = 2;
-					currentCatalog = '';
-					currentSVG = publicAssetPath(
-						`/svg/diagnosisBodymap/level${currentLevel}_${replaceUmlauts(
+				if (result.groups.length === 1) {
+					const groupSVG = publicAssetPath(
+						`/svg/diagnosisBodymap/level2_${replaceUmlauts(
 							result.groups[0].label
 						)}.svg`
 					);
+					currentLevel = 2;
+					currentSVG = groupSVG;
 					const result2 = await getDiagnosisBarChart(
 						{
 							genderWise: false,
@@ -150,32 +152,22 @@
 						filter
 					);
 
-					if (result2.groups.length <= 1) {
-						currentLevel = 3;
-						currentSVG = publicAssetPath(
-							`/svg/diagnosisBodymap/level${currentLevel}_${replaceUmlauts(
+					if (result2.groups.length === 1) {
+						const detailSVG = publicAssetPath(
+							`/svg/diagnosisBodymap/level3_${replaceUmlauts(
 								result2.groups[0].label
 							)}.svg`
 						);
-						const result3 = await getDiagnosisBarChart(
-							{
-								genderWise: false,
-								group: 'ICD_ICD10',
-								abscissa: 'none'
-							},
-							filter
-						);
-
-						if (result3.groups.length < 1) {
-							currentLevel = 1;
-						}
+						oldSVG_level2 = currentSVG;
+						currentLevel = 3;
+						currentSVG = detailSVG;
 					}
 				}
 			} else if (SVGType === 'patient') {
 				let result = await getPatientCohortMapChart('countryCode', filter);
 				result = result.filter((item) => item.label !== null);
 
-				if (result.length <= 1 && result[0]?.label === 'DE') {
+				if (result.length === 1 && result[0].label) {
 					currentLevel = 2;
 					currentSVG = publicAssetPath(
 						`/svg/patientWorldMaps/level${currentLevel}_${replaceUmlauts(result[0].label)}.svg`
@@ -183,7 +175,8 @@
 					let result2 = await getPatientCohortMapChart('state', filter);
 					result2 = result2.filter((item) => item.label !== null);
 
-					if (result2.length <= 1) {
+					if (result2.length === 1 && result2[0].label) {
+						oldSVG_level2 = currentSVG;
 						currentLevel = 3;
 						currentSVG = publicAssetPath(
 							`/svg/patientWorldMaps/level${currentLevel}_${replaceUmlauts(result2[0].label)}.svg`
@@ -191,39 +184,19 @@
 						let result3 = await getPatientCohortMapChart('county', filter);
 						result3 = result3.filter((item) => item.label !== null);
 
-						if (result3.length <= 1) {
-							const allowedCities = [
-								'Augsburg',
-								'Berlin',
-								'Bremen',
-								'Erlangen',
-								'Hamburg',
-								'München',
-								'Regensburg',
-								'Ulm',
-								'Würzburg'
-							];
-							if (result3[0] && allowedCities.includes(result3[0].label)) {
-								currentLevel = 4;
-								currentSVG = publicAssetPath(
-									`/svg/patientWorldMaps/level${currentLevel}_${replaceUmlauts(
-										result3[0].label
-									)}.svg`
-								);
-								let result4 = await getPatientCohortMapChart('postalCode', filter);
-								result4 = result4.filter((item) => item.label !== null);
-
-								if (result4.length < 1) {
-									currentLevel = 1;
-								}
-							}
+						if (result3.length === 1 && result3[0].label) {
+							oldSVG_level3 = currentSVG;
+							currentLevel = 4;
+							currentSVG = publicAssetPath(
+								`/svg/patientWorldMaps/level4_${replaceUmlauts(result3[0].label)}.svg`
+							);
 						}
 					}
 				}
 			} else if (SVGType === 'therapy') {
 				const result = await getTherapyRadiationMap('radiation_supArea', filter);
 				const filteredResult = result.filter((item) => item.label !== null && item.label !== '');
-				if (filteredResult.length <= 1) {
+				if (filteredResult.length === 1) {
 					currentLevel = 2;
 					currentSVG = publicAssetPath(
 						`/svg/radiationMap/level${currentLevel}_${replaceUmlauts(filteredResult[0].label)}.svg`
@@ -237,20 +210,20 @@
 		}
 	}
 
-	async function loadDataForTableOnly() {
+	async function loadDataForTableOnly(token?: number) {
 		setCatalog();
 		switch (SVGType) {
 			case 'therapy':
-				await processRadiation();
+				await processRadiation(token);
 				break;
 			case 'metastasis':
-				await processMetastasis();
+				await processMetastasis(token);
 				break;
 			case 'patient':
-				await processGeo();
+				await processGeo(token);
 				break;
 			case 'diagnosis':
-				await processDiagnosis();
+				await processDiagnosis(token);
 				break;
 			default:
 				break;
@@ -319,19 +292,20 @@
 			const mount = host.shadowRoot ?? host.attachShadow({ mode: 'open' });
 			mount.replaceChildren(root);
 			svgRoot = root;
+			mapAvailable = true;
 		} catch (error) {
 			if (token !== loadToken) return;
-			console.error('Failed to load SVG map:', source, error);
+			console.warn('SVG map unavailable; showing its data table:', source, error);
 			host.shadowRoot?.replaceChildren();
 			svgRoot = null;
-			return;
+			mapAvailable = false;
 		}
 
 		const loadedRoot = svgRoot;
-		if (!loadedRoot) return;
 
 		try {
-			await handleSvgLoad(loadedRoot, token);
+			if (loadedRoot) await handleSvgLoad(loadedRoot, token);
+			else await loadDataForTableOnly(token);
 			if (token !== loadToken || source !== currentSVG || requestedLevel !== Number(currentLevel)) return;
 			exportContext = {
 				filterActive: true,
@@ -564,7 +538,10 @@
 				tableInput,
 				columns,
 				tableShownRows,
-				sortingIndex
+				sortingIndex,
+				null,
+				true,
+				{ cellClickHandlers: { label: handleMapTableRowClick, longText: handleMapTableRowClick } }
 			);
 		}
 
@@ -738,6 +715,11 @@
 		addChartQueryItem(dataPasser, queryObject, get(userStore).currentFilter);
 	};
 
+	function handleMapTableRowClick(row: Record<string, unknown>) {
+		if (typeof row.label !== 'string' || !row.label.trim()) return;
+		return handleClick(row.label, typeof row.longText === 'string' ? row.longText : '');
+	}
+
 	async function handleClick(label: string, description: string) {
 		trackUsageEvent({
 			type: 'MODULE_INTERACTION',
@@ -783,22 +765,9 @@
 			const nextSVG = publicAssetPath(
 				`/svg/${svgDir}/level${currentLevel}_${replaceUmlauts(label)}.svg`
 			);
-			const exists = await fileExists(nextSVG);
-
-			if (exists) {
-				currentSVG = nextSVG;
-			} else {
-				await backToPreviousLevel();
-			}
-		}
-	}
-
-	async function fileExists(url: string): Promise<boolean> {
-		try {
-			const response = await fetch(url, { method: 'HEAD' });
-			return response.ok;
-		} catch (_e) {
-			return false;
+			// Data levels remain navigable even when there is no SVG for this category.
+			// The loader switches to its table instead of rolling back to the parent.
+			currentSVG = nextSVG;
 		}
 	}
 
@@ -812,21 +781,6 @@
 				if (oldSVG_level2 === '') oldSVG_level2 = oldSVG_level3;
 				break;
 			default:
-				break;
-		}
-	}
-
-	async function backToPreviousLevel() {
-		currentLevel--;
-		switch (currentLevel) {
-			case 2:
-				currentSVG = oldSVG_level2;
-				break;
-			case 3:
-				currentSVG = oldSVG_level3;
-				break;
-			default:
-				currentSVG = publicAssetPath(`/svg/${currentSVG.match(/\/svg\/([^/]+)/)?.[1]}/level1.svg`);
 				break;
 		}
 	}
@@ -1038,12 +992,13 @@
 		{headlineTitle}
 		{headlineTooltip}
 		headlineMaximize={maxStoreValue}
-		headlineShowChart={showChartStoreValue}
-		headlineIsChart={true}
+		headlineShowChart={mapAvailable ? showChartStoreValue : null}
+		headlineIsChart={showMap}
 		headlineInitialTop5={null}
 		headlineInputTableData={inputArray}
 		headlineInputTableHeader={headers}
-		headlineInitialLogarithm={showLogarithmStoreValue}
+		headlineInputTableFields={columns?.map(({ data }) => data === 'longText' ? 'description' : data)}
+		headlineInitialLogarithm={mapAvailable ? showLogarithmStoreValue : null}
 		headlineChartJSElement={null}
 		headlineD3Element={svgRoot}
 		headlineLoading={exportLoading || currentSVG !== exportContext.selection?.currentSVG || Number(currentLevel) !== exportContext.selection?.currentLevel}
@@ -1063,7 +1018,7 @@
 		</div>
 	{/if}
 
-	<div class="svg-content" style={mounted && showChartStoreValue ? '' : 'display: none;'}>
+	<div class="svg-content" style={mounted && showMap ? '' : 'display: none;'}>
 		<div class="stage">
 			<div class="svgWrapper">
 				{#if !filterActive && currentLevel > 1}
@@ -1084,7 +1039,7 @@
 	</div>
 
 	{#if currentCatalog.startsWith('ICD') || currentCatalog === 'countryCode' || currentCatalog === 'postalCode' || currentCatalog.startsWith('radiation')}
-		<div class="data-table bodymap-table" style={!showChartStoreValue ? '' : 'display: none;'}>
+		<div class="data-table bodymap-table" style={!showMap ? '' : 'display: none;'}>
 			<div class="data-table bodymap-table">
 				<table id={tableName} class="display" style="width:100%">
 					<thead>
@@ -1098,7 +1053,7 @@
 			</div>
 		</div>
 	{:else}
-		<div class="data-table bodymap-table" style={!showChartStoreValue ? '' : 'display: none;'}>
+		<div class="data-table bodymap-table" style={!showMap ? '' : 'display: none;'}>
 			<div class="data-table bodymap-table">
 				<table id={tableName} class="display" style="width:100%">
 					<thead>
