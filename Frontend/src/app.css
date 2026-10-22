@@ -1224,7 +1224,7 @@ i,
 	border-style: solid; /* Setzt den Rahmenstil auf "solid" */
 }
 
-.menu.catalogue > ul li ul {
+.menu.catalogue > ul > li > ul {
     margin-top: -22px; /* Position above the trigger */
     transform: translateY(-100%); /* Position the submenu above */
 }
@@ -1255,30 +1255,28 @@ i,
 }
 
 .menu.catalogue > ul li ul ul {
-	top: 13%;
-	left: 100%;
-	transform: translate(0);
-}
-
-/* Anchor the age options to their trigger and bridge the horizontal hand-off. */
-.menu.catalogue > ul > li > ul > li {
-	position: relative;
-}
-
-.menu.catalogue > ul > li > ul > li > ul.age-list {
 	top: auto;
 	bottom: 0;
+	left: calc(100% + 4px);
 	margin-top: 0;
 	transform: none;
 }
 
-.menu.catalogue > ul > li > ul > li > ul.age-list::before {
+/* Anchor every flyout to its own row, including the nested Onkozert groups. */
+.menu.catalogue > ul li ul li {
+	position: relative;
+}
+
+/* Keep the hovered row active while crossing the gap to its flyout.
+   Attach the bridge to the row so scrollable lists do not clip it. */
+.menu.catalogue > ul li ul li:has(> ul):hover::after {
 	content: '';
 	position: absolute;
 	top: 0;
 	bottom: 0;
-	left: -16px;
-	width: 16px;
+	left: 100%;
+	width: 6px;
+	z-index: 5000;
 }
 
 .menu > ul li ul li:hover {

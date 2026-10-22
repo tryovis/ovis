@@ -168,7 +168,15 @@ function page(input) {
 }
 
 async function readRows(input, context, paged, consume) {
-	const { collection, stages } = await exportAggregation(input, context, paged);
+	// Apply preview join keys after the authorized logical view (including radiation
+	// flattening), but before paging. They can only narrow the permitted cohort.
+	const match = input.match ? previewMatch(input.match) : null;
+	const { collection, stages } = await exportAggregation(input, context, paged && !match);
+	if (match) {
+		stages.push({ $match: match });
+		if (input.offset) stages.push({ $skip: input.offset });
+		stages.push({ $limit: input.limit });
+	}
 	const cursor = context.db
 		.collection(collection)
 		.aggregate(stages, { allowDiskUse: true, batchSize: 250 });
@@ -178,6 +186,38 @@ async function readRows(input, context, paged, consume) {
 	} finally {
 		await cursor.close();
 	}
+}
+
+function previewMatch({ field, value }) {
+	if (!['_id', 'patID', 'tumorID', 'therapyID', 'studyKey'].includes(field))
+		throw invalid('Invalid export join field');
+	let key;
+	try {
+		key = JSON.parse(value);
+	} catch {
+		throw invalid('Invalid export join value');
+	}
+	if (
+		!(typeof key === 'string' && key.length > 0 && key.length <= 1000) &&
+		!(typeof key === 'number' && Number.isFinite(key))
+	)
+		throw invalid('Invalid export join value');
+	// Flattened ObjectIds are strings; preserve the distinction between numeric
+	// and string IDs and do not treat arrays as scalar join keys.
+	return {
+		$expr: {
+			$eq: [
+				{
+					$cond: [
+						{ $eq: [{ $type: `$${field}` }, 'objectId'] },
+						{ $toString: `$${field}` },
+						`$${field}`
+					]
+				},
+				{ $literal: key }
+			]
+		}
+	};
 }
 
 module.exports = {

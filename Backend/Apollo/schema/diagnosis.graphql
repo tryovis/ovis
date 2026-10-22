@@ -4,8 +4,8 @@ module.exports = `
         getFirstAssessment(limit: Int, continueFromID: String, filter: String, offset: Int, sortField: String, sortDirection: String, columnFilters: [TableColumnFilter!]): [Diagnosis]
         getDiagnosisHistologyTable(limit: Int, continueFromID: String, filter: String, offset: Int, sortField: String, sortDirection: String, columnFilters: [TableColumnFilter!]): [DiagnosisHistologyTable]
         getPatientCohortAgeChart(filter: String): [PatientAgeChart]
-        getQuicktoolsBasicsIcd10: [String]
-        getQuicktoolsBasicsHistology: [String]
+        getQuicktoolsBasicsIcd10(filter: String): [String]
+        getQuicktoolsBasicsHistology(filter: String): [String]
         getPatientCohortHistoryTable(limit: Int, continueFromID: String, filter: String, offset: Int, sortField: String, sortDirection: String, columnFilters: [TableColumnFilter!]): [PatientCohort]
     }
 

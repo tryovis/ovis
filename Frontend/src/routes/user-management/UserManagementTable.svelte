@@ -791,7 +791,7 @@
 	headlineChartJSElement={null}
 	headlineD3Element={null}
 />
-<div class="grid-container">
+<div class="user-filter-legend">
 	<div class="icon-text-container">
 		<img src={plusIcon} alt="info" class="iconRound" style="pointer-events: none;" /><i
 			>Save Current Filter Selection</i
@@ -860,7 +860,7 @@
 <style>
 	@import 'datatables.net-dt/css/jquery.dataTables.css';
 
-	.grid-container {
+	.user-filter-legend {
 		height: 50px;
 		display: grid;
 		grid-template-columns: repeat(3, 1fr);

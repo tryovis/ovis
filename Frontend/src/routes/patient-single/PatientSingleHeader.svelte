@@ -4,9 +4,15 @@
   import { getPatientSingleHeader } from '../../graphQl/gql-patient-single';
   import { t, locale, locales } from "../../store/languageStore";
   import { singlePatientStore } from '../../store/singlePatientStore.js';
+  import { variantStore } from '../../store/variantStore.js';
 
   let singlePatientID = "";
 
+  // CCP data has no patient location; its cohort views omit it as well.
+  let isCCP = false;
+  variantStore.subscribe((value) => {
+    ({ isCCP } = value);
+  });
 
   singlePatientStore.subscribe((value) => {
     singlePatientID = value.singlePatient; // Hier den Wert direkt zuweisen
@@ -51,6 +57,7 @@
       </div>
     </div>
   </div>
+  {#if !isCCP}
   <div class="middle">
     <div>
       <div class="labels">
@@ -67,6 +74,7 @@
       </div>
     </div>
   </div>
+  {/if}
   <div class="right">
     <div>
       <div class="labels">
@@ -91,17 +99,25 @@
     flex-wrap: wrap; /* Erlaubt den Zeilenumbruch der Panels */
     padding: 5px;
   }
-  .labels {
-    float: left;
+  /* Keep each value beside its label. Floats wrapped the values below long
+     (German) labels, where the next panel hid them. */
+  .left > div, .middle > div, .right > div {
+    display: grid;
+    grid-template-columns: max-content minmax(0, 1fr);
+    column-gap: 1em;
   }
-  .values {
-    float: left;
-    margin-left: 5%;
+  .values p {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   .top {
     width: 100%;
   }
+  /* Share the row below the name equally, whether two or three groups are
+     shown. The non-zero basis keeps them from sharing the name's line. */
   .left, .right, .middle {
-    width: 33%;
+    flex: 1 1 30%;
+    min-width: 0;
   }
 </style>

@@ -4,7 +4,7 @@
 	"description": "an graphQl server for mongo",
 	"main": "index.js",
 	"scripts": {
-		"test:security": "node --test accessControl.test.js",
+		"test:security": "node --test accessControl.test.js resolver/quicktoolsBasics.test.js",
 		"test": "echo \"Error: no test specified\" && exit 1",
 		"test:ast": "node --test astUtils.test.js astTranslator.test.js resolver/studyPatientTable.test.js runtimeIndexes.test.js differential/referenceEvaluator.test.mjs",
 		"test:ast-reference": "node --test differential/referenceEvaluator.test.mjs",

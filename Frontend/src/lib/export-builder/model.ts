@@ -523,7 +523,7 @@ function compareRows(left: DataRow, right: DataRow): number {
 	return a < b ? -1 : a > b ? 1 : 0;
 }
 
-function selectDatedRow(
+export function selectDatedRow(
 	matches: DataRow[],
 	dataset: string,
 	dateField: string,

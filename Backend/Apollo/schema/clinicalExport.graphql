@@ -12,8 +12,14 @@ module.exports = `#graphql
     type: ExportFieldType!
   }
 
+  enum ExportJoinField { _id patID tumorID therapyID studyKey }
+  input ExportRowMatch {
+    field: ExportJoinField!
+    value: String!
+  }
+
   extend type Query {
     getExportFields(collection: ExportCollection!, filter: String): [ExportField!]!
-    getExportRows(collection: ExportCollection!, filter: String, offset: Int! = 0, limit: Int! = 1000): [String!]!
+    getExportRows(collection: ExportCollection!, filter: String, offset: Int! = 0, limit: Int! = 1000, match: ExportRowMatch): [String!]!
   }
 `;

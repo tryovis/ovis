@@ -8,7 +8,12 @@ after(() => {
 	delete globalThis.exportDataFetch;
 });
 const bundle = await build({
-	entryPoints: [fileURLToPath(new URL('./lib/export-builder/data.ts', import.meta.url))],
+	stdin: {
+		contents: `export * from './lib/export-builder/data';
+			export { buildTablePlan, buildPreview } from './lib/export-builder/model';
+			export { exportBuilderRows } from '../e2e/fixtures/export-builder-rows';`,
+		resolveDir: fileURLToPath(new URL('.', import.meta.url))
+	},
 	write: false,
 	bundle: true,
 	format: 'esm',
@@ -30,7 +35,14 @@ const bundle = await build({
 		}
 	]
 });
-const { loadExportData, loadExportFields } = await import(
+const {
+	loadExportData,
+	loadExportFields,
+	loadExportPreview,
+	buildTablePlan,
+	buildPreview,
+	exportBuilderRows
+} = await import(
 	`data:text/javascript;base64,${Buffer.from(bundle.outputFiles[0].text).toString('base64')}`
 );
 const datasetIds = [
@@ -64,6 +76,115 @@ const rowResponse = (rows) =>
 		'getExportRows',
 		rows.map((row) => JSON.stringify(row))
 	);
+
+function previewFixture(data, pageCap = 5) {
+	const calls = [];
+	globalThis.exportDataFetch = async (_url, init) => {
+		const { variables } = JSON.parse(init.body);
+		calls.push(variables);
+		const { collection, offset, limit, match } = variables;
+		const rows = (data[collection] ?? []).filter(
+			(row) => !match || row[match.field] === JSON.parse(match.value)
+		);
+		return rowResponse(rows.slice(offset, offset + Math.min(limit, pageCap)));
+	};
+	return calls;
+}
+
+test('preview stops at five rows without loading the full dataset', async () => {
+	const data = { patient: Array.from({ length: 2500 }, (_, index) => ({ patID: `p${index}` })) };
+	const calls = previewFixture(data);
+	const rows = await loadExportPreview(buildTablePlan('patient', []), 'frozen-filter');
+	assert.equal(rows.length, 5);
+	assert.deepEqual(
+		rows.map((row) => row.patient.patID),
+		['p0', 'p1', 'p2', 'p3', 'p4']
+	);
+	assert.deepEqual(calls, [
+		{ collection: 'patient', filter: 'frozen-filter', match: null, offset: 0, limit: 5 }
+	]);
+	const full = await loadExportData(['patient'], 'frozen-filter', { pageSize: 1000 });
+	assert.equal(full.patient.length, 2500, 'download still fetches every page');
+});
+
+test('preview joins match the first five full-export rows across left/inner and first/last selections', async () => {
+	for (const [base, selected] of [
+		['patient', ['diagnosis']],
+		['diagnosis', ['therapy', 'histology', 'radiation']],
+		['histology', ['diagnosis']],
+		['studyPatient', ['patient', 'study']]
+	]) {
+		for (const join of ['left', 'inner']) {
+			for (const selection of ['all', 'first', 'last']) {
+				const plan = buildTablePlan(base, selected).map((table) => ({
+					...table,
+					join,
+					selection: table.dataset === 'therapy' ? selection : 'all'
+				}));
+				const fields = plan.map((table) => ({ dataset: table.dataset, field: '_id', alias: '' }));
+				const expected = buildPreview(plan, fields, exportBuilderRows).rows.slice(0, 5);
+				const calls = previewFixture(exportBuilderRows, 2);
+				const actual = await loadExportPreview(plan, 'snapshot');
+				assert.deepEqual(
+					actual.map((tables) =>
+						Object.fromEntries(
+							fields.map((column) => [
+								`${column.dataset}.${column.field}`,
+								tables[column.dataset]?.[column.field] ?? null
+							])
+						)
+					),
+					expected,
+					JSON.stringify([base, selected, join, selection])
+				);
+				assert.ok(calls.every((call) => call.limit === 5 && call.filter === 'snapshot'));
+				assert.ok(calls.filter((call) => call.collection !== base).every((call) => call.match));
+			}
+		}
+	}
+});
+
+test('preview follows inner matches beyond the first page and first/last considers the entire matching group', async () => {
+	const data = {
+		diagnosis: Array.from({ length: 8 }, (_, index) => ({ tumorID: `t${index}` })),
+		therapy: Array.from({ length: 12 }, (_, index) => ({
+			_id: `th${index}`,
+			tumorID: 't7',
+			therapyOccurrenceDate: index,
+			generalType: `value${index}`
+		}))
+	};
+	const plan = buildTablePlan('diagnosis', ['therapy']);
+	plan[1] = { ...plan[1], join: 'inner', selection: 'last' };
+	previewFixture(data, 2);
+	const rows = await loadExportPreview(plan, null);
+	assert.equal(rows.length, 1);
+	assert.equal(rows[0].diagnosis.tumorID, 't7');
+	assert.equal(rows[0].therapy._id, 'th11');
+	data.therapy.forEach((row) => {
+		row.therapyOccurrenceDate = null;
+	});
+	previewFixture(data);
+	await assert.rejects(loadExportPreview(plan, null), { key: 'exportErrorSelectionDate' });
+});
+
+test('preview cancellation stops paging and never continues to another table', async () => {
+	const controller = new AbortController();
+	let calls = 0;
+	globalThis.exportDataFetch = async (_url, init) => {
+		calls++;
+		assert.equal(init.signal, controller.signal);
+		controller.abort();
+		return rowResponse([{ patID: 'p1' }]);
+	};
+	await assert.rejects(
+		loadExportPreview(buildTablePlan('patient', ['diagnosis']), null, {
+			signal: controller.signal
+		}),
+		{ name: 'AbortError' }
+	);
+	assert.equal(calls, 1);
+});
 
 test('all logical clinical datasets use the dedicated schema enum and export endpoints', async () => {
 	const schema = await readFile(

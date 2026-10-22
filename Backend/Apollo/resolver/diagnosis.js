@@ -42,82 +42,98 @@ module.exports = {
 			return await context.db.collection(colname).aggregate(agg).toArray();
 		},
 
-		getQuicktoolsBasicsIcd10: async (_parent, _args, context) =>
-			(
-				await context.db
-					.collection(context.collections.diagnosis)
-					.aggregate([
-						{
-							$match: {
-								'ICD.ICD10': { $type: 'string' },
-								'ICD.ICD10_3Text': { $type: 'string' },
-								'ICD.ICD10_3': { $type: 'string' }
-							}
-						},
-						{
-							$group: {
-								_id: null,
-								icd10: { $addToSet: { $concat: ['$ICD.ICD10', ' → ', '$TZE_D_LOKT'] } },
-								icd10_3: { $addToSet: { $concat: ['$ICD.ICD10_3', ' → ', '$ICD.ICD10_3Text'] } },
-								icd10group: {
-									$addToSet: { $concat: ['$ICD.ICD10Group', ' → ', '$ICD.ICD10GroupText'] }
+		getQuicktoolsBasicsIcd10: async (_parent, { filter }, context) => {
+			const colname = context.collections.diagnosis;
+			const scope = filter
+				? await filter2match({ value: filter, column: colname, db: context.db })
+				: [];
+			return (
+				(
+					await context.db
+						.collection(colname)
+						.aggregate([
+							...scope,
+							{
+								$match: {
+									'ICD.ICD10': { $type: 'string' },
+									'ICD.ICD10_3Text': { $type: 'string' },
+									'ICD.ICD10_3': { $type: 'string' }
 								}
-							}
-						},
-						{
-							$project: {
-								combinedICD: {
-									$sortArray: {
-										input: { $setUnion: ['$icd10', '$icd10_3', '$icd10group'] },
-										sortBy: 1
+							},
+							{
+								$group: {
+									_id: null,
+									icd10: { $addToSet: { $concat: ['$ICD.ICD10', ' → ', '$TZE_D_LOKT'] } },
+									icd10_3: { $addToSet: { $concat: ['$ICD.ICD10_3', ' → ', '$ICD.ICD10_3Text'] } },
+									icd10group: {
+										$addToSet: { $concat: ['$ICD.ICD10Group', ' → ', '$ICD.ICD10GroupText'] }
 									}
 								}
+							},
+							{
+								$project: {
+									combinedICD: {
+										$sortArray: {
+											input: { $setUnion: ['$icd10', '$icd10_3', '$icd10group'] },
+											sortBy: 1
+										}
+									}
+								}
+							},
+							{
+								$sort: { combinedICD: 1 }
 							}
-						},
-						{
-							$sort: { combinedICD: 1 }
-						}
-					])
-					.toArray()
-			)[0].combinedICD,
+						])
+						.next()
+				)?.combinedICD ?? []
+			);
+		},
 
-		getQuicktoolsBasicsHistology: async (_parent, _args, context) =>
-			(
-				await context.db
-					.collection(context.collections.histology)
-					.aggregate([
-						{
-							$match: {
-								ICDO_histologyCodeText: { $type: 'string' },
-								ICDO_histologyCode: { $type: 'string' }
-							}
-						},
-						{
-							$group: {
-								_id: null,
-								histology: {
-									$addToSet: {
-										$concat: ['$ICDO_histologyCode', ' → ', '$ICDO_histologyCodeText']
+		getQuicktoolsBasicsHistology: async (_parent, { filter }, context) => {
+			const colname = context.collections.histology;
+			const scope = filter
+				? await filter2match({ value: filter, column: colname, db: context.db })
+				: [];
+			return (
+				(
+					await context.db
+						.collection(colname)
+						.aggregate([
+							...scope,
+							{
+								$match: {
+									ICDO_histologyCodeText: { $type: 'string' },
+									ICDO_histologyCode: { $type: 'string' }
+								}
+							},
+							{
+								$group: {
+									_id: null,
+									histology: {
+										$addToSet: {
+											$concat: ['$ICDO_histologyCode', ' → ', '$ICDO_histologyCodeText']
+										}
 									}
 								}
-							}
-						},
-						{
-							$project: {
-								hist: {
-									$sortArray: {
-										input: '$histology',
-										sortBy: 1
+							},
+							{
+								$project: {
+									hist: {
+										$sortArray: {
+											input: '$histology',
+											sortBy: 1
+										}
 									}
 								}
+							},
+							{
+								$sort: { hist: 1 }
 							}
-						},
-						{
-							$sort: { hist: 1 }
-						}
-					])
-					.next()
-			)?.hist ?? [],
+						])
+						.next()
+				)?.hist ?? []
+			);
+		},
 
 		getDiagnosisHistologyTable: async (_parent, args, context) => {
 			const aggregation = await aggregationArry(

@@ -28,6 +28,14 @@ const matches = (row, query = {}) =>
 function expression(row, value) {
 	if (value === '$$ROOT') return row;
 	if (typeof value === 'string' && value.startsWith('$')) return get(row, value.slice(1));
+	if (value?.$literal !== undefined) return value.$literal;
+	if (value?.$type) {
+		const result = expression(row, value.$type);
+		return result instanceof ObjectId ? 'objectId' : typeof result;
+	}
+	if (value?.$toString) return String(expression(row, value.$toString));
+	if (value?.$cond)
+		return expression(row, expression(row, value.$cond[0]) ? value.$cond[1] : value.$cond[2]);
 	if (value?.$mergeObjects)
 		return Object.assign({}, ...value.$mergeObjects.map((entry) => expression(row, entry)));
 	if (value?.$eq) return equal(...value.$eq.map((entry) => expression(row, entry)));
@@ -182,7 +190,7 @@ async function fixture(t, documents = {}, security = {}) {
 			),
 		rows: (collection, options = {}) =>
 			query(
-				'query($collection:ExportCollection!,$filter:String,$offset:Int!,$limit:Int!) { getExportRows(collection:$collection,filter:$filter,offset:$offset,limit:$limit) }',
+				'query($collection:ExportCollection!,$filter:String,$offset:Int!,$limit:Int!,$match:ExportRowMatch) { getExportRows(collection:$collection,filter:$filter,offset:$offset,limit:$limit,match:$match) }',
 				{ collection, offset: 0, limit: 1000, ...options }
 			)
 	};
@@ -195,6 +203,96 @@ const parseFields = (result) => {
 	assert.equal(result.errors, undefined);
 	return Object.fromEntries(result.data.getExportFields.map(({ id, type }) => [id, type]));
 };
+
+test('preview join matching is applied before paging and cannot broaden assigned cohorts', async (t) => {
+	const f = await fixture(
+		t,
+		{
+			diagnosis: [
+				{ _id: 4, tumorID: 'outside', patID: 'p2' },
+				{ _id: 3, tumorID: 'allowed', patID: 'p1' },
+				{ _id: 2, tumorID: 'allowed', patID: 'p1' },
+				{ _id: 1, tumorID: 'allowed', patID: 'p1' }
+			]
+		},
+		{ user: { userFilter: [filter(leaf('diagnosis', 'tumorID', 'allowed'))] } }
+	);
+	assert.deepEqual(
+		parseRows(
+			await f.rows('diagnosis', {
+				match: { field: 'patID', value: JSON.stringify('p1') },
+				offset: 1,
+				limit: 1
+			})
+		).map((row) => row._id),
+		[2]
+	);
+	assert.deepEqual(
+		parseRows(
+			await f.rows('diagnosis', {
+				match: { field: 'patID', value: JSON.stringify('p2') },
+				limit: 5
+			})
+		),
+		[]
+	);
+});
+
+test('preview join keys preserve numeric IDs, literal strings and flattened ObjectIds', async (t) => {
+	const id = new ObjectId('111111111111111111111111');
+	const f = await fixture(t, {
+		diagnosis: [
+			{ _id: id, patID: '7' },
+			{ _id: 'numeric', patID: 7 },
+			{ _id: 'literal', patID: '$patID' }
+		]
+	});
+	for (const [field, value, expected] of [
+		['_id', id.toHexString(), id.toHexString()],
+		['patID', 7, 'numeric'],
+		['patID', '7', id.toHexString()],
+		['patID', '$patID', 'literal']
+	]) {
+		assert.deepEqual(
+			parseRows(
+				await f.rows('diagnosis', {
+					match: { field, value: JSON.stringify(value) }
+				})
+			).map((row) => row._id),
+			[expected]
+		);
+	}
+});
+
+test('preview matching retains duplicate radiation details and rejects invalid keys', async (t) => {
+	const id = new ObjectId('111111111111111111111111');
+	const f = await fixture(t, {
+		therapy: [
+			{
+				_id: id,
+				generalType: 'radiation',
+				radiation: [{ areaDetailed: 'A' }, { areaDetailed: 'B' }]
+			},
+			{ _id: 'other', generalType: 'radiation', radiation: [{ areaDetailed: 'Outside' }] }
+		]
+	});
+	assert.deepEqual(
+		parseRows(
+			await f.rows('radiation', {
+				match: { field: '_id', value: JSON.stringify(id.toHexString()) },
+				offset: 1,
+				limit: 1
+			})
+		).map((row) => row.areaDetailed),
+		['B']
+	);
+	for (const value of ['null', 'true', '[]', '{}', '""', 'invalid']) {
+		const result = await f.rows('radiation', { match: { field: '_id', value } });
+		assert.equal(result.errors[0].extensions.code, 'BAD_USER_INPUT');
+	}
+	const invalidField = await f.rows('radiation', { match: { field: 'firstName', value: '"x"' } });
+	assert.ok(invalidField.errors?.length);
+});
 
 test('full-cohort discovery includes sparse custom fields after the first thousand rows, without reading values into the response', async (t) => {
 	const diagnosis = Array.from({ length: 1501 }, (_, index) => ({

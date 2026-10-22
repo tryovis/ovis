@@ -9,10 +9,16 @@
 	import { t, locale } from '../../store/languageStore';
 	import { navConfig } from '../../config/navigation';
 	import { iconPath } from '$lib/path-utils';
-	import { saveTableCsv } from '$lib/table-download';
+	import { saveTableCsv, type TableExportProgress } from '$lib/table-download';
 	import { ExportAuditError } from '$lib/export-workflow';
 	import { createViewportTooltipStyle, showViewportTooltip } from '$lib/tooltip-popover';
-	import { loadExportData, loadExportFields } from '$lib/export-builder/data';
+	import {
+		loadExportData,
+		loadExportFields,
+		loadExportPreview,
+		EXPORT_PREVIEW_ROWS,
+		type ExportPreviewRow
+	} from '$lib/export-builder/data';
 	import {
 		mergeExportFields,
 		exportFieldLabel,
@@ -33,8 +39,7 @@
 		type ColumnSelection,
 		type TableSelection,
 		type Dataset,
-		type Field,
-		type DataRows
+		type Field
 	} from '$lib/export-builder/model';
 
 	let catalog = datasets;
@@ -74,14 +79,16 @@
 	let activeTable = base;
 	let exporting = false;
 	let exportError = '';
+	let exportErrorVars: Record<string, string | number> = {};
+	let exportProgress: TableExportProgress | null = null;
+	let downloadController: AbortController | undefined;
 	let columnSelections: ColumnSelection[] = defaultColumns(initialSelection);
 	let plan: TableSelection[] = [];
 	let dataPasser: LensDataPasser;
-	let sourceData: DataRows = {};
+	let previewData: ExportPreviewRow[] = [];
 	let loadedExportFilter: string | null = null;
 	let loadedFilterActive = true;
 	let loading = true;
-	let loadingRows = 0;
 	let dataError: ExportError | null = null;
 	let mounted = false;
 	let destroyed = false;
@@ -158,20 +165,21 @@
 		clearTimeout(infoHideTimer);
 		requestVersion += 1;
 		controller?.abort();
+		downloadController?.abort();
 	});
 
-	async function loadData(ids: string[], key: string, filterActive: boolean) {
+	async function loadData(tables: TableSelection[], key: string, filterActive: boolean) {
 		if (!mounted || destroyed) return;
+		const ids = tables.map((table) => table.dataset);
 		requestedKey = key;
 		const version = ++requestVersion;
 		controller?.abort();
 		const requestController = new AbortController();
 		controller = requestController;
 		loading = true;
-		loadingRows = 0;
 		dataError = null;
 		exportError = '';
-		sourceData = {};
+		previewData = [];
 		if (!ids.length) {
 			loading = false;
 			return;
@@ -208,14 +216,11 @@
 				await addUserFilter(filterActive ? JSON.parse(filterAst) : { operand: 'OR', children: [] })
 			);
 			if (version !== requestVersion || destroyed) return;
-			const data = await loadExportData(ids, filter, {
-				signal: requestController.signal,
-				onProgress: (progress) => {
-					if (version === requestVersion && !destroyed) loadingRows = progress.loadedRows;
-				}
+			const data = await loadExportPreview(tables, filter, {
+				signal: requestController.signal
 			});
 			if (version === requestVersion && !destroyed) {
-				sourceData = data;
+				previewData = data;
 				loadedExportFilter = filter;
 				loadedFilterActive = filterActive;
 			}
@@ -230,25 +235,6 @@
 
 	function exportFailure(error: unknown, fallback: string): ExportError {
 		return error instanceof ExportError ? error : new ExportError(fallback);
-	}
-
-	function previewFor(
-		plan: TableSelection[],
-		columns: ColumnSelection[],
-		data: DataRows,
-		catalog: Dataset[]
-	) {
-		try {
-			return { ...buildPreview(plan, columns, data, catalog), error: null };
-		} catch (error) {
-			return {
-				rows: [],
-				baseCount: 0,
-				matchedBaseCount: 0,
-				expanded: false,
-				error: exportFailure(error, 'exportErrorJoin')
-			};
-		}
 	}
 
 	function datasetFor(id: string): Dataset {
@@ -269,7 +255,7 @@
 		if (fallback.length) columnSelections = defaultColumns(fallback);
 		selectedTables = tables.length ? tables : fallback;
 		if (!selectedTables.includes(activeTable)) activeTable = selectedTables[0] ?? '';
-		sourceData = {};
+		previewData = [];
 	}
 
 	function defaultColumns(ids: string[]): ColumnSelection[] {
@@ -317,13 +303,17 @@
 	$: rowSelectionAvailability = new Map(
 		plan
 			.filter((table) => table.parent)
-			.map((table) => [table.dataset, getRowSelectionAvailability(table, sourceData)])
+			.map((table) => [
+				table.dataset,
+				{
+					available: !!datasetFor(table.dataset).dateField,
+					reason: datasetFor(table.dataset).dateField ? null : 'noDateField'
+				} as ReturnType<typeof getRowSelectionAvailability>
+			])
 	);
-	$: if (mounted && !loading && !dataError) reconcileRowSelections(plan, rowSelectionAvailability);
 	// Disabled tables may be necessary join bridges, but never offer fields for selection.
 	$: visiblePlan = plan.filter((table) => availableDatasetIds.has(table.dataset));
 	$: includedTables = new Set(plan.map((table) => table.dataset));
-	$: tableIds = plan.map((table) => table.dataset).sort();
 	$: dataScope = JSON.stringify([
 		$userStore.currentUser,
 		$userStore.currentRole,
@@ -331,14 +321,14 @@
 		$userStore.currentFilter
 	]);
 	$: dataKey = JSON.stringify([
-		tableIds,
+		plan,
 		availabilityKey,
 		$filterActiveStore.filterActive,
 		dataScope,
 		filterAst
 	]);
 	$: if (mounted && dataKey !== requestedKey) {
-		void loadData(tableIds, dataKey, $filterActiveStore.filterActive);
+		void loadData(plan, dataKey, $filterActiveStore.filterActive);
 	}
 	$: selectedFieldKeys = new Set(
 		columnSelections.map((column) => columnKey(column.dataset, column.field))
@@ -349,7 +339,6 @@
 			columnSelections.filter((column) => column.dataset === dataset.id).length
 		])
 	);
-	$: result = previewFor(plan, columnSelections, sourceData, catalog);
 	$: headers = columnSelections.map(
 		(column) => column.alias.trim() || columnKey(column.dataset, column.field)
 	);
@@ -357,15 +346,14 @@
 		(name, index) =>
 			headers.findIndex((other) => other.toLocaleLowerCase() === name.toLocaleLowerCase()) !== index
 	);
-	$: exportRows = result.rows.map((row) =>
+	$: previewRows = previewData.map((row) =>
 		Object.fromEntries(
 			columnSelections.map((column) => {
 				const key = columnKey(column.dataset, column.field);
-				return [key, formatValue(row[key], fieldFor(column), $locale)];
+				return [key, formatValue(row[column.dataset]?.[column.field], fieldFor(column), $locale)];
 			})
 		)
 	);
-	$: previewRows = exportRows.slice(0, 5);
 
 	function fieldFor(column: ColumnSelection): Field {
 		return datasetFor(column.dataset).fields.find((field) => field.id === column.field)!;
@@ -435,25 +423,6 @@
 		};
 	}
 
-	function reconcileRowSelections(
-		tables: TableSelection[],
-		availability: Map<string, ReturnType<typeof getRowSelectionAvailability>>
-	) {
-		const invalid = tables.filter(
-			(table) =>
-				table.parent && table.selection !== 'all' && !availability.get(table.dataset)?.available
-		);
-		if (!invalid.length) return;
-		const next = { ...rowSelections };
-		for (const table of invalid) delete next[`${table.parent}:${table.dataset}`];
-		rowSelections = next;
-		showToast(
-			$t('exportSelectionReset', {
-				tables: invalid.map((table) => $t(datasetFor(table.dataset).label)).join(', ')
-			})
-		);
-	}
-
 	function selectionUnavailableHint(
 		table: TableSelection,
 		availability: ReturnType<typeof getRowSelectionAvailability> | undefined,
@@ -465,7 +434,7 @@
 				table.dataset === 'radiation' ? 'exportSelectionRadiationNoDate' : 'exportSelectionNoDate',
 				{ table: translate(datasetFor(table.dataset).label) }
 			);
-		if (isLoading) return translate('exportLoading');
+		if (isLoading) return translate('exportPreviewLoading');
 		if (availability?.reason === 'missingDates') return translate('exportSelectionMissingDates');
 		if (availability?.reason === 'noMatches') return translate('exportSelectionNoMatches');
 		return '';
@@ -596,16 +565,25 @@
 			exporting ||
 			loading ||
 			dataError ||
-			result.error ||
-			!result.rows.length ||
+			!previewRows.length ||
 			!columnSelections.length ||
 			duplicateNames.length
 		)
 			return;
 		exporting = true;
 		exportError = '';
+		exportErrorVars = {};
+		exportProgress = null;
+		const requestController = new AbortController();
+		downloadController = requestController;
 		// Capture the current configuration before the native save dialog opens.
-		const rows = exportRows;
+		const snapshot = structuredClone({
+			plan,
+			columns: columnSelections,
+			catalog,
+			language: $locale
+		});
+		const filter = loadedExportFilter;
 		const fields = columnSelections.map((column) => columnKey(column.dataset, column.field));
 		const names = [...headers];
 		const context = JSON.parse(
@@ -617,8 +595,7 @@
 					base,
 					tables: plan,
 					columns: columnSelections,
-					requestedFilterActive: loadedFilterActive,
-					baseCount: result.baseCount
+					requestedFilterActive: loadedFilterActive
 				}
 			})
 		);
@@ -628,14 +605,55 @@
 				headers: names,
 				fields,
 				context,
-				getRows: async () => rows,
-				onProgress: () => {}
+				getRows: async (onProgress) => {
+					if (requestController.signal.aborted) return null;
+					const completed = new Map<string, number>();
+					const data = await loadExportData(
+						snapshot.plan.map((table) => table.dataset),
+						filter,
+						{
+							signal: requestController.signal,
+							onProgress: (progress) => {
+								completed.set(progress.dataset, progress.loadedRows);
+								onProgress(
+									[...completed.values()].reduce((sum, count) => sum + count, 0),
+									0
+								);
+							}
+						}
+					);
+					const result = buildPreview(snapshot.plan, snapshot.columns, data, snapshot.catalog);
+					return result.rows.map((row) =>
+						Object.fromEntries(
+							snapshot.columns.map((column) => {
+								const key = columnKey(column.dataset, column.field);
+								const field = snapshot.catalog
+									.find((dataset) => dataset.id === column.dataset)!
+									.fields.find((field) => field.id === column.field)!;
+								return [key, formatValue(row[key], field, snapshot.language)];
+							})
+						)
+					);
+				},
+				onProgress: (progress) => {
+					if (!destroyed) exportProgress = progress;
+				}
 			});
 			if (saved === 'saved' || saved === 'download-started') showToast($t('exportCsvCreated'));
 		} catch (error) {
-			exportError = error instanceof ExportAuditError ? error.message : 'exportErrorSave';
+			if (!destroyed) {
+				exportError =
+					error instanceof ExportAuditError
+						? error.message
+						: error instanceof ExportError
+						? error.key
+						: 'exportErrorSave';
+				exportErrorVars = error instanceof ExportError ? error.vars : {};
+			}
 		} finally {
 			exporting = false;
+			exportProgress = null;
+			downloadController = undefined;
 		}
 	}
 </script>
@@ -930,8 +948,7 @@
 						exporting ||
 						loading ||
 						!!dataError ||
-						!!result.error ||
-						!result.rows.length}
+						!previewRows.length}
 					on:click={download}
 				>
 					<img class="menuebar-icon" src={iconPath('download-icon.svg')} alt="" />{exporting
@@ -940,13 +957,27 @@
 				</button>
 			</div>
 		</div>
+		<p class="preview-notice">{$t('exportPreviewNotice', { count: EXPORT_PREVIEW_ROWS })}</p>
+		{#if exporting}
+			<div class="preview-summary" role="status" aria-live="polite">
+				<span
+					>{$t(
+						exportProgress?.phase === 'writing'
+							? 'exportWritingProgress'
+							: exportProgress
+							? 'exportLoadingProgress'
+							: 'exportDownloadPreparing',
+						{
+							count: exportProgress?.current ?? 0,
+							total: exportProgress?.total ?? 0
+						}
+					)}</span
+				>
+			</div>
+		{/if}
 		{#if loading}
 			<div class="preview-summary" aria-live="polite">
-				<span
-					>{$t(loadingRows ? 'exportLoadingProgress' : 'exportLoading', {
-						count: loadingRows
-					})}</span
-				>
+				<span>{$t('exportPreviewLoading')}</span>
 			</div>
 		{/if}
 		{#if dataError}<p class="validation-message" role="alert">
@@ -955,23 +986,17 @@
 					<button
 						type="button"
 						class="export-button"
-						on:click={() => loadData(tableIds, dataKey, $filterActiveStore.filterActive)}
+						on:click={() => loadData(plan, dataKey, $filterActiveStore.filterActive)}
 						>{$t('chartRetry')}</button
 					>
 				{/if}
 			</p>{/if}
-		{#if result.error}<p class="validation-message" role="alert">
-				{$t(result.error.key, {
-					...result.error.vars,
-					...(result.error.key === 'exportErrorRowLimit'
-						? { limit: Number(result.error.vars.limit).toLocaleString($locale) }
-						: {})
-				})}
-			</p>{/if}
 		{#if duplicateNames.length}<p class="validation-message" role="alert">
 				{$t('exportDuplicateNames', { names: Array.from(new Set(duplicateNames)).join(', ') })}
 			</p>{/if}
-		{#if exportError}<p class="validation-message" role="alert">{$t(exportError)}</p>{/if}
+		{#if exportError}<p class="validation-message" role="alert">
+				{$t(exportError, exportErrorVars)}
+			</p>{/if}
 		{#if columnSelections.length}
 			<div class="preview-scroll">
 				<table class="preview-table" style:width={`${columnSelections.length * 160}px`}>
@@ -1062,8 +1087,8 @@
 						{:else}<tr
 								><td colspan={columnSelections.length} class="empty-message"
 									>{loading
-										? $t('exportLoading')
-										: dataError || result.error
+										? $t('exportPreviewLoading')
+										: dataError
 										? $t('exportNoPreview')
 										: $t('exportNoMatches')}</td
 								></tr
@@ -1079,14 +1104,19 @@
 				{:else}<b>{$t('exportUnavailable')}</b>{/if}
 			</div>{/if}
 		<div class="preview-footer">
-			<span
-				>{$t('exportPreviewFooter', { shown: previewRows.length, total: result.rows.length })}</span
-			><span>{$t('exportPreviewEditHint')}</span>
+			<span>{$t('exportPreviewFooter', { shown: previewRows.length })}</span><span
+				>{$t('exportPreviewEditHint')}</span
+			>
 		</div>
 	</section>
 </div>
 
 <style>
+	.preview-notice {
+		margin: 4px 0 10px;
+		color: var(--muted-font-color);
+		line-height: 1.4;
+	}
 	.export-builder {
 		--export-accent: var(--link-color);
 		display: grid;
