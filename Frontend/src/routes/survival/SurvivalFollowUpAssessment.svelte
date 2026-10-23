@@ -231,6 +231,10 @@
 							display: false // Die Legende ausblenden
 						},
 						annotation: {
+							// Keep the fixed threshold aligned when resizing during the chart animation.
+							animations: {
+								numbers: { duration: 0 }
+							},
 							annotations: [{
 								type: 'line',
 								scaleID: 'y',
