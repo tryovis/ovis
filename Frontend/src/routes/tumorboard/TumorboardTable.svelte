@@ -21,17 +21,19 @@
 			header: $t('daysSinceDiagnosisShort'),
 			tooltip: $t('daysSinceDiagnosis')
 		},
-		{ data: 'type', header: $t('type'), tooltip: $t('typeOfTumorBoard') },
+		{ data: 'type', header: $t('type'), tooltip: $t('typeOfTumorBoard'), ccp: false },
 		{
 			data: 'presentationMode',
 			header: $t('presentationMode'),
-			tooltip: $t('tumorBoardPresentationMode')
+			tooltip: $t('tumorBoardPresentationMode'),
+			ccp: false
 		},
-		{ data: 'praepost', header: $t('prePost'), tooltip: $t('tumorBoardPrePost') },
+		{ data: 'praepost', header: $t('prePost'), tooltip: $t('tumorBoardPrePost'), ccp: false },
 		{
 			data: 'tbInternal',
 			header: $t('internalExternal'),
-			tooltip: $t('tumorBoardInternalExternal')
+			tooltip: $t('tumorBoardInternalExternal'),
+			ccp: false
 		},
 		{ data: 'recommendation', header: $t('recommendation'), tooltip: $t('recommendation') },
 		...(wuerzburgTBExtension

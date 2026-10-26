@@ -104,55 +104,16 @@ module.exports = {
 			genericGetAll(context.db, context.collections.progress, input),
 
 		getAllTherapies: async (_parent, input, context) => {
-			let res = await genericGetAll(context.db, context.collections.therapy, {
-				...input,
-				project: [
-					{
-						$set: {
-							ops4: {
-								$map: {
-									input: '$ops.code',
-									as: 'it',
-									in: { $substr: ['$$it', 0, 4] }
-								}
-							}
-						}
-					},
-					{
-						$lookup: {
-							from: 'ops4',
-							localField: 'ops4',
-							foreignField: 'OPSC_4',
-							as: 'opscode'
-						}
-					}
-				]
-			});
-
-			const reslen = res.length;
-			let it;
-			for (let i = 0; i < reslen; ++i) {
-				it = res[i];
-				let codes = it.ops?.map((op) => {
-					let found = it.opscode.find((el) => el.OPSC_4 === op.code.substring(0, 4));
-					if (found)
-						return {
-							ops: op.code,
-							text: op.text,
-							ops4: found.OPSC_4,
-							text4: found.OPS_Gruppen_Text
-						};
-					else
-						return {
-							ops: op.code,
-							ops4: op.code.substring(0, 4)
-						};
-				});
-				it.ops = codes;
+			const res = await genericGetAll(context.db, context.collections.therapy, input);
+			for (const it of res) {
+				it.ops = it.ops?.map((op) => ({
+					ops: op.code,
+					text: op.text,
+					ops4: op.ops4 ?? op.code.substring(0, 4),
+					text4: op.text4
+				}));
 				it.surgeon = toStringArray(it.surgeon);
 				it.metastasisResection = toStringArray(it.metastasisResection);
-				delete it.ops4;
-				delete it.opscode;
 			}
 			return res;
 		},

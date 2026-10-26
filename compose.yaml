@@ -264,9 +264,6 @@ services:
       # Stop API writes before the backup service takes its final shutdown snapshot.
       mongodb-backup:
         condition: service_started
-    volumes:
-      # Use the source and dependencies built together into the image.
-      - ./Backend/MongoDB/Preprocessing/ops4.mjs:/ops-data/ops4.mjs:ro
 
   ovis-backend-database-mongodb:
     extends:

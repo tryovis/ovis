@@ -18,6 +18,8 @@ import { mapSupplementary } from "./mappers/supplementaryMapper.mjs";
 import { mapTherapy } from "./mappers/therapyMapper.mjs";
 import { mapTnmsForRow } from "./mappers/tnmMapper.mjs";
 import { mapTumorBoardsForRow } from "./mappers/tumorBoardMapper.mjs";
+import { buildCredosSchemaExtensions } from './schemaExtensions.mjs';
+import { matchesDocumentVersion } from './utils/rows.mjs';
 import { buildStudiesForUlm } from "./UTMS_ULM.mjs";
 import { createComplicationLookup } from "./utils/complicationLookup.mjs";
 import { keepLatestCredosDocumentVersions } from "./utils/credosVersioning.mjs";
@@ -370,6 +372,14 @@ async function main() {
       complicationLookup,
       therapyIdByDocumentNumber
     });
+    const extensions = await buildCredosSchemaExtensions({
+      exportDir, parents: { tzes: tzesRows, tzey: tzeyRows, tzvs: tzvsRows,
+        tzvy: tzvyRows, tzth: tzthRows, tzpi: tzpiRows },
+      validPatients: patient, getNumericTumorId, dd07vLookup, molecularMarkerLookup,
+      therapyIdByDocumentNumber, therapies: therapy
+    });
+    await appendOmockEntry(writer, "status", extensions.status);
+    await appendOmockEntry(writer, "histology", extensions.histology);
     await appendOmockEntry(writer, "therapy", therapy);
     console.log(`Therapien geschrieben: ${therapy.length}`);
     therapy = null;
@@ -409,7 +419,7 @@ async function main() {
       validPatients: patient,
       getNumericTumorId
     });
-    await appendOmockEntry(writer, "tnm", tnm);
+    await appendOmockEntry(writer, "tnm", [...tnm, ...extensions.tnm]);
     console.log(`TNM geschrieben: ${tnm.length}`);
     tnm = null;
 
@@ -428,12 +438,12 @@ async function main() {
     let tumorBoard = buildTumorBoards({
       tzesTbRows,
       tzvsTbRows,
-      tzeyRows,
+      tzeyRows: [],
       validPatients: patient,
       getNumericTumorId,
       dd07vLookup
     });
-    await appendOmockEntry(writer, "tumorBoard", tumorBoard);
+    await appendOmockEntry(writer, "tumorBoard", [...tumorBoard, ...extensions.tumorBoard]);
     console.log(`Tumorboards geschrieben: ${tumorBoard.length}`);
     tumorBoard = null;
 
@@ -454,25 +464,7 @@ async function main() {
     console.log(`Consultations geschrieben: ${consultation.length}`);
     consultation = null;
 
-    let supplementary = buildSupplementaries({
-      tzesKlRows,
-      tzeyKlRows,
-      tzvsKlRows,
-      tzvyKlRows,
-      tzthKlRows,
-      tzesZaRows,
-      tzeyZaRows,
-      tzvsZaRows,
-      tzvyZaRows,
-      tzthZaRows,
-      tzesRows,
-      tzeyRows,
-      tzvsRows,
-      tzvyRows,
-      tzthRows,
-      validPatients: patient,
-      getNumericTumorId
-    });
+    let supplementary = extensions.supplementary;
     await appendOmockEntry(writer, "supplementary", supplementary);
     console.log(`Supplementaries geschrieben: ${supplementary.length}`);
     supplementary = null;
@@ -491,7 +483,7 @@ async function main() {
       dd07vLookup,
       molecularMarkerLookup
     });
-    await appendOmockEntry(writer, "molecularMarker", molecularMarker);
+    await appendOmockEntry(writer, "molecularMarker", [...molecularMarker, ...extensions.molecularMarker]);
     console.log(`Molecular Marker geschrieben: ${molecularMarker.length}`);
     molecularMarker = null;
 
@@ -508,7 +500,7 @@ async function main() {
     let study = await buildStudies({
       patient
     });
-    await appendOmockEntry(writer, "study", study);
+    await appendOmockEntry(writer, "study", [...study, ...extensions.study]);
     console.log(`Studien geschrieben: ${study.length}`);
     study = null;
 
@@ -962,7 +954,7 @@ function buildTherapies({
         : null;
 
       const complicationRows = documentKey
-        ? complicationRowsByDocumentNumber.get(documentKey) ?? []
+        ? (complicationRowsByDocumentNumber.get(documentKey) ?? []).filter(row => matchesDocumentVersion(row, tzthRow))
         : [];
 
       const therapyID = nextTherapyID;
@@ -1077,7 +1069,7 @@ function buildDiagnosticsFromRows({
       const documentKey = String(documentNumber).trim();
       const parentRow = parentRowsByDocumentNumber.get(documentKey);
 
-      if (!parentRow) {
+      if (!parentRow || !matchesDocumentVersion(row, parentRow)) {
         return null;
       }
 
@@ -1307,7 +1299,7 @@ function buildMetastasesFromRows({
       const documentKey = String(documentNumber).trim();
       const parentRow = parentRowsByDocumentNumber.get(documentKey);
 
-      if (!parentRow) {
+      if (!parentRow || !matchesDocumentVersion(row, parentRow)) {
         return null;
       }
 
@@ -1516,7 +1508,7 @@ function buildConsultationsFromRows({
       const documentKey = String(documentNumber).trim();
       const parentRow = parentRowsByDocumentNumber.get(documentKey);
 
-      if (!parentRow) {
+      if (!parentRow || !matchesDocumentVersion(row, parentRow)) {
         return null;
       }
 
@@ -1699,7 +1691,7 @@ function buildSupplementariesFromRows({
       const documentKey = String(documentNumber).trim();
       const parentRow = parentRowsByDocumentNumber.get(documentKey);
 
-      if (!parentRow) {
+      if (!parentRow || !matchesDocumentVersion(row, parentRow)) {
         return null;
       }
 
@@ -1826,7 +1818,7 @@ function buildMolecularMarkersFromRows({
       const documentKey = String(documentNumber).trim();
       const parentRow = parentRowsByDocumentNumber.get(documentKey);
 
-      if (!parentRow) {
+      if (!parentRow || !matchesDocumentVersion(row, parentRow)) {
         return null;
       }
 
@@ -1881,7 +1873,7 @@ function buildSingleRadiations({
       const parentTherapyRow = tzthByDocumentNumber.get(documentKey);
       const therapyID = therapyIdByDocumentNumber.get(documentKey);
 
-      if (!parentTherapyRow || !therapyID) {
+      if (!parentTherapyRow || !therapyID || !matchesDocumentVersion(row, parentTherapyRow)) {
         return null;
       }
 

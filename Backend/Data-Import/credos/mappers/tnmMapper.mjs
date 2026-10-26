@@ -21,11 +21,19 @@ export function mapTnmsForRow(row, context = {}) {
 }
 
 function getTnmSpecsForSource(sourceType) {
+  if (sourceType === 'tzpbdiag') return [{
+    type: 'pathological', dateFields: ['TZPB_UDATUM'], totalFields: [],
+    yFields: ['TZPB_K_AY'], rFields: ['TZPB_K_REZ'], preTFields: ['TZPB_K_ATP'], tFields: ['TZPB_K_AT'],
+    multipleTFields: ['TZPB_K_ATM'], preNFields: ['TZPB_K_ANP'], nFields: ['TZPB_K_AN'],
+    preMFields: ['TZPB_K_AMP'], mFields: ['TZPB_K_AM'], uiccFields: [], versionFields: [],
+    rClassFields: ['TZPB_K_R'], aFields: ['TZPB_K_AA'], nuFields: ['TZPB_K_ANU'], nbFields: ['TZPB_K_ANB'],
+    sFields: ['TZPB_K_AS'], pnFields: [], vFields: ['TZPB_K_AV'], lFields: ['TZPB_K_AL']
+  }];
   if (sourceType === "tzes") {
     return [
       {
         type: "clinical_ersterhebung",
-        dateFields: ["TZE_D_DIAD"],
+        dateFields: ["TZ_K_KTNMD", "TZE_D_DIAD"],
         totalFields: ["TZES_K_KTN"],
         yFields: ["TZES_K_KY"],
         rFields: ["TZES_K_KREZ", "TZES_K_KR"],
@@ -36,7 +44,8 @@ function getTnmSpecsForSource(sourceType) {
         nFields: ["TZES_K_KN"],
         preMFields: ["TZES_K_KMP"],
         mFields: ["TZES_K_KM"],
-        uiccFields: [],
+        uiccFields: ["TZES_KKUIC"],
+        versionFields: ["TZ_K_KTNMV", "TZ_K_TNMV"],
         rClassFields: [],
         aFields: [],
         nuFields: ["TZES_K_KNU"],
@@ -48,7 +57,7 @@ function getTnmSpecsForSource(sourceType) {
       },
       {
         type: "abgeschlossen_ersterhebung",
-        dateFields: ["TZE_D_DIAD"],
+        dateFields: ["TZ_K_ATNMD", "TZE_D_DIAD"],
         totalFields: ["TZES_K_ATN"],
         yFields: ["TZES_K_AY"],
         rFields: ["TZES_K_AREZ", "TZES_K_AR"],
@@ -59,7 +68,8 @@ function getTnmSpecsForSource(sourceType) {
         nFields: ["TZES_K_AN"],
         preMFields: ["TZES_K_AMP"],
         mFields: ["TZES_K_AM"],
-        uiccFields: [],
+        uiccFields: ["TZES_K_UIC"],
+        versionFields: ["TZ_K_TNMV"],
         rClassFields: ["TZES_K_R"],
         aFields: ["TZES_K_AA"],
         nuFields: ["TZES_K_ANU"],
@@ -76,7 +86,7 @@ function getTnmSpecsForSource(sourceType) {
     return [
       {
         type: "clinical_therapie",
-        dateFields: ["TZTH_A_BDD"],
+        dateFields: ["TZTH_KTNMD", "TZTH_A_BDD"],
         totalFields: ["TZTH_K_TNM"],
         yFields: ["TZTH_K_Y"],
         rFields: ["TZTH_K_REZ"],
@@ -87,11 +97,12 @@ function getTnmSpecsForSource(sourceType) {
         nFields: ["TZTH_K_N"],
         preMFields: ["TZTH_K_MP"],
         mFields: ["TZTH_K_M"],
-        uiccFields: [],
+        uiccFields: ["TZTH_K_UIC"],
+        versionFields: ["TZ_K_TNMV"],
         rClassFields: ["TZTH_K_R"],
         aFields: ["TZTH_K_A"],
-        nuFields: ["TZTH_K_NU"],
-        nbFields: ["TZTH_K_NB"],
+        nuFields: ["TZTH_K_ANU", "TZTH_K_NU"],
+        nbFields: ["TZTH_K_ANB", "TZTH_K_NB"],
         sFields: ["TZTH_K_S"],
         pnFields: ["TZTH_K_PN"],
         vFields: ["TZTH_K_V"],
@@ -104,7 +115,7 @@ function getTnmSpecsForSource(sourceType) {
     return [
       {
         type: "clinical_verlauf",
-        dateFields: ["TZV_B_BEUD"],
+        dateFields: ["TZV_K_TNMD", "TZV_B_BEUD"],
         totalFields: ["TZVS_K_TNM"],
         yFields: ["TZVS_K_Y"],
         rFields: ["TZVS_K_REZ"],
@@ -115,7 +126,8 @@ function getTnmSpecsForSource(sourceType) {
         nFields: ["TZVS_K_N"],
         preMFields: ["TZVS_K_MP"],
         mFields: ["TZVS_K_M"],
-        uiccFields: [],
+        uiccFields: ["TZVS_K_UIC"],
+        versionFields: ["TZ_K_TNMV"],
         rClassFields: ["TZVS_K_R"],
         aFields: ["TZVS_K_A"],
         nuFields: ["TZVS_K_NUL"],
@@ -162,6 +174,7 @@ function mapTnmBySpec(row, spec, context = {}) {
     M: emptyToNull(getFirstValue(row, spec.mFields)),
 
     UICC: emptyToNull(getFirstValue(row, spec.uiccFields)),
+    version: emptyToNull(getFirstValue(row, spec.versionFields)),
 
     RClass: formatPrefixedClass(
       getFirstValue(row, spec.rClassFields),
@@ -196,7 +209,7 @@ function mapTnmBySpec(row, spec, context = {}) {
     ),
 
     tnmOccurrenceDate: toOptionalCredosIsoDateOrNull(
-      getFirstValue(row, spec.dateFields),
+      spec.dateFields.map(field => toOptionalCredosIsoDateOrNull(row[field])).find(Boolean),
       `${spec.type}.tnmOccurrenceDate`
     )
   };

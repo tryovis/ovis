@@ -1,91 +1,27 @@
-// utils/dates.mjs
-
-/**
- * Formatiert CREDOS-Datumswerte in das gewünschte omock-Format:
- *
- * YYYY-MM-DDT00:00:00Z
- *
- * Unterstützte Eingaben:
- * - 1921-01-24
- * - 24.01.1921
- * - 19210124
- * - 1921-01-24T00:00:00Z
- *
- * Optionen:
- * - strict: true  => wirft Fehler bei unbekanntem Format
- * - strict: false => gibt null zurück bei unbekanntem Format
- */
-export function toCredosIsoDateOrNull(value, options = {}) {
-  const {
-    fieldName = "unknown",
-    strict = true
-  } = options;
-
-  if (value === null || value === undefined) {
-    return null;
+/** SAP empty dates and incomplete calendar dates are unknown, never events. */
+export function toCredosIsoDateOrNull(value, { fieldName = 'unknown', strict = true } = {}) {
+  if (value === null || value === undefined) return null;
+  const text = String(value).trim();
+  if (!text || ['00000000', '0000-00-00', '00.00.0000'].includes(text)) return null;
+  const iso = /^(\d{4})-(\d{2})-(\d{2})(T.*)?$/.exec(text);
+  const german = /^(\d{2})\.(\d{2})\.(\d{4})$/.exec(text);
+  const compact = /^(\d{4})(\d{2})(\d{2})$/.exec(text);
+  const parts = iso ? iso.slice(1, 4) : german ? [german[3], german[2], german[1]] : compact?.slice(1);
+  if (parts) {
+    const [year, month, day] = parts.map(Number);
+    if (!year || !month || !day) return null;
+    const date = new Date(0);
+    date.setUTCFullYear(year, month - 1, day);
+    date.setUTCHours(0, 0, 0, 0);
+    if (date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day) {
+      if (!iso?.[4]) return `${parts.join('-')}T00:00:00Z`;
+      if (Number.isFinite(Date.parse(text))) return text;
+    }
   }
-
-  const trimmed = String(value).trim();
-
-  if (trimmed === "") {
-    return null;
-  }
-
-  // Bereits volles ISO-Datum mit Zeit
-  // Beispiel: 1921-01-24T00:00:00Z
-  if (/^\d{4}-\d{2}-\d{2}T/.test(trimmed)) {
-    return trimmed;
-  }
-
-  // ISO ohne Zeit
-  // Beispiel: 1921-01-24
-  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
-    return `${trimmed}T00:00:00Z`;
-  }
-
-  // Deutsches Format
-  // Beispiel: 24.01.1921
-  const germanDate = trimmed.match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
-  if (germanDate) {
-    const [, day, month, year] = germanDate;
-    return `${year}-${month}-${day}T00:00:00Z`;
-  }
-
-  // Kompaktes Format
-  // Beispiel: 19210124
-  const compactDate = trimmed.match(/^(\d{4})(\d{2})(\d{2})$/);
-  if (compactDate) {
-    const [, year, month, day] = compactDate;
-    return `${year}-${month}-${day}T00:00:00Z`;
-  }
-
-  if (!strict) {
-    return null;
-  }
-
-  throw new Error(
-    `Unbekanntes Datumsformat in Feld "${fieldName}": "${value}"`
-  );
+  if (!strict) return null;
+  throw new Error(`Ungültiges CREDOS-Datum in Feld "${fieldName}"`);
 }
-
-/**
- * Convenience-Funktion für fachlich optionale Datumsfelder.
- * Ungültige Werte werden zu null.
- */
-export function toOptionalCredosIsoDateOrNull(value, fieldName = "unknown") {
-  return toCredosIsoDateOrNull(value, {
-    fieldName,
-    strict: false
-  });
-}
-
-/**
- * Convenience-Funktion für fachlich wichtige Datumsfelder.
- * Ungültige Werte werfen einen Fehler.
- */
-export function toRequiredCredosIsoDateOrNull(value, fieldName = "unknown") {
-  return toCredosIsoDateOrNull(value, {
-    fieldName,
-    strict: true
-  });
-}
+export const toOptionalCredosIsoDateOrNull = (value, fieldName = 'unknown') =>
+  toCredosIsoDateOrNull(value, { fieldName, strict: false });
+export const toRequiredCredosIsoDateOrNull = (value, fieldName = 'unknown') =>
+  toCredosIsoDateOrNull(value, { fieldName, strict: true });

@@ -136,9 +136,6 @@ services:
       # Stop API writes before the backup service takes its final shutdown snapshot.
       mongodb-backup:
         condition: service_started
-    volumes:
-      # OPS4 catalogue for therapy resolver
-      - ./Backend/MongoDB/Preprocessing/ops4.mjs:/ops-data/ops4.mjs:ro
 
   ovis-backend-database-mongodb:
     extends:

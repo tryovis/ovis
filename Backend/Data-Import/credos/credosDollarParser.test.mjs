@@ -100,3 +100,16 @@ test("returns an empty array for empty exports", async () => {
     assert.deepEqual(rows, []);
   });
 });
+
+test('reconstructs multiline text without swallowing subsequent documents or shifting columns', async () => {
+  await withTempDir(async dir => {
+    const file = path.join(dir, 'multiline.txt');
+    await fs.writeFile(file, 'MANDT$DOKAR$DOKNR$DOKVR$TEXT$END\n100$MTZ$1$1$line one\nline two$end\n100$MTZ$broken$1$truncated\n100$MTZ$2$1$intact$end\n100$MTZ$3$1$extra$dollar$end\n');
+    const warnings = [];
+    const rows = await parseCredosDollarFile(file, { onWarning: m => warnings.push(m) });
+    assert.equal(rows.length, 2);
+    assert.equal(rows[0].TEXT, 'line one\nline two');
+    assert.equal(rows[1].DOKNR, '2'); assert.equal(rows[1].END, 'end');
+    assert.match(warnings[0], /2 Zeilen/);
+  });
+});

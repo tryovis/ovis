@@ -34,11 +34,13 @@ export function mapConsultation(consultationRow, context = {}) {
 
   const statusRaw = getFirstValue(consultationRow, [
     "TZ_BERSTAT",
+    "TZ_BER_STA",
     "BERSTAT"
   ]);
 
   const typeRaw = getFirstValue(consultationRow, [
     "TZ_BERART",
+    "TZ_BER_ART",
     "BERART"
   ]);
 

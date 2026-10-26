@@ -55,6 +55,7 @@ const diagnosisHistologyRow = (diagnosis) => ({
 		diagnosis.ICDO_histologyCodeText ?? diagnosis.ICDO_histologyDescription,
 	ICDO_histologyDescription: diagnosis.ICDO_histologyDescription,
 	ICDO_histologyDate: normalizeDate(diagnosis.ICDO_histologyDate),
+	ICDO_grading: diagnosis.ICDO_grading ?? diagnosis.grading,
 	ICDO_localizationCode: diagnosis.ICDO_localizationCode,
 	ICDO_localizationCodeText: diagnosis.ICDO_localizationCodeText,
 	ICDO_source: 'diagnosis',
@@ -120,7 +121,7 @@ export function deriveGradingFeatures(histologies = []) {
 			date: normalizeDate(histology?.ICDO_histologyDate),
 			index
 		}))
-		.filter(({ grading }) => grading !== undefined)
+		.filter(({ grading }) => grading !== undefined && grading !== null && grading !== '')
 		.sort((a, b) => (a.date?.getTime() ?? 0) - (b.date?.getTime() ?? 0) || a.index - b.index);
 
 	if (datedGradings.length === 0) {

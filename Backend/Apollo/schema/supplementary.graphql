@@ -26,6 +26,14 @@ module.exports = `#graphql
         tumorID: String
         patID: String
         therapyID: String
+        source: String
+        sourceField: String
+        sourceDocument: String
+        sourceVersion: String
+        sourceSequence: String
+        sourceReference: String
+        rawValue: String
+        sourceValues: String
     }
     type biomater {
         _id: String

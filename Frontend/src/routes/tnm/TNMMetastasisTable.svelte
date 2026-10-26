@@ -12,7 +12,7 @@
 		{ data: 'metastasisDate', header: $t("date"), tooltip: $t("metastasisDate"), date: true },
 		{ data: 'metastasisLocation', header: "Met.", tooltip: $t("metastasisLocation") },
 		{ data: 'type', header: $t("type"), tooltip: $t("metastasisType") },
-		{ data: 'spread', header: $t("spread"), tooltip: $t("metastasisSpread") }
+		{ data: 'spread', header: $t("spread"), tooltip: $t("metastasisSpread"), ccp: false }
 	];
 
 	let maximizeTNMMetastasisTable: boolean;

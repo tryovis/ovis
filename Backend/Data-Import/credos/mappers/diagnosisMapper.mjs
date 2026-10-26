@@ -1,3 +1,4 @@
+import { mapCredosGrading } from '../utils/grading.mjs';
 // mappers/diagnosisMapper.mjs
 import {
   toOptionalCredosIsoDateOrNull,
@@ -196,6 +197,7 @@ export function mapDiagnosis(row, context = {}) {
      * TZES
      */
     "TZES_D_SEI",
+    "TZE_D_SEIT",
 
     /**
      * TZEY
@@ -255,7 +257,8 @@ export function mapDiagnosis(row, context = {}) {
     ICDO_histologyCode: histologyCode ?? null,
     ICDO_histologyCodeText: histologyText ?? null,
 
-    ICDO_histologyDate: diagnosisDate,
+    ICDO_histologyDate: toOptionalCredosIsoDateOrNull(row.TZ_D_HISDA) ?? diagnosisDate,
+    ICDO_grading: mapCredosGrading(row.TZES_D_GRA ?? row.TZ_D_GRA, dd07vLookup),
 
     ICDO_localizationCode: icdoLocalizationCode ?? null,
     ICDO_localizationCodeText: icdoLocalizationText ?? null,

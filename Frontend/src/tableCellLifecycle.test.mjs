@@ -24,6 +24,7 @@ function readFunction(file, name) {
 
 const source = [
 	readFunction('./tableBuilder.ts', 'truncateCellData'),
+	readFunction('./tableBuilder.ts', 'cellText'),
 	readFunction('./lib/escape-html.ts', 'escapeHtml')
 ].join('\n');
 
@@ -98,4 +99,13 @@ test('live cells retain short text and join array values', () => {
 	table.queue(['A', 'B']);
 	table.flush();
 	assert.deepEqual(table.writes, [{ text: 'A, B' }]);
+});
+
+test('live empty cells display a dash, but 0 stays 0', () => {
+	for (const [value, text] of [['', '-'], ['   ', '-'], [null, '-'], [undefined, '-'], [[], '-'], [0, '0']]) {
+		const table = harness();
+		table.queue(value);
+		table.flush();
+		assert.deepEqual(table.writes, [{ text }]);
+	}
 });

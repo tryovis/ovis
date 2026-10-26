@@ -14,7 +14,7 @@ import { config, normalizeLower } from './env-config.mjs';
 import { performance } from 'node:perf_hooks';
 import { formatAgeAtDiagnosisGroup } from './ageAtDiagnosisGroup.mjs';
 import { sanitizeDate, calculateAgeAtDiagnosis, normalizeStudyDate } from './clinicalDates.mjs';
-import { parseSurgeon } from './therapyFieldParsers.mjs';
+import { parseSurgeon, opsGroupText } from './therapyFieldParsers.mjs';
 import { classifyEnetsDiagnosis } from './enets.mjs';
 import {
 	deriveGradingFeatures,
@@ -1150,7 +1150,7 @@ function genThpy(it, addin) {
 	it.ops = it.ops?.split('$').map((o) => {
 		let [code, text] = o.split('§');
 		let ops4 = code.substring(0, 4);
-		return { code, text, ops4 };
+		return { code, text, ops4, text4: opsGroupText(code) };
 	});
 	it.surgeon = parseSurgeon(it.surgeon);
 

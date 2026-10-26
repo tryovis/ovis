@@ -1,42 +1,6 @@
-const path = require('path');
-const { pathToFileURL } = require('url');
 const { agg, genCategoryGroupedResult } = require('../groupResult.js');
 const { buildTherapyRadiationAggregation } = require('./therapyRadiationTable');
 const { filter2match } = require('../astTranslator');
-
-const OPS_DATA_PATHS = [
-	'/ops-data/ops4.mjs',
-	'/app/data/ops4.mjs',
-	path.join(__dirname, '..', '..', 'MongoDB', 'Preprocessing', 'ops4.mjs')
-];
-
-let cachedOpsCatalogue = null;
-let cachedOpsCataloguePromise = null;
-const loadOpsCatalogue = async () => {
-	if (cachedOpsCatalogue) return cachedOpsCatalogue;
-	if (cachedOpsCataloguePromise) return cachedOpsCataloguePromise;
-
-	cachedOpsCataloguePromise = (async () => {
-		for (const candidate of OPS_DATA_PATHS) {
-			try {
-				const moduleUrl = pathToFileURL(candidate).href;
-				const parsedModule = await import(moduleUrl);
-				const parsed = parsedModule.ops4 ?? parsedModule.default ?? [];
-				if (Array.isArray(parsed)) {
-					cachedOpsCatalogue = parsed;
-					return cachedOpsCatalogue;
-				}
-			} catch (err) {
-				// try next candidate
-			}
-		}
-		console.warn('OPS catalogue file not found. Returning empty catalogue.');
-		cachedOpsCatalogue = [];
-		return cachedOpsCatalogue;
-	})();
-
-	return cachedOpsCataloguePromise;
-};
 
 module.exports = {
 	Query: {
@@ -85,6 +49,25 @@ module.exports = {
 								$group: {
 									_id: { type: '$ops.code' },
 									text: { $addToSet: '$ops.text' },
+									category: { $max: '$ops.text4' },
+									count: { $count: {} }
+								}
+							},
+							{ $sort: { count: -1 } },
+							{
+								$project: {
+									code: '$_id.type',
+									text: 1,
+									category: 1,
+									count: 1
+								}
+							}
+						],
+						category: [
+							{
+								$group: {
+									_id: { type: { $substr: ['$ops.code', 0, 4] } },
+									text: { $max: '$ops.text4' },
 									count: { $count: {} }
 								}
 							},
@@ -96,44 +79,13 @@ module.exports = {
 									count: 1
 								}
 							}
-						],
-						category: [
-							{
-								$group: {
-									_id: { type: { $substr: ['$ops.code', 0, 4] } },
-									count: { $count: {} }
-								}
-							},
-							{ $sort: { count: -1 } },
-							{
-								$project: {
-									code: '$_id.type',
-									count: 1
-								}
-							}
 						]
 					}
 				}
 			);
 
 			const res = await context.db.collection(context.collections.therapy).aggregate(agg).toArray();
-			const opsCatalogue = await loadOpsCatalogue();
-			const opsMap = new Map(
-				opsCatalogue.map(({ OPSC_4, OPS_Gruppen_Text }) => [OPSC_4, OPS_Gruppen_Text])
-			);
-			const result = res[0] || { code: [], category: [] };
-
-			result.code.forEach((it) => {
-				const categoryText = opsMap.get(it.code.substring(0, 4));
-				if (categoryText) it.category = categoryText;
-			});
-
-			result.category.forEach((it) => {
-				const text = opsMap.get(it.code);
-				if (text) it.text = text;
-			});
-
-			return result;
+			return res[0] || { code: [], category: [] };
 		},
 		getTherapySystemicSubstanceTable: async (_parent, { filter }, context) => {
 			const colname = context.collections.therapy;

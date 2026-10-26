@@ -228,7 +228,7 @@ export function createTable(
 						? processedData
 							? moment(processedData, 'DD.MM.YYYY').format('YYYY-MM-DD')
 							: '0000-00-00'
-						: (type === 'display' ? escapeHtml(processedData) : processedData);
+						: (type === 'display' ? escapeHtml(cellText(processedData)) : processedData);
 				}
 			},
 			{
@@ -253,9 +253,9 @@ export function createTable(
 										: ''
 								}
               </span>`
-							: (type === 'display' ? escapeHtml(processedData) : processedData);
+							: escapeHtml(cellText(processedData));
 					}
-					return type === 'display' ? escapeHtml(processedData) : processedData;
+					return type === 'display' ? escapeHtml(cellText(processedData)) : processedData;
 				},
 
 				createdCell: function (
@@ -438,6 +438,12 @@ export function createTable(
 	return dataTable;
 }
 
+/** Cell text for display; empty values show as "-", the value an empty-cell click filters on. */
+function cellText(value: unknown): string {
+	const text = String(value ?? '');
+	return text.trim() === '' ? '-' : text;
+}
+
 function truncateCellData(
 	cell: HTMLElement,
 	cellData: string | string[] | null | undefined,
@@ -470,7 +476,7 @@ function truncateCellData(
                               ${escapeHtml(truncatedData)}
                             </span>`);
 			} else {
-				jQuery(cell).text(processedCellData);
+				jQuery(cell).text(cellText(processedCellData));
 			}
 		}
 	});

@@ -44,15 +44,15 @@ function mapTzesTb(row, context) {
     source: "tzes_tb",
     type: "pre-therapeutic",
     dateFields: [
-      "TZES_TBTD"
+      "TZES_TBTTD", "TZES_TBTD"
     ],
     recommendationFields: [
-      { field: "TZES_TBTO", code: "OP" },
-      { field: "TZES_TBTC", code: "CH" },
-      { field: "TZES_TBTR", code: "ST" },
-      { field: "TZES_TBTH", code: "HO" },
-      { field: "TZES_TBTI", code: "IM" },
-      { field: "TZES_TBAT", code: "OT" }
+      { field: "TZES_TBTTO", alias: "TZES_TBTO", code: "OP" },
+      { field: "TZES_TBTTC", alias: "TZES_TBTC", code: "CH" },
+      { field: "TZES_TBTTR", alias: "TZES_TBTR", code: "ST" },
+      { field: "TZES_TBTTH", alias: "TZES_TBTH", code: "HO" },
+      { field: "TZES_TBTTI", alias: "TZES_TBTI", code: "IM" },
+      { field: "TZES_TBTAT", alias: "TZES_TBAT", code: "OT" }
     ]
   });
 
@@ -73,7 +73,7 @@ function mapTzesTb(row, context) {
       { field: "TZES_TBTPR", code: "ST" },
       { field: "TZES_TBTPH", code: "HO" },
       { field: "TZES_TBTPI", code: "IM" },
-      { field: "TZES_TBTPAT", code: "OT" }
+      { field: "TZES_TBPAT", alias: "TZES_TBTPAT", code: "OT" }
     ]
   });
 
@@ -178,7 +178,7 @@ function buildTumorBoardEntry(row, config) {
    * Keine komplett leeren Tumorboard-Einträge schreiben.
    * tumorID alleine reicht nicht.
    */
-  if (!tumorBoardOccurrenceDate && !recommendation && !type) {
+  if (!tumorBoardOccurrenceDate && !recommendation) {
     return null;
   }
 
@@ -232,7 +232,7 @@ function mapTumorBoardType(value) {
 
 function buildRecommendation(row, recommendationFields = []) {
   const recommendationCodes = recommendationFields
-    .filter(({ field }) => isRecommendationPresent(row[field]))
+    .filter(({ field, alias }) => isRecommendationPresent(row[field] ?? row[alias]))
     .map(({ code }) => code);
 
   if (recommendationCodes.length === 0) {

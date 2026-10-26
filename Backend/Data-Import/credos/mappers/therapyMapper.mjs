@@ -1,5 +1,6 @@
 // mappers/therapyMapper.mjs
 import { toOptionalCredosIsoDateOrNull } from "../utils/dates.mjs";
+import { value } from '../utils/rows.mjs';
 
 /**
  * Baut eine omock therapy-Ressource aus:
@@ -58,9 +59,7 @@ export function mapTherapy(tzthRow, context = {}) {
 
     intention: therapyGoalMapping.intention,
 
-    organizationalUnit: tzthRow.TZTH_E_KLI
-      ? String(tzthRow.TZTH_E_KLI).trim()
-      : null,
+    organizationalUnit: value(tzthRow, 'TZTH_A_KLI', 'TZTH_E_KLI'),
 
     therapyEndDate: toOptionalCredosIsoDateOrNull(
       tzthRow.TZTH_A_EDD,
@@ -86,7 +85,7 @@ export function mapTherapy(tzthRow, context = {}) {
       tzthRow.TZTH_DZ_OP
     ),
 
-    internal: mapInternal(tzthRow.TZTH_E_KLI),
+    internal: mapInternal(value(tzthRow, 'TZTH_A_KLI', 'TZTH_E_KLI')),
 
     terminationReason: resolveDd07vValue(
       dd07vLookup,
@@ -100,7 +99,10 @@ export function mapTherapy(tzthRow, context = {}) {
     ),
 
     status: null,
-    combination: null,
+    combination: resolveDd07vValue(dd07vLookup, ['ZN2_TZTH_A_MUL'], tzthRow.TZTH_A_MUL),
+    phase: resolveDd07vValue(dd07vLookup, ['ZN2_TZTH_A_PHA'], tzthRow.TZTH_A_PHA),
+    therapyLine: resolveDd07vValue(dd07vLookup, ['ZN2_TZTH_A_ACL'], tzthRow.TZTH_A_ACL),
+    side: resolveDd07vValue(dd07vLookup, ['ZN2_TZTH_A_SEI'], tzthRow.TZTH_A_SEI),
     resectionType: null,
 
     cyclesPlanned: toNumberOrNull(tzthRow.TZTH_A_ACZ),
@@ -194,8 +196,7 @@ function formatComplicationEntry(row, context = {}) {
     complicationCode,
     standard
   ]
-    .map(value => emptyToNull(value))
-    .filter(value => value !== null);
+    .map(value => emptyToNull(value) ?? '');
 
   return fields.length > 0
     ? fields.join("§")
@@ -483,7 +484,7 @@ function mapInternal(organizationalUnit) {
     organizationalUnit === undefined ||
     organizationalUnit === ""
   ) {
-    return "Meine Einrichtung";
+    return null;
   }
 
   const normalized = String(organizationalUnit).trim().toUpperCase();
