@@ -93,6 +93,17 @@ test('all enabled CCP navigation exposes biomaterial but excludes Demo consultat
 	);
 });
 
+test('CCP sites without biomaterial records hide biomaterial from navigation and export', () => {
+	const config = configuration(true);
+	assert.equal(getNavigationAvailability(config, true, false)['bio-material'], false);
+	assert.equal(getNavigationAvailability(config, true, false).molecular, true);
+	const available = getAvailableExportDatasets(config, true, undefined, false).map(
+		(dataset) => dataset.id
+	);
+	assert.ok(!available.includes('bioMaterial'));
+	assert.ok(available.includes('molecularMarker'));
+});
+
 test('disabling all navigation leaves no export tables in either variant', () => {
 	for (const isCCP of [false, true]) {
 		const config = configuration(false);

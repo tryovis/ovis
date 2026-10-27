@@ -27,6 +27,7 @@
 	import { ExportError } from '$lib/export-builder/errors';
 	import ConnectionInfo from '$lib/export-builder/ConnectionInfo.svelte';
 	import { getAvailableExportDatasets } from '$lib/export-builder/availability';
+	import { bioMaterialDataStore } from '../../store/bioMaterialDataStore';
 	import { showToast } from '../../store/toastStore';
 	import {
 		datasets,
@@ -68,7 +69,7 @@
 		followUp: 'km-kurve.png'
 	};
 	const initialTables = ['patient', 'diagnosis'];
-	let availableDatasets = getAvailableExportDatasets(navConfig, $variantStore.isCCP, catalog);
+	let availableDatasets = getAvailableExportDatasets(navConfig, $variantStore.isCCP, catalog, $bioMaterialDataStore);
 	let availableDatasetIds = new Set(availableDatasets.map((dataset) => dataset.id));
 	let appliedAvailability = [...availableDatasetIds].join('|');
 	const initialSelection = defaultTables(availableDatasets);
@@ -273,7 +274,7 @@
 		return selected;
 	}
 
-	$: availableDatasets = getAvailableExportDatasets(navConfig, $variantStore.isCCP, catalog);
+	$: availableDatasets = getAvailableExportDatasets(navConfig, $variantStore.isCCP, catalog, $bioMaterialDataStore);
 	$: availableDatasetIds = new Set(availableDatasets.map((dataset) => dataset.id));
 	$: availabilityKey = [...availableDatasetIds].join('|');
 	$: if (availabilityKey !== appliedAvailability) {

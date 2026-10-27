@@ -8,9 +8,10 @@ import { datasets, type Dataset } from './model';
 export function getAvailableExportDatasets(
 	config: NavigationConfig,
 	isCCP: boolean,
-	catalog: readonly Dataset[] = datasets
+	catalog: readonly Dataset[] = datasets,
+	hasBioMaterialData = true
 ): Dataset[] {
-	const navigation = getNavigationAvailability(config, isCCP);
+	const navigation = getNavigationAvailability(config, isCCP, hasBioMaterialData);
 	if (!navigation.export) return [];
 	const enabled: Record<string, boolean> = {
 		patient: navigation['patient-cohort'] || navigation['patient-single'],

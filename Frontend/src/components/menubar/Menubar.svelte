@@ -11,6 +11,7 @@
 	import { addUserFilter } from '../../components/UserFilter';
 	import { navConfig } from '../../config/navigation';
 	import { getNavigationAvailability } from '../../config/navigation-availability';
+	import { bioMaterialDataStore, loadBioMaterialData } from '../../store/bioMaterialDataStore';
 	import { appPath, iconPath } from '$lib/path-utils';
 
 	type FilterActiveState = {
@@ -353,7 +354,8 @@
 		return true;
 	};
 
-	$: navigationAvailability = getNavigationAvailability(navConfig, isCCP);
+	$: navigationAvailability = getNavigationAvailability(navConfig, isCCP, $bioMaterialDataStore);
+	$: if (isCCP) void loadBioMaterialData();
 	$: visiblePatientItems = patientItems.filter((item) => navigationAvailability[item.id]);
 	$: patientMenuVisible = visiblePatientItems.length > 0;
 	$: visibleTherapyItems = therapyItems.filter((item) => navigationAvailability[item.id]);
@@ -530,6 +532,12 @@
 		overflow: visible;
 	}
 
+	/* The global .dropdown rule grows and spaces dropdowns; size them to their label like the links. */
+	.navbar > .dropdown {
+		flex: 0 1 auto;
+		margin: 0;
+	}
+
 	.navbar > a,
 	.navbar > .dropdown > .dropbtn {
 		white-space: nowrap;
@@ -621,6 +629,17 @@
 			font-size: 13px;
 			padding-left: 8px;
 			padding-right: 8px;
+		}
+	}
+	/* Keep the whole menu on one row down to 1440px-wide screens. */
+	@container ovis-layout (max-width: 1500px) {
+		.navbar > a,
+		.navbar > .dropdown > .dropbtn {
+			padding-left: 5px;
+			padding-right: 5px;
+		}
+		.navbar .menuebar-icon {
+			margin-right: 3px;
 		}
 	}
 </style>

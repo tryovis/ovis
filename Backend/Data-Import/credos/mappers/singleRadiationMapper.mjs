@@ -446,7 +446,7 @@ function resolveRadioType({ radiationKindCode, dd07vLookup }) {
   return resolved;
 }
 
-function resolveRadioNuclid({ radiationKindCode, dd07vLookup }) {
+export function resolveRadioNuclid({ radiationKindCode, dd07vLookup }) {
   const code = emptyToNull(radiationKindCode);
 
   if (!code) {

@@ -5,7 +5,8 @@ export type NavigationConfig = typeof navConfig;
 /** Shared feature visibility for the navigation and the export catalogue. */
 export function getNavigationAvailability(
 	config: NavigationConfig,
-	isCCP: boolean
+	isCCP: boolean,
+	hasBioMaterialData = true
 ): Record<string, boolean> {
 	return {
 		'patient-cohort': config.patient.cohort,
@@ -25,7 +26,7 @@ export function getNavigationAvailability(
 		survival: config.survival.enabled,
 		supplementary: config.supplementary.enabled,
 		molecular: config.molecular.enabled,
-		'bio-material': config.bioMaterial.enabled && isCCP,
+		'bio-material': config.bioMaterial.enabled && isCCP && hasBioMaterialData,
 		study: config.study.enabled && !isCCP,
 		export: config.export.enabled
 	};

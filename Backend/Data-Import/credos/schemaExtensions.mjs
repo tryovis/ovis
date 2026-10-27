@@ -1,5 +1,5 @@
-import fs from 'node:fs/promises';
 import { createSchemaLookup, readOptionalExport } from './utils/schemaLookup.mjs';
+import { prepareExtensionSources } from './utils/extensionSources.mjs';
 import { value, matchesDocumentVersion, provenance } from './utils/rows.mjs';
 import { keepLatestCredosDocumentVersions } from './utils/credosVersioning.mjs';
 import { toOptionalCredosIsoDateOrNull as date } from './utils/dates.mjs';
@@ -7,6 +7,7 @@ import { mapHistologies } from './mappers/histologyMapper.mjs';
 import { mapMolecularMarker } from './mappers/molecularMarkerMapper.mjs';
 import { coreMappedFields, detailMappedFields } from './utils/mappedFields.mjs';
 import { mapTnmsForRow } from './mappers/tnmMapper.mjs';
+import { createTherapyMeasureLookup, createSpecializedTherapyDetailCollector } from './utils/therapyDetails.mjs';
 
 // These are source families, never a whitelist of category names or field values.
 // Laboratory and Befundmerkmale are deliberately outside this import scope.
@@ -14,8 +15,14 @@ export const isExtensionSource = name => /^(tz(es|ey|vs|vy|th|pi|to|ts|sv)(_|$)|
   && !/(?:^|_)(?:lab|bef|arzt)(?:_|$)/.test(name);
 const technical = /^(?:__meta|MANDT|EINRI|DOKAR|DOKNR|DOKVR|DOKTL|MUSEQ|DTID|TZ_LOEKZ|TZ_P_PID|TZ_T_TID|TZ_HD_.*|TZ_LKR_.*|TZ_B_ARZ|TZ_B_ALX|TZPB_(?:PID|BFNR|LFNR|KNR|ERUSER|ERDATE|FALNR|FOE)|TZ_FALID|TZ_DKEY1|TZTK_THDNR|TZTK_ULTNR|TZPI_(?:R_.*|VRNR|KKNR|AVRNR|AKKNR))$/i;
 const excludedField = /^(?:TZ_BEFB|TZ_BEF_|TZ_LAB)/i;
-const eventDate = row => ['TZ_ALG_DAT', 'TZ_K_KL_DA', 'TZ_ZA_KL_D', 'TZ_DIA_DAT', 'TZ_D_HISDA', 'TZTHSYSDGV', 'TZTH_KP_DG', 'TZPB_UDATUM', 'TZ_TUBO_DAT', 'TZE_D_DIAD', 'TZV_B_BEUD', 'TZTH_A_BDD']
-  .map(field => date(value(row, field))).find(Boolean) ?? null;
+const eventDateFields = ['TZ_ALG_DAT', 'TZ_K_KL_DA', 'TZ_ZA_KL_D', 'TZ_DIA_DAT', 'TZ_D_HISDA', 'TZTHSYSDGV', 'TZTH_KP_DG', 'TZPB_UDATUM', 'TZ_TUBO_DAT', 'TZE_D_DIAD', 'TZV_B_BEUD', 'TZTH_A_BDD'];
+function eventDate(row) {
+  for (const field of eventDateFields) {
+    const result = date(value(row, field));
+    if (result) return result;
+  }
+  return null;
+}
 
 // Fields already represented by the original mappers. Remaining clinical fields
 // are retained individually, with their original code as well as decoded text.
@@ -26,36 +33,45 @@ TZTH_A_OPS TZTH_A_OPT TZTH_A_OP2 TZTH_A_OT2 TZTH_A_OP3 TZTH_A_OT3 TZTH_A_OP4 TZT
 TZ_ECOG`.split(/\s+/));
 
 export async function buildCredosSchemaExtensions({ exportDir, parents, validPatients, getNumericTumorId,
-  dd07vLookup, molecularMarkerLookup, therapyIdByDocumentNumber, therapies }) {
+  dd07vLookup, molecularMarkerLookup, therapyIdByDocumentNumber, therapies, onBatch, log = console.log }) {
+  const started = Date.now();
+  let lastReport = 0;
+  function report(message, force = true) {
+    if (!force && Date.now() - lastReport < 5000) return;
+    lastReport = Date.now();
+    log(`CREDOS Schema-Erweiterung: ${message} (${Math.round((lastReport - started) / 1000)} s, RSS ${Math.round(process.memoryUsage().rss / 1024 / 1024)} MiB)`);
+  }
+  report('Metadaten und Dokumentindizes laden');
   const schema = await createSchemaLookup(exportDir, dd07vLookup);
-  const tables = new Map(Object.entries(parents));
-  for (const file of (await fs.readdir(exportDir)).sort()) {
-    const name = file.replace(/\.txt$/i, '').toLowerCase();
-    if (!/\.txt$/i.test(file) || !isExtensionSource(name) || tables.has(name)) continue;
-    let rows = await readOptionalExport(exportDir, name);
-    // Repeat rows (MUSEQ) must never be collapsed to one document.
-    if (rows.length && !Object.hasOwn(rows[0], 'MUSEQ') && value(rows[0], 'DOKNR')) {
-      rows = keepLatestCredosDocumentVersions(rows, { documentNumberField: 'DOKNR', documentVersionField: 'DOKVR', deleteFlagField: 'TZ_LOEKZ', deleteFlagValue: 'X' });
-    }
-    tables.set(name, rows);
-  }
+  const sources = await prepareExtensionSources(exportDir, parents, isExtensionSource,
+    (message) => report(message, false));
   const patients = new Set(validPatients.map(p => String(p.patID)));
-  const documents = new Map();
-  for (const [source, rows] of tables) for (const row of rows) {
-    const key = value(row, 'DOKNR');
-    if (!key || !value(row, 'TZ_P_PID') || Object.hasOwn(row, 'MUSEQ')) continue;
-    if (!documents.has(key)) documents.set(key, []);
-    documents.get(key).push({ row, source });
-  }
+  const { documents, boards } = sources;
   const output = { supplementary: [], status: [], histology: [], molecularMarker: [], tumorBoard: [], tnm: [], study: [] };
+  const written = Object.fromEntries(Object.keys(output).map(key => [key, 0]));
+  const pendingCount = () => Object.values(output).reduce((sum, rows) => sum + rows.length, 0);
+  async function flush() {
+    if (!onBatch || !pendingCount()) return;
+    // Await the sink before reusing these buffers; no unbounded write queue.
+    await onBatch(output);
+    for (const [key, rows] of Object.entries(output)) { written[key] += rows.length; rows.length = 0; }
+  }
   const stats = { unresolvedRows: 0, unresolvedBySource: {}, obsoleteDetailRows: 0, patientOnlyPathologyRows: 0 };
   const therapyById = new Map(therapies.map(t => [t.therapyID, t]));
+  const lookupTherapyMeasure = createTherapyMeasureLookup(await readOptionalExport(exportDir, 'zn2_cr_th_mas'), dd07vLookup);
+  const addTherapyDetail = createSpecializedTherapyDetailCollector(dd07vLookup);
   const substances = new Map((await readOptionalExport(exportDir, 'zn2crsubstance')).map(row => [value(row, 'SUBSTANCE'), row]));
   const studyCatalog = new Map((await readOptionalExport(exportDir, 'zn2_studien')).map(row => [value(row, 'TZE_ST_ID'), row]));
-  const externalClinics = await readOptionalExport(exportDir, 'zn2_cr_ausw_kl');
+  const externalClinics = new Map();
+  for (const row of await readOptionalExport(exportDir, 'zn2_cr_ausw_kl')) {
+    const clinic = value(row, 'AUSW_KL');
+    if (!externalClinics.has(clinic)) externalClinics.set(clinic, new Set());
+    externalClinics.get(clinic).add(value(row, 'EINRI'));
+  }
   const studies = new Map();
+  const participationKeys = new Map();
   const pathologyTumors = new Map();
-  for (const row of Object.values(parents).flat()) {
+  for (const rows of Object.values(parents)) for (const row of rows) {
     const reference = value(row, 'TZ_D_HISEN'), tumor = value(row, 'TZ_T_TID');
     if (!reference || !tumor) continue;
     const key = `${value(row, 'TZ_P_PID')}|${reference}`;
@@ -99,11 +115,15 @@ export async function buildCredosSchemaExtensions({ exportDir, parents, validPat
       shortname: value(catalog, 'TZE_ST_STUDIE') ?? id, type: value(catalog, 'TZE_ST_TYP'),
       eudract: value(catalog, 'TZE_ST_EUDRACT'), start: date(value(catalog, 'TZE_ST_BEGINN')), studyPatients: [] });
     const study = studies.get(id);
-    if (!study.studyPatients.some(p => p.patID === ctx.patID && p.recruitmentDate === recruitmentDate))
+    if (!participationKeys.has(id)) participationKeys.set(id, new Set());
+    const key = JSON.stringify([ctx.patID, recruitmentDate]);
+    if (!participationKeys.get(id).has(key)) {
+      participationKeys.get(id).add(key);
       study.studyPatients.push({ patID: ctx.patID, recruitmentDate });
+    }
   }
 
-  function supplement(source, row, ctx, type, status, fields, occurrenceDate = eventDate(row), rawValue = null) {
+  function supplement(source, row, ctx, type, status, fields, occurrenceDate = ctx.occurrenceDate, rawValue = null) {
     if (status === null && !type) return;
     output.supplementary.push({ patID: ctx.patID, tumorID: ctx.tumorID, therapyID: ctx.therapyID,
       type, status, supplementaryOccurrenceDate: occurrenceDate, ...provenance(row, source, fields.join(',')),
@@ -112,10 +132,10 @@ export async function buildCredosSchemaExtensions({ exportDir, parents, validPat
       sourceReference: value(row, 'TZPB_BFNR'), sourceSequence: value(row, 'MUSEQ', 'TZPB_LFNR') });
   }
 
-  for (const [source, rows] of tables) for (const row of rows) {
-    if (!isExtensionSource(source)) continue;
+  function processRow(source, row) {
     const ctx = contextFor(source, row);
-    if (!ctx) continue;
+    if (!ctx) return;
+    const rowDate = ctx.occurrenceDate = eventDate(row);
     const used = new Set();
     const consume = (...fields) => fields.flat().forEach(f => used.add(f));
     const lookup = field => schema.resolve(source, field, value(row, field));
@@ -128,7 +148,16 @@ export async function buildCredosSchemaExtensions({ exportDir, parents, validPat
     ]) if (date(value(row, full)) || parts.every(f => /^0*$/.test(value(row, f) ?? ''))) consume(parts);
     if (source === 'tzth') {
       const therapy = therapyById.get(ctx.therapyID), clinic = value(row, 'TZTH_A_KLI', 'TZTH_E_KLI');
-      if (therapy && clinic && externalClinics.some(c => value(c, 'AUSW_KL') === clinic && (!value(row, 'EINRI') || value(row, 'EINRI') === value(c, 'EINRI')))) therapy.internal = 'Andere Einrichtung';
+      if (therapy) Object.assign(therapy, lookupTherapyMeasure(row));
+      const sites = externalClinics.get(clinic), site = value(row, 'EINRI');
+      if (therapy && clinic && sites && (!site || sites.has(site))) therapy.internal = 'Andere Einrichtung';
+    }
+    if (source === 'tzth_str' && addTherapyDetail(therapyById.get(ctx.therapyID), row)) {
+      const fields = ['TZTHSTAPA3', 'TZTHST_APA', 'TZTHST_DOA', 'TZTHSTART3',
+        'TZTHST_DGV', 'TZTHST_DGB', 'TZTHST_EDO', 'TZTHST_GDO', 'TZTHST_EHD'].filter(field => value(row, field) !== null);
+      if (fields.length) supplement(source, row, ctx, 'Therapie: Verfahren / Nuklid / Dosis',
+        fields.map(field => `${schema.field(source, field).label ?? field}: ${lookup(field)}`).join('; '), fields,
+        date(value(row, 'TZTHST_DGV')) ?? date(value(row, 'TZTHST_DGB')) ?? date(value(ctx.parent, 'TZTH_A_BDD')));
     }
     // SAP exports dates both as one date and day/month/year components. Only
     // discard the components when the complete date is valid, or all are zero.
@@ -154,7 +183,7 @@ export async function buildCredosSchemaExtensions({ exportDir, parents, validPat
       consume(categoryField, statusField, dateField);
     }
     if (value(row, 'TZ_ECOG') !== null && ctx.tumorID !== null) output.status.push({ patID: ctx.patID, tumorID: ctx.tumorID,
-      type: 'ECOG', status: value(row, 'TZ_ECOG'), statusOccurrenceDate: eventDate(row), ...provenance(row, source, 'TZ_ECOG') });
+      type: 'ECOG', status: value(row, 'TZ_ECOG'), statusOccurrenceDate: rowDate, ...provenance(row, source, 'TZ_ECOG') });
     if (ctx.tumorID !== null && /^(tzes|tzey|tzth|tzvs|tzvy|tzpbdiag)$/.test(source)) {
       output.histology.push(...mapHistologies(row, { ...ctx, source, dd07vLookup }));
       if (source === 'tzpbdiag') output.tnm.push(...mapTnmsForRow({ ...row, TZ_T_TID: ctx.tumorID }, { sourceType: source })
@@ -166,7 +195,7 @@ export async function buildCredosSchemaExtensions({ exportDir, parents, validPat
       if (!match) continue;
       const stageField = `${match[1]}_ST${match[2]}`;
       if (!Object.hasOwn(row, stageField)) continue;
-      supplement(source, row, ctx, schema.category(value(row, field)), schema.stage(value(row, field), value(row, stageField)), [field, stageField], eventDate(row));
+      supplement(source, row, ctx, schema.category(value(row, field)), schema.stage(value(row, field), value(row, stageField)), [field, stageField], rowDate);
       consume(field, stageField);
     }
     for (const prefix of ['TZEY_K', 'TZVY_K']) for (const [suffix, label] of [['AST', 'Ann-Arbor'], ['ASY', 'Ann-Arbor: A/B-Symptomatik']]) {
@@ -206,11 +235,11 @@ export async function buildCredosSchemaExtensions({ exportDir, parents, validPat
 
     // Main conference dates are real events even when the recommendation is empty.
     if (/^(tzes|tzey|tzvs|tzvy)$/.test(source)) {
-      const boards = source.startsWith('tze')
+      const boardSpecs = source.startsWith('tze')
         ? [['TZETK_PRDA', 'pre-therapeutic', 'tkpr', 'TZETK_PRTH', 'TZETK_PREM'], ['TZETK_PODA', 'post-therapeutic', 'tkpo', 'TZETK_POTH', 'TZETK_POEM']]
         : [['TZV_TK_DAT', 'Tumorkonferenz', 'tk', 'TZV_TK_TTH', 'TZV_TK_TEM'], ['TZV_TKDAT2', 'Tumorkonferenz', 'tk2', 'TZV_TK_TTH', 'TZV_TK_TEM']];
-      for (const [dateField, type, suffix, treatmentField, recommendationField] of boards) {
-        const details = (tables.get(`${source}_${suffix}`) ?? []).filter(d => value(d, 'DOKNR') === value(row, 'DOKNR') && matchesDocumentVersion(d, row));
+      for (const [dateField, type, suffix, treatmentField, recommendationField] of boardSpecs) {
+        const details = (boards.get(`${source}_${suffix}`)?.get(value(row, 'DOKNR')) ?? []).filter(d => matchesDocumentVersion(d, row));
         const recommendations = details.map(d => {
           const treatment = schema.resolve(`${source}_${suffix}`, treatmentField, value(d, treatmentField));
           const decision = schema.resolve(`${source}_${suffix}`, recommendationField, value(d, recommendationField));
@@ -243,10 +272,25 @@ export async function buildCredosSchemaExtensions({ exportDir, parents, validPat
       supplement(source, row, ctx, label ? `${label} [${field}]` : `CREDOS ${source}.${field}`, lookup(field), [field]);
     }
   }
+  for (const source of sources.names) {
+    if (!isExtensionSource(source)) continue;
+    let processed = 0;
+    report(`${source}: Verarbeitung beginnt`);
+    for await (const row of sources.rows(source)) {
+      if (onBatch && pendingCount() >= 1000) await flush();
+      if (++processed % 1000 === 0) report(`${source}: ${processed} Quellzeilen, ${written.supplementary + output.supplementary.length} Zusatzangaben`, false);
+      processRow(source, row);
+    }
+    await flush();
+    report(`${source}: ${processed} Quellzeilen verarbeitet`);
+    // Conference indexes are needed only while processing the parent table.
+    for (const suffix of ['tkpr', 'tkpo', 'tk', 'tk2']) boards.delete(`${source}_${suffix}`);
+  }
   // Additional patient-level clinical/demographic facts from NPAT. Address and
   // contact administration stay in the patient mapper rather than observations.
   const npat = keepLatestCredosDocumentVersions(await readOptionalExport(exportDir, 'npat'), { documentNumberField: 'doknr', documentVersionField: 'dokvr' });
   for (const row of npat) {
+    if (onBatch && pendingCount() >= 1000) await flush();
     const patID = value(row, 'PATNR');
     if (!patients.has(patID)) continue;
     for (const field of ['todkz', 'toddt', 'toddb', 'todur', 'natio']) {
@@ -256,7 +300,8 @@ export async function buildCredosSchemaExtensions({ exportDir, parents, validPat
     }
   }
   output.study = [...studies.values()];
+  await flush();
   // Deliberately preserve source rows, including equal values on different visits.
-  console.log(`CREDOS Schema-Erweiterung: ${JSON.stringify({ ...stats, ...Object.fromEntries(Object.entries(output).map(([k, v]) => [k, v.length])) })}`);
+  report(`fertig: ${JSON.stringify({ ...stats, ...Object.fromEntries(Object.entries(output).map(([k, v]) => [k, written[k] + v.length])) })}`);
   return output;
 }

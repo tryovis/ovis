@@ -1,6 +1,7 @@
 // mappers/therapyMapper.mjs
 import { toOptionalCredosIsoDateOrNull } from "../utils/dates.mjs";
 import { value } from '../utils/rows.mjs';
+import { mapCredosTherapyType } from '../utils/therapyDetails.mjs';
 
 /**
  * Baut eine omock therapy-Ressource aus:
@@ -70,9 +71,17 @@ export function mapTherapy(tzthRow, context = {}) {
 
     surgeryContext: therapyGoalMapping.surgeryContext,
 
-    generalType: mapGeneralType(tzthRow.TZTH_A_ART),
+    generalType: mapCredosTherapyType(value(tzthRow, 'TZTH_A_ART')),
 
     subType: emptyToNull(tzthRow.TZTH_A_MAT),
+    subTypeCode: value(tzthRow, 'TZTH_A_MAS'),
+    subTypeDetail: null,
+    subTypeDetailCode: null,
+    radioNuclid: null,
+    radioNuclidCode: null,
+    // The supplied CREDOS schema has no dedicated radiopharmaceutical field.
+    radiopharmaceutical: null,
+    radiopharmaceuticalCode: null,
 
     localRState: emptyToNull(tzthRow.TZTH_A_R),
 
@@ -415,23 +424,6 @@ function mapTherapyGoal(rawValue, resolvedValue) {
     intention: outputValue,
     surgeryContext: null
   };
-}
-
-function mapGeneralType(value) {
-  if (value === null || value === undefined || value === "") {
-    return null;
-  }
-
-  const originalValue = String(value).trim();
-  const normalized = originalValue.toUpperCase();
-
-  const mapping = {
-    MET: "systemic",
-    ST: "radiation",
-    OP: "operation"
-  };
-
-  return mapping[normalized] ?? originalValue;
 }
 
 function emptyToNull(value) {

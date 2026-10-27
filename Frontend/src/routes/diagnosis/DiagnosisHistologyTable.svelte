@@ -14,10 +14,10 @@
 		{ data: 'ICDO_grading', header: $t('gradingShort'), tooltip: $t('grading') },
 		{ data: 'ICDO_source', header: $t('sourceShort'), tooltip: $t('source') },
 		{ data: 'ICDO_histologyDate', header: $t('date'), tooltip: $t('histologyDate'), date: true },
-		{ data: 'ICDO_Nb', header: 'N(b)', tooltip: $t('positiveLymphNodes'), ovis: false },
-		{ data: 'ICDO_Nu', header: 'N(u)', tooltip: $t('examinedLymphNodes'), ovis: false },
-		{ data: 'ICDO_sNb', header: 'sN(b)', tooltip: $t('positiveSentinelNodes'), ovis: false },
-		{ data: 'ICDO_sNu', header: 'sN(u)', tooltip: $t('examinedSentinelNodes'), ovis: false },
+		{ data: 'ICDO_Nb', header: 'N(b)', tooltip: $t('positiveLymphNodes'), ovis: false, ccp: true },
+		{ data: 'ICDO_Nu', header: 'N(u)', tooltip: $t('examinedLymphNodes'), ovis: false, ccp: true },
+		{ data: 'ICDO_sNb', header: 'sN(b)', tooltip: $t('positiveSentinelNodes'), ovis: false, ccp: true },
+		{ data: 'ICDO_sNu', header: 'sN(u)', tooltip: $t('examinedSentinelNodes'), ovis: false, ccp: true },
 		{ data: 'ICDO_mixedTumor', header: 'Mix', tooltip: $t('mixedTumor') }
 	];
 

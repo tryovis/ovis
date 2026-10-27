@@ -19,6 +19,7 @@ import { mapTherapy } from "./mappers/therapyMapper.mjs";
 import { mapTnmsForRow } from "./mappers/tnmMapper.mjs";
 import { mapTumorBoardsForRow } from "./mappers/tumorBoardMapper.mjs";
 import { buildCredosSchemaExtensions } from './schemaExtensions.mjs';
+import { createJsonCollectionSpool } from './utils/jsonCollectionSpool.mjs';
 import { matchesDocumentVersion } from './utils/rows.mjs';
 import { buildStudiesForUlm } from "./UTMS_ULM.mjs";
 import { createComplicationLookup } from "./utils/complicationLookup.mjs";
@@ -337,6 +338,7 @@ async function main() {
   const writer = await createOmockWriter(outputPath);
 
   let patient = null;
+  let extensionSpool;
 
   try {
     patient = buildPatients({
@@ -372,14 +374,16 @@ async function main() {
       complicationLookup,
       therapyIdByDocumentNumber
     });
-    const extensions = await buildCredosSchemaExtensions({
+    extensionSpool = await createJsonCollectionSpool(outputPath);
+    await buildCredosSchemaExtensions({
       exportDir, parents: { tzes: tzesRows, tzey: tzeyRows, tzvs: tzvsRows,
         tzvy: tzvyRows, tzth: tzthRows, tzpi: tzpiRows },
       validPatients: patient, getNumericTumorId, dd07vLookup, molecularMarkerLookup,
-      therapyIdByDocumentNumber, therapies: therapy
+      therapyIdByDocumentNumber, therapies: therapy,
+      onBatch: batch => extensionSpool.append(batch)
     });
-    await appendOmockEntry(writer, "status", extensions.status);
-    await appendOmockEntry(writer, "histology", extensions.histology);
+    await appendOmockEntry(writer, "status", [], extensionSpool);
+    await appendOmockEntry(writer, "histology", [], extensionSpool);
     await appendOmockEntry(writer, "therapy", therapy);
     console.log(`Therapien geschrieben: ${therapy.length}`);
     therapy = null;
@@ -419,8 +423,8 @@ async function main() {
       validPatients: patient,
       getNumericTumorId
     });
-    await appendOmockEntry(writer, "tnm", [...tnm, ...extensions.tnm]);
-    console.log(`TNM geschrieben: ${tnm.length}`);
+    await appendOmockEntry(writer, "tnm", tnm, extensionSpool);
+    console.log(`TNM geschrieben: ${tnm.length + extensionSpool.count('tnm')}`);
     tnm = null;
 
     let metastasis = buildMetastases({
@@ -443,8 +447,8 @@ async function main() {
       getNumericTumorId,
       dd07vLookup
     });
-    await appendOmockEntry(writer, "tumorBoard", [...tumorBoard, ...extensions.tumorBoard]);
-    console.log(`Tumorboards geschrieben: ${tumorBoard.length}`);
+    await appendOmockEntry(writer, "tumorBoard", tumorBoard, extensionSpool);
+    console.log(`Tumorboards geschrieben: ${tumorBoard.length + extensionSpool.count('tumorBoard')}`);
     tumorBoard = null;
 
     let consultation = buildConsultations({
@@ -464,10 +468,8 @@ async function main() {
     console.log(`Consultations geschrieben: ${consultation.length}`);
     consultation = null;
 
-    let supplementary = extensions.supplementary;
-    await appendOmockEntry(writer, "supplementary", supplementary);
-    console.log(`Supplementaries geschrieben: ${supplementary.length}`);
-    supplementary = null;
+    await appendOmockEntry(writer, "supplementary", [], extensionSpool);
+    console.log(`Supplementaries geschrieben: ${extensionSpool.count('supplementary')}`);
 
     let molecularMarker = buildMolecularMarkers({
       tzesGenRows,
@@ -483,8 +485,8 @@ async function main() {
       dd07vLookup,
       molecularMarkerLookup
     });
-    await appendOmockEntry(writer, "molecularMarker", [...molecularMarker, ...extensions.molecularMarker]);
-    console.log(`Molecular Marker geschrieben: ${molecularMarker.length}`);
+    await appendOmockEntry(writer, "molecularMarker", molecularMarker, extensionSpool);
+    console.log(`Molecular Marker geschrieben: ${molecularMarker.length + extensionSpool.count('molecularMarker')}`);
     molecularMarker = null;
 
     let singleRadiation = buildSingleRadiations({
@@ -500,8 +502,8 @@ async function main() {
     let study = await buildStudies({
       patient
     });
-    await appendOmockEntry(writer, "study", [...study, ...extensions.study]);
-    console.log(`Studien geschrieben: ${study.length}`);
+    await appendOmockEntry(writer, "study", study, extensionSpool);
+    console.log(`Studien geschrieben: ${study.length + extensionSpool.count('study')}`);
     study = null;
 
     await closeOmockWriter(writer, outputPath);
@@ -509,6 +511,8 @@ async function main() {
   } catch (error) {
     await abortOmockWriter(writer);
     throw error;
+  } finally {
+    await extensionSpool?.dispose();
   }
 
   console.log(`tzpi roh: ${tzpiRawCount}`);
@@ -589,7 +593,7 @@ async function createOmockWriter(filePath) {
   };
 }
 
-async function appendOmockEntry(writer, key, value) {
+async function appendOmockEntry(writer, key, value, spool) {
   if (!writer || writer.isClosed) {
     throw new Error("omock writer ist nicht geöffnet.");
   }
@@ -600,14 +604,14 @@ async function appendOmockEntry(writer, key, value) {
   await writer.handle.write(`${JSON.stringify(key)}:`);
 
   if (Array.isArray(value)) {
-    await writeJsonArray(writer.handle, value);
+    await writeJsonArray(writer.handle, value, spool, key);
     return;
   }
 
   await writer.handle.write(JSON.stringify(value ?? null));
 }
 
-async function writeJsonArray(handle, rows) {
+async function writeJsonArray(handle, rows, spool, key) {
   await handle.write("[");
 
   const buffer = [];
@@ -631,6 +635,7 @@ async function writeJsonArray(handle, rows) {
     await handle.write(buffer.join(""));
   }
 
+  await spool?.copyTo(key, handle, rows.length > 0);
   await handle.write("]");
 }
 
