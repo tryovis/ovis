@@ -5,6 +5,7 @@ import { get } from "svelte/store";
 import SurvivalKaplanMeierChart from '../routes/survival/SurvivalKaplanMeierChart.svelte';
 import SurvivalFollowUpAssessment from '../routes/survival/SurvivalFollowUpAssessment.svelte';
 import { applyChartDisplayPreferencesToConfig } from './chartDisplayPreferences.js';
+import { variantStore } from './variantStore';
 
 const currentYear = new Date().getFullYear();
 const selectedFollowUpYear = currentYear - 1;
@@ -37,7 +38,7 @@ export const configStore = writable({
     TherapyOperationChartShowTop5: true,
     TherapyOperationChartShowNull: false,
     TherapyOperationChartShowLogarithm: false,
-    TherapyOperationChartInitialDropdown: "resectionType",
+    TherapyOperationChartInitialDropdown: get(variantStore).isCCP ? "localRState" : "resectionType",
 
     TherapySystemicChartShowChart: true,
     TherapySystemicChartShowTop5: true,

@@ -6,7 +6,8 @@
   import Disclaimer from '../components/Disclaimer.svelte';
   import ExportConfirmation from '../components/ExportConfirmation.svelte';
   import { initializeExportAuditing } from '$lib/export-audit-browser';
-  import { onMount, onDestroy } from 'svelte';
+  import { onMount, onDestroy, setContext } from 'svelte';
+  import { CATALOGUE_CONTEXT, type CatalogueReader } from '$lib/catalogue-context';
   import { getUser, updateUser } from '../graphQl/gql-userManagement';
   import { getLastMetaData } from '../graphQl/gql-generic';
   import { userStore } from '../store/userStore';
@@ -106,6 +107,7 @@
   });
 
   let catalogueData: any = null;
+  setContext<CatalogueReader>(CATALOGUE_CONTEXT, () => catalogueData);
   let catalogueJSON: Promise<string>;
   let storeLoaded = false;
   let sessionInterval = 30; // In Sekunden

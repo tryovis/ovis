@@ -1,7 +1,8 @@
 <script lang="ts">
 	// @ts-nocheck
 	import { writable, get } from 'svelte/store';
-	import { onMount, onDestroy } from 'svelte';
+	import { onMount, onDestroy, getContext } from 'svelte';
+	import { CATALOGUE_CONTEXT, type CatalogueReader } from '$lib/catalogue-context';
 	import { getValueOptions } from '../../graphQl/gql-filter-edit';
 	import type { LensDataPasser } from '@samply/lens';
 	import { reloadOnly } from '../../store/reloadStore.js';
@@ -28,6 +29,7 @@
 		({ currentRole, currentUser } = value);
 	});
 	let dataPasser: LensDataPasser;
+	const readCatalogue = getContext<CatalogueReader | undefined>(CATALOGUE_CONTEXT);
 	const emptyGroup = () => ({
 		operand: 'OR',
 		children: [{ key: '', system: '', type: 'EQUALS', value: '' }]
@@ -170,9 +172,15 @@
 		try {
 			await import('@samply/lens');
 			if (destroyed) return;
-			const catalogueResponse = await authenticatedFetch(apiPath('catalogue'));
-			if (!catalogueResponse.ok) throw new Error('Catalogue unavailable');
-			const { data } = await catalogueResponse.json();
+			// The layout already loaded and authorized this catalogue before mounting
+			// its routes. Avoid another full download on every editor navigation.
+			let data = readCatalogue?.();
+			if (!Array.isArray(data)) {
+				const catalogueResponse = await authenticatedFetch(apiPath('catalogue'));
+				if (!catalogueResponse.ok) throw new Error('Catalogue unavailable');
+				({ data } = await catalogueResponse.json());
+				if (!Array.isArray(data)) throw new Error('Catalogue unavailable');
+			}
 			if (destroyed) return;
 			fieldIndex = createFieldIndex(data);
 			availableKeys = [...fieldIndex.values()]
@@ -195,8 +203,6 @@
 			}
 			currentAst.set(structuredClone(ast.children.length ? ast : defaultAst()));
 			ready = true;
-			for (const group of get(currentAst).children.flatMap((branch) => branch.children))
-				loadOptions(group);
 			checkConsistency();
 		} catch {
 			if (!destroyed)
@@ -239,7 +245,6 @@
 			];
 			group._page = 0;
 		}
-		loadOptions(group);
 		changed();
 	}
 	function toggleOperatorForOR(group) {
@@ -350,7 +355,7 @@
 	As a normal "user" you do not have permission to change specific user permissions.
 {:else}
 	<div class="filter-editor-page">
-	<div class="box_style box_level1 table-chart">
+	<div class="box_style box_level2 table-chart">
 		<h1 style="padding-left:10px">
 			Filter {$t('edit')}
 			{username ? `(${username})` : ''}

@@ -16,6 +16,7 @@ const restricted = !process.argv.includes('--unrestricted');
 const baseline = process.argv.includes('--baseline');
 const admin = process.argv.includes('--admin');
 let adminSaveAcknowledged = false;
+let editorCatalogueRequests = 0;
 const browser = await chromium.launch({
 	headless: true,
 	...(process.env.OVIS_CHROMIUM ? { executablePath: process.env.OVIS_CHROMIUM } : {})
@@ -339,7 +340,9 @@ await page.route('**/*', async (route) => {
 				...stored.keycloakTokens
 			}
 		});
-	if (url.pathname === '/api/catalogue')
+	if (url.pathname === '/api/catalogue') {
+		// Layout refreshes carry a timestamp; the former blocking editor request did not.
+		if (!url.searchParams.has('t')) editorCatalogueRequests++;
 		return route.fulfill({
 			json: {
 				data: catalogue,
@@ -349,6 +352,7 @@ await page.route('**/*', async (route) => {
 				size: 10000
 			}
 		});
+	}
 	if (url.pathname.endsWith('/graphql')) {
 		const body = req.postDataJSON(),
 			ast = parse(body.query),
@@ -422,10 +426,13 @@ async function setKey(index, key) {
 	await settle();
 }
 async function openEditor() {
+	const catalogueRequestsBefore = editorCatalogueRequests;
 	await page.locator('a[href="/filter-edit"]').first().click();
 	await page.waitForURL('**/filter-edit');
 	await keyInputs().first().waitFor({ timeout: 30000 });
 	await settle();
+	assert.equal(editorCatalogueRequests, catalogueRequestsBefore,
+		'Editor reuses the layout catalogue without another blocking download');
 }
 async function leaveEditor() {
 	if (new URL(page.url()).pathname === '/filter-edit') {
@@ -533,8 +540,8 @@ try {
 		metrics.initialOptionNodes = await page.locator('datalist option').count();
 		metrics.initialLongTasks = await page.evaluate(() => window.__editorLongTasks);
 		assert.ok(
-			metrics.initialValueRequests.length <= 1,
-			'Blank editor loads at most the selected default field, never all catalogue fields'
+			metrics.initialValueRequests.length === 0,
+			'Opening the editor does not request value suggestions before focus'
 		);
 		assert.equal(await keyInputs().count(), 1);
 	});
@@ -865,9 +872,9 @@ try {
 				metrics.largeValueOptionNodes <= 40,
 				'One value options datalist is shared by visible values'
 			);
-			assert.ok(
-				allValueRequests().length - before <= 1,
-				'Large selection loads its single field only'
+			assert.equal(
+				allValueRequests().length - before, 0,
+				'Existing large selections request no suggestions until a value is focused'
 			);
 			await group().getByRole('button', { name: '▶', exact: true }).click();
 			const s = await save();

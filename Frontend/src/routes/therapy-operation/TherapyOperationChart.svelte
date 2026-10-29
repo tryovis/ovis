@@ -4,8 +4,12 @@
 	import { maxStore } from '../../store/maxStore';
 	import { t, locale, locales } from "../../store/languageStore";
 	import { configStore } from '../../store/configStore';
+	import { variantStore } from '../../store/variantStore';
 
-	let dropdownObject = [
+	let dropdownObject = $variantStore.isCCP ? [
+		{label: $t("localResStatus"), value: 'localRState'},
+		{label: $t("exportGlobalResidualStatus"), value: 'globalRState'},
+	] : [
 		{label: "Resektion", value: 'resectionType'},
         {label: $t("localResStatus"), value: 'localRState'},
         {label: $t("emergencySurgery"), value: 'emergencySurgery'},  
