@@ -14,6 +14,7 @@
 	import type { AggregatedValue } from '../types/query';
 	import ChartStatusLine from './ChartStatusLine.svelte';
 	import { addChartQueryItem } from '../tableFilterItems';
+	import { copyFilterValue } from '$lib/copy-filter-value';
 	import { get } from 'svelte/store';
 	import type { ExportContext } from '$lib/export-context';
 
@@ -479,6 +480,7 @@
 							addItem(queryItem2);
 						}
 
+						void copyFilterValue([categoryLabel, datasetLabel]);
 						reloadOnly();
 					}
 				}

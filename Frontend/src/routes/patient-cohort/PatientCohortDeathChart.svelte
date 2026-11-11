@@ -15,6 +15,7 @@
 	import { configStore } from '../../store/configStore'; // ConfigStore importieren
 	import { reloadOnly } from '../../store/reloadStore';
 	import { addChartQueryItem } from '../../tableFilterItems';
+	import { copyFilterValue } from '$lib/copy-filter-value';
 	import { filterActiveStore } from '../../store/filterActiveStore.js';
 	import { addUserFilter } from '../../components/UserFilter';
 	import type { AggregatedValue } from '../../types/query';
@@ -288,6 +289,7 @@
 							};
 
 							addItem(queryItem);
+							void copyFilterValue(valueForQuery);
 							reloadOnly();
 						}
 					}

@@ -150,12 +150,14 @@ test('therapy table, count and chart apply the same subtype and radionuclide sco
 		}
 		const tablePipeline = context.calls.find((pipeline) => pipeline.some((stage) => stage.$sort));
 		const countPipeline = context.calls.find((pipeline) => pipeline.some((stage) => stage.$count));
-		const columnFilter = { $match: { radiopharmaceutical: { $regex: 'DOTA', $options: 'i' } } };
-		assert.ok(
-			tablePipeline.some((stage) => JSON.stringify(stage) === JSON.stringify(columnFilter))
+		const columnFilter = tablePipeline.find(
+			(stage) => stage.$match?.$expr?.$regexMatch?.regex === 'DOTA'
 		);
-		assert.ok(
-			countPipeline.some((stage) => JSON.stringify(stage) === JSON.stringify(columnFilter))
+		assert.ok(columnFilter);
+		assert.match(JSON.stringify(columnFilter), /\$radiopharmaceutical/);
+		assert.deepEqual(
+			countPipeline.find((stage) => stage.$match?.$expr),
+			columnFilter
 		);
 		assert.ok(tablePipeline.some((stage) => stage.$sort?.subTypeCode === 1));
 	});

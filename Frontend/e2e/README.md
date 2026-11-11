@@ -42,6 +42,7 @@ Fixtures intentionally remain constant when filters change: the test verifies cl
 ```sh
 OVIS_TEST_OUTPUT=./table-resize-results/desktop node e2e/tableResize.mjs
 OVIS_TEST_OUTPUT=./table-resize-results/mobile node e2e/tableResize.mjs --mobile
+OVIS_TEST_OUTPUT=./table-resize-results/suggestions node e2e/tableResize.mjs --suggestions
 ```
 
 The desktop matrix covers therapy, histology, study and patient-cohort tables at 1900×1050 and 1900×760. It clicks maximize/restore repeatedly, changes the viewport while maximized, checks short last pages, and exercises empty, one-row and three-row results. Real column-filter interactions restore a full result set after zero, one and three matches. The mobile profile uses a 1280×700 touch viewport and checks that the application's landscape layout is actually active.

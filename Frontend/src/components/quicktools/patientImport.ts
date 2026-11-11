@@ -1,4 +1,4 @@
-const normalizeIdToken = (token: unknown): string => {
+export const normalizeIdToken = (token: unknown): string => {
 	if (token == null) return '';
 	if (typeof token === 'number' && Number.isFinite(token)) {
 		if (Number.isInteger(token)) return String(Math.trunc(token));
@@ -9,7 +9,7 @@ const normalizeIdToken = (token: unknown): string => {
 		.replace(/^['"]|['"]$/g, '');
 };
 
-const looksLikeHeader = (id: string): boolean => {
+export const looksLikeHeader = (id: string): boolean => {
 	const normalizedId = id.trim().toLowerCase();
 	return (
 		normalizedId === 'patid' ||

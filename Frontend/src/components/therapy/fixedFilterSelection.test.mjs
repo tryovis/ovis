@@ -141,6 +141,7 @@ test('detail and category table cells carry scope before selecting their value',
 		const cell = { onclick: null, closest: () => null };
 		const context = vm.createContext({
 			moment: () => ({ isValid: () => false }),
+			copyFilterValue() {},
 			addItem: (item) => added.push(item),
 			reloadOnly: () => {},
 			console: { log: () => {} }
@@ -172,6 +173,7 @@ test('opening date and number pickers defers scope until confirmation', () => {
 		const cell = { onclick: null };
 		const context = vm.createContext({
 			moment: () => ({ isValid: () => key === 'therapyOccurrenceDate' }),
+			copyFilterValue() {},
 			dateStore: {
 				set: (value) => {
 					pending = value;
@@ -258,13 +260,14 @@ test('picker cancellation discards the pending scope, and invalid confirmation n
 			typeOfDate: 'therapyOccurrenceDate',
 			lowerValue: 1,
 			upperValue: 2,
-			selectedOption: 'datum',
-			selectedUpperMonth: '01',
-			selectedUpperDay: '01',
-			selectedUpperYear: '2024',
-			lowerMonth: '01',
-			lowerDay: '01',
-			lowerYear: '2024',
+			range: null,
+			ready: true,
+			$locale: 'de',
+			readCatalogue: () => [],
+			createFieldIndex: () => new Map(),
+			parseEditorField: () => ({ fieldType: 'date' }),
+			addRangeQueryItem: () => {},
+			formatDateForInput: () => '1970-01-01',
 			[`$${picker}PickerStore`]: {
 				onConfirm: () => {
 					applied += 1;
@@ -287,6 +290,7 @@ test('picker cancellation discards the pending scope, and invalid confirmation n
 		context[`add${capitalized}`]();
 		assert.equal(applied, 0);
 		context.isConfirmDisabled = false;
+		context.range = { min: 0, max: 0 };
 		context[`add${capitalized}`]();
 		assert.equal(applied, 1);
 	}

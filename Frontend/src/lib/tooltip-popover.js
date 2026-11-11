@@ -70,7 +70,7 @@ export function showViewportTooltip(event) {
 	if (!(tooltip instanceof HTMLElement)) return '';
 	clearScheduledHide(trigger);
 
-	const tooltipStyle = createViewportTooltipStyle(
+	let tooltipStyle = createViewportTooltipStyle(
 		trigger.getBoundingClientRect(),
 		window.innerWidth,
 		window.innerHeight
@@ -80,6 +80,16 @@ export function showViewportTooltip(event) {
 	if (typeof tooltip.showPopover === 'function') {
 		tooltip.setAttribute('popover', 'manual');
 		if (!tooltip.matches(':popover-open')) tooltip.showPopover();
+	}
+	// Wide table cells can leave less room than the tooltip needs on its preferred side.
+	const tooltipRect = tooltip.getBoundingClientRect();
+	if (tooltipRect.left < VIEWPORT_INSET || tooltipRect.right > window.innerWidth - VIEWPORT_INSET) {
+		const left = Math.max(
+			VIEWPORT_INSET,
+			Math.min(tooltipRect.left, window.innerWidth - tooltipRect.width - VIEWPORT_INSET)
+		);
+		tooltipStyle += `left:${left}px;right:auto;`;
+		tooltip.setAttribute('style', tooltipStyle);
 	}
 	bindInteractiveTooltip(trigger, tooltip);
 

@@ -23,6 +23,7 @@ test('Apollo startup indexes populated analysis collections without touching stu
 
 	await createRuntimeIndexes(database, {
 		usageEvent: 'usageEvent',
+		patient: 'patient',
 		diagnosis: 'diagnosis',
 		kaplanmeier: 'kaplanMeier',
 		tnm: 'tnm',
@@ -34,9 +35,23 @@ test('Apollo startup indexes populated analysis collections without touching stu
 
 	assert.deepEqual(
 		[...new Set(calls.map(({ name }) => name))],
-		['usageEvent', 'exportAudit', 'diagnosis', 'kaplanMeier', 'tnm', 'histology', 'status']
+		[
+			'usageEvent',
+			'exportAudit',
+			'patient',
+			'diagnosis',
+			'kaplanMeier',
+			'tnm',
+			'histology',
+			'status'
+		]
 	);
-	assert.equal(calls.filter(({ operation }) => operation === 'createIndex').length, 11);
+	assert.equal(calls.filter(({ operation }) => operation === 'createIndex').length, 12);
+	assert.deepEqual(
+		calls.find(({ operation, name }) => operation === 'createIndex' && name === 'patient')
+			.specification,
+		{ patID: 1 }
+	);
 	assert.deepEqual(
 		calls.find((call) => call.operation === 'createIndex' && call.name === 'diagnosis')
 			.specification,
@@ -60,6 +75,7 @@ test('Apollo startup does not create analysis indexes on missing or empty collec
 	};
 	await createRuntimeIndexes(database, {
 		usageEvent: 'usageEvent',
+		patient: 'patient',
 		diagnosis: 'diagnosis',
 		kaplanmeier: 'kaplanMeier',
 		tnm: 'tnm',

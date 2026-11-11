@@ -17,6 +17,7 @@
 	import { addUserFilter } from '../../components/UserFilter';
 	import { reloadOnly } from '../../store/reloadStore';
 	import { addChartQueryItem } from '../../tableFilterItems';
+	import { copyFilterValue } from '$lib/copy-filter-value';
 	import type { AggregatedValue } from '../../types/query';
 	import { responsiveChartFontSize } from '$lib/responsiveChartSizing';
 
@@ -247,6 +248,7 @@
 						};
 
 						addItem(queryItem);
+						void copyFilterValue(point.x);
 						reloadOnly();
 					}
 				}

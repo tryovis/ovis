@@ -29,6 +29,19 @@ const context = await browser.newContext({
 });
 const page = await context.newPage();
 page.setDefaultTimeout(8000);
+let clipboardText;
+let denyCopy = false;
+await page.exposeFunction('writeTestClipboard', (text) => {
+  if (denyCopy) throw new Error('Clipboard access denied');
+  clipboardText = text;
+});
+await page.addInitScript(() => Object.defineProperty(navigator, 'clipboard', {
+  value: { writeText: (text) => window.writeTestClipboard(text) },
+}));
+async function expectCopied(value) {
+  await page.getByRole('status').filter({ hasText: 'Copied to clipboard · ' + value }).waitFor();
+  assert.equal(clipboardText, value);
+}
 const errors = [],
   requests = [],
   cases = [];
@@ -539,8 +552,13 @@ try {
   await run('02-gender-canvas', async () => {
     await chartClick('m');
     await expectRow('gender', 'patient', ['m']);
+    await expectCopied('m');
+    denyCopy = true;
     await chartClick('w');
     await expectRow('gender', 'patient', ['m', 'w']);
+    await page.getByRole('status').filter({ hasText: 'Could not copy the filter value' }).waitFor();
+    assert.equal(clipboardText, 'm');
+    denyCopy = false;
   });
   await run('03-gender-quickselect-or', async () => {
     await page.locator('.gender-button-control').nth(1).click();
@@ -631,6 +649,20 @@ try {
     await lower.nth(2).selectOption('2025');
     await lower.nth(1).selectOption('12');
     await lower.nth(0).selectOption('31');
+    const dialog = page.getByRole('dialog');
+    const comparison = dialog.getByLabel('Comparison');
+    await comparison.selectOption('<');
+    assert.equal(await lower.nth(0).inputValue(), '31');
+    await dialog.getByRole('radio', { name: 'Year', exact: true }).check();
+    assert.equal(await lower.count(), 1);
+    await comparison.selectOption('>=');
+    await dialog.getByRole('radio', { name: 'Date', exact: true }).check();
+    assert.equal(await upper.nth(0).inputValue(), '01');
+    await comparison.selectOption('[]');
+    assert.deepEqual(await lower.evaluateAll((inputs) => inputs.map((input) => input.value)), ['31', '12', '2025']);
+    await lower.nth(1).selectOption('02');
+    assert.equal(await dialog.getByRole('button', { name: 'Apply filter' }).isDisabled(), true);
+    await lower.nth(1).selectOption('12');
     await page.locator('.disclaimer .confirm-button').click();
     const r = await expectRow('diagnosisDate', 'diagnosis', []);
     assert.equal(r.type, 'BETWEEN');
@@ -694,6 +726,7 @@ try {
       .first()
       .click();
     await expectRow('ICD_ICD10', 'diagnosis', ['C34.1']);
+    await expectCopied('C34.1');
   });
   await run('17-number-dialog-with-category', async () => {
     await page
@@ -764,6 +797,7 @@ try {
     await chartClick('EGFR', 0);
     await expectRow('type', 'molecularMarker', ['EGFR']);
     await expectRow('status', 'molecularMarker', ['positiv']);
+    await expectCopied('EGFR, positiv');
   });
   await run('24-final-reset-scope', async () => {
     await reset();

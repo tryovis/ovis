@@ -50,8 +50,7 @@ function radiationFilter(filter) {
 async function buildTherapyRadiationAggregation(
 	input,
 	context,
-	count = false,
-	{ allFields = false } = {}
+	{ allFields = false, build = aggregationArry } = {}
 ) {
 	const args = {
 		...input,
@@ -62,7 +61,6 @@ async function buildTherapyRadiationAggregation(
 			field: flatRadiationField(column.field)
 		}))
 	};
-	const build = count ? countAggregationArry : aggregationArry;
 	return [
 		{ $match: { generalType: 'radiation' } },
 		{
@@ -91,6 +89,7 @@ async function buildTherapyRadiationAggregation(
 		// Apply the complete cohort and row filters to the same flattened rows for
 		// both queries. Missing details still form one row; multiple details form several.
 		...(await build(args, context.collections.therapy, context.db, {
+			columnFilterCollection: 'radiation',
 			// Each detail shares its parent's _id, so offset pages also need its array position.
 			stableSortFields: { _radiationIndex: 1 }
 		}))
@@ -100,9 +99,11 @@ async function buildTherapyRadiationAggregation(
 async function getTherapyRadiationCount(input, context) {
 	const result = await context.db
 		.collection(context.collections.therapy)
-		.aggregate(await buildTherapyRadiationAggregation(input, context, true))
+		.aggregate(
+			await buildTherapyRadiationAggregation(input, context, { build: countAggregationArry })
+		)
 		.next();
 	return result?.count ?? 0;
 }
 
-module.exports = { buildTherapyRadiationAggregation, getTherapyRadiationCount };
+module.exports = { buildTherapyRadiationAggregation, getTherapyRadiationCount, flatRadiationField };

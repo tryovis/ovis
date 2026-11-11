@@ -1,5 +1,31 @@
 const FLAT_UNDERSCORE_PREFIXES = ['ICDO_', 'grading_'];
 
+// Lens stores one equality per selected ID. Keep the editable/saved format at the
+// boundary, but evaluate this particular OR as one membership predicate.
+function compactPatientIdGroup(node) {
+	if (node?.operand !== 'OR' || !Array.isArray(node.children) || node.children.length < 2)
+		return null;
+	if (
+		!node.children.every(
+			(child) =>
+				child?.system === 'patient' &&
+				child.key === 'patID' &&
+				child.type === 'EQUALS' &&
+				!('children' in child) &&
+				typeof child.value === 'string'
+		)
+	)
+		return null;
+
+	const ids = new Set(node.children.map((child) => child.value));
+	const includesMissing = ids.delete('-');
+	const membership = { system: 'patient', key: 'patID', type: 'PATIENT_IDS', value: [...ids] };
+	if (!includesMissing) return membership;
+	// The catalogue uses '-' to select missing or empty fields.
+	const missing = { system: 'patient', key: 'patID', type: 'EQUALS', value: '-' };
+	return ids.size ? { operand: 'OR', children: [membership, missing] } : missing;
+}
+
 function normalizeAstKey(key) {
 	if (typeof key !== 'string') return key;
 	const negated = key.startsWith('!');
@@ -70,6 +96,7 @@ function combineLogicalClauses(operand, clauses) {
 
 module.exports = {
 	combineLogicalClauses,
+	compactPatientIdGroup,
 	normalizeAstKey,
 	normalizeAstKeys,
 	parseAstFilter

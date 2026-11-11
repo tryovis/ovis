@@ -23,7 +23,7 @@
 	let columns = [
 		{ data: 'patID', header: $t("PID"), tooltip: "TODO" },
 		{ data: 'tumorID', header: $t("TID") , tooltip: "TODO"},
-		{ data: 'bioMaterialOccurrenceDate',header: $t("date") , tooltip: "TODO"},
+		{ data: 'bioMaterialOccurrenceDate', header: $t("date"), date: true, tooltip: "TODO" },
 		{ data: 'type', header: "Typ" , tooltip: "TODO"},
 		{ data: 'status', header: "Status" , tooltip: "TODO"},
 		{ data: 'project', header: "Project" , tooltip: "TODO"},

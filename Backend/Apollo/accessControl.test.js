@@ -282,6 +282,27 @@ test('assigned cohort filters remain mandatory when the request omits or broaden
 	);
 });
 
+test('bulk ID uploads in two OR branches fit the filter budget and retain the account restriction', async () => {
+	const f = fixture();
+	const equals = (key, value) => ({ system: 'patient', key, type: 'EQUALS', value });
+	const ids = Array.from({ length: 1800 }, (_, index) => equals('patID', 'SYNTHETIC-PATIENT-' + index));
+	ids.splice(0, 2, equals('patID', 'p1'), equals('patID', 'p2'));
+	const branch = (lastName) => ({ operand: 'AND', children: [
+		{ key: 'patID', operand: 'OR', children: ids }, equals('lastName', lastName)
+	] });
+	const filter = JSON.stringify({ operand: 'OR', children: [branch('One'), branch('Two')] });
+	assert.ok(filter.length > 250000);
+	f.rows.user[0].userFilter = [JSON.stringify(equals('patID', 'p1'))];
+	const guarded = f.control.protectResolvers([userResolvers])[0];
+	const context = await f.context('alice');
+	const read = (raw) => guarded.Query.getAllPatient(null, { filter: raw }, context, info('getAllPatient'));
+	assert.deepEqual((await read(filter)).map((row) => row.patID), ['p1']);
+	// Unrelated predicates still count individually. A client cannot forge the internal membership leaf.
+	await denied(() => read(JSON.stringify({ operand: 'OR', children: Array(2000).fill(equals('gender', 'w')) })));
+	await denied(() => read(JSON.stringify({ ...equals('patID', ['p1']), type: 'PATIENT_IDS' })));
+	await denied(() => read(JSON.stringify({ ...branch('One'), type: 'PATIENT_IDS', value: ['p2'] })));
+});
+
 test('C30-C39 remains mandatory when personal C34 and year filters are added, removed or OR-expanded', async () => {
 	const f = fixture();
 	const mandatory = {
@@ -381,11 +402,32 @@ test('value options cannot enumerate administrative collections or hidden patien
 	);
 });
 
+test('table suggestions always receive the assigned cohort', async () => {
+	const f = fixture();
+	const mandatory = { system: 'patient', key: 'patID', type: 'EQUALS', value: 'p1' };
+	f.rows.user[0].userFilter = [JSON.stringify(mandatory)];
+	const [guarded] = f.control.protectResolvers([{
+		Query: { getTableColumnSuggestions: (_parent, args) => JSON.parse(args.filter) }
+	}]);
+	const context = await f.context('alice');
+	const args = { collection: 'patient', field: 'postalCode', search: '' };
+	assert.deepEqual(await guarded.Query.getTableColumnSuggestions(
+		null, args, context, info('getTableColumnSuggestions')
+	), mandatory);
+});
+
 test('patient names cannot be used as column predicates or sort keys when hidden', async () => {
 	const f = fixture();
 	f.rows.user[0].pseudonymization = true;
 	const guarded = f.control.protectResolvers([userResolvers])[0];
 	const context = await f.context('alice');
+	for (const args of [
+		{ collection: 'patient', field: 'firstName' },
+		{ collection: 'patient', field: 'patID', columnFilters: [{ field: 'lastName', value: 'S' }] },
+		{ collection: 'user', field: 'email' }
+	]) {
+		await denied(() => guarded.Query.getTableColumnSuggestions(null, { ...args, search: '' }, context, info('getTableColumnSuggestions')));
+	}
 	await denied(() =>
 		guarded.Query.getAllPatient(
 			null,

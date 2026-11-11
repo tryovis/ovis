@@ -1,4 +1,4 @@
-const { combineLogicalClauses, parseAstFilter } = require('./astUtils');
+const { combineLogicalClauses, compactPatientIdGroup, parseAstFilter } = require('./astUtils');
 
 const NULL_AST = '{"operand":"OR","children":[]}';
 const NULL_VALUES = ['-', '', ' ', null];
@@ -46,6 +46,8 @@ function normalizeRangeBound(system, key, value) {
 }
 
 function normalizeEqualityValue(system, key, value) {
+	if (system === 'patient' && key === 'patID') return value;
+	value = parseBooleanString(value);
 	if (value === '-' || value == null) return value;
 	const isDateField =
 		key.toLowerCase().includes('date') ||
@@ -88,7 +90,7 @@ function rangeForLeaf(leaf) {
 
 function positiveLeafQuery(leaf, options = {}) {
 	const key = cleanKey(leaf.key);
-	const value = normalizeEqualityValue(leaf.system, key, parseBooleanString(leaf.value));
+	const value = normalizeEqualityValue(leaf.system, key, leaf.value);
 
 	if (leaf.type === 'EQUALS') {
 		return value === '-' ? emptyValueQuery(key) : { [key]: { $eq: value } };
@@ -114,6 +116,7 @@ function positiveLeafQuery(leaf, options = {}) {
 }
 
 function leafQuery(leaf, options = {}) {
+	if (leaf.type === 'PATIENT_IDS') return { patID: { $in: leaf.value } };
 	if (leaf.type === 'NEQUALS') {
 		return { $nor: [positiveLeafQuery({ ...leaf, type: 'EQUALS' }, options)] };
 	}
@@ -170,7 +173,7 @@ function localQuery(node, system, options = {}) {
 		return {
 			[key]: {
 				$in: node.children.map((child) =>
-					normalizeEqualityValue(system, key, parseBooleanString(child.value))
+					normalizeEqualityValue(system, key, child.value)
 				)
 			}
 		};
@@ -268,6 +271,8 @@ function normalizeFilterLogic(ast) {
 	let visited = 0;
 	const visit = (node, depth = 0) => {
 		if (++visited > MAX_FILTER_QUERY_NODES || depth > 64) throw filterComplexityError();
+		const membership = compactPatientIdGroup(node);
+		if (membership) return membership;
 		if (!Array.isArray(node?.children) || canonicalNegatedGroup(node)) return node;
 		const children = node.children.map((child) => visit(child, depth + 1));
 		// Neutral wrappers inside a negative field group must not erase its tumor-wide exclusion.
@@ -671,7 +676,8 @@ async function matchingTumorIDs(db, system, node, universe, options = {}) {
 }
 
 async function matchingTumorIDsUncached(db, system, node, universe, options) {
-	universe = await sourceUniverse(db, system, universe, options);
+	// Positive ID membership can only select tumors linked to an existing patient.
+	if (node.type !== 'PATIENT_IDS') universe = await sourceUniverse(db, system, universe, options);
 	if (['study', 'studyPatient', 'patient'].includes(system)) {
 		return matchingLinkedTumorIDs(db, system, node, universe, options);
 	}
@@ -1065,6 +1071,12 @@ async function filter2match({ value, column, db, unwoundArrays = [] }) {
 	if (!parsed) throw new Error('Invalid filter AST');
 	const ast = normalizeFilterLogic(parsed);
 	const options = { unwoundArrays: new Set(unwoundArrays) };
+	if (!Array.isArray(ast.children) && ast.type === 'PATIENT_IDS') {
+		const patients = leafQuery(ast, options);
+		if (column === 'patient') return [{ $match: patients }];
+		const ids = await linkedSourceTumorIDs(db, 'patient', patients, options);
+		return [{ $match: { tumorID: { $in: [...ids] } } }];
+	}
 	const universe = new Set(await distinctIDs(db, column, {}, options));
 	if (column === 'patient') {
 		for (const id of await distinctIDs(db, 'diagnosis', {}, options)) universe.add(id);

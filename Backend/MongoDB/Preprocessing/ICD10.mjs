@@ -177,12 +177,13 @@ export const ICD10 = {
 		textgroup: 'Bösartige Neubildungen der Atmungsorgane und sonstiger intrathorakaler Organe'
 	},
 	C40: {
-		text3: 'Bösartige Neubildungen des Knochens und des Gelenkknorpels',
+		text3: 'Bösartige Neubildung des Knochens und des Gelenkknorpels der Extremitäten',
 		codegroup: 'C40-C41',
 		textgroup: 'Bösartige Neubildungen des Knochens und des Gelenkknorpels'
 	},
 	C41: {
-		text3: 'Bösartige Neubildungen des Knochens und des Gelenkknorpels',
+		text3:
+			'Bösartige Neubildung des Knochens und des Gelenkknorpels sonstiger und nicht näher bezeichneter Lokalisationen',
 		codegroup: 'C40-C41',
 		textgroup: 'Bösartige Neubildungen des Knochens und des Gelenkknorpels'
 	},

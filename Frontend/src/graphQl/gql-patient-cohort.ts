@@ -1,4 +1,20 @@
 import { dataUrl, graphqlFetch } from './gql-url'
+
+export async function resolvePatientImportIds(ids: readonly string[]): Promise<(string | null)[]> {
+    const response = await graphqlFetch(dataUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            query: 'query ResolvePatientImportIds($ids: [String!]!) { resolvePatientImportIds(ids: $ids) }',
+            variables: { ids }
+        })
+    });
+    const result = await response.json();
+    const matches = result.data?.resolvePatientImportIds;
+    if (!response.ok || result.errors?.length || !Array.isArray(matches) || matches.length !== ids.length)
+        throw new Error('Patient ID lookup failed');
+    return matches;
+}
 const localeOptions:Intl.DateTimeFormatOptions = {
     day: '2-digit',
     month: '2-digit',

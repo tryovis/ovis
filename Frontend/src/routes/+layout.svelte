@@ -637,7 +637,7 @@ function startUpdateTimer() {
 
 <!-- Toast Nachrichten -->
 {#if $toastStore}
-  <div class="toast">{ $toastStore }</div>
+  <div class="toast" role="status">{ $toastStore }</div>
 {/if}
 
 <!-- Style für Toast Nachrichten -->
@@ -659,6 +659,11 @@ function startUpdateTimer() {
     bottom: 20px;
     left: 50%;
     transform: translateX(-50%);
+    width: max-content;
+    max-width: calc(100vw - 40px);
+    box-sizing: border-box;
+    overflow-wrap: anywhere;
+    pointer-events: none;
     background-color: #333;
     color: #fff;
     padding: 10px 20px;
@@ -669,7 +674,4 @@ function startUpdateTimer() {
     transition: opacity 0.3s ease-in-out;
   }
 
-  .toast:hover {
-    opacity: 1;
-  }
 </style>

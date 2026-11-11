@@ -3,6 +3,7 @@ import { dataUrl, graphqlFetch, setActiveTableRequest } from './gql-url';
 export type TableColumnFilter = {
 	readonly field: string;
 	readonly value: string;
+	readonly timeZone?: string;
 };
 
 export type TablePageRequest = {
@@ -121,4 +122,42 @@ export async function getTableCount(
 	});
 	const result = await response.json();
 	return result.data.getTableCount ?? 0;
+}
+
+export async function getTableColumnSuggestions(
+	collection: string,
+	field: string,
+	search: string,
+	filter: string | null,
+	columnFilters: readonly TableColumnFilter[],
+	signal: AbortSignal
+): Promise<string[]> {
+	const response = await graphqlFetch(dataUrl, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		signal,
+		body: JSON.stringify({
+			query: `
+				query getTableColumnSuggestions($collection: collection!, $field: String!, $search: String!,
+					$filter: String, $columnFilters: [TableColumnFilter!], $timeZone: String) {
+					getTableColumnSuggestions(collection: $collection, field: $field, search: $search,
+						filter: $filter, columnFilters: $columnFilters, timeZone: $timeZone)
+				}
+			`,
+			variables: {
+				collection,
+				field,
+				search,
+				filter,
+				columnFilters,
+				timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
+			}
+		})
+	});
+	if (!response.ok) throw new Error('Table suggestions request failed');
+	const result = await response.json();
+	if (result.errors?.length || !Array.isArray(result.data?.getTableColumnSuggestions)) {
+		throw new Error('Table suggestions unavailable');
+	}
+	return result.data.getTableColumnSuggestions;
 }

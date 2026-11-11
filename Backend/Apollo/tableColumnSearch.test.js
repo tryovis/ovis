@@ -20,12 +20,28 @@ function evaluate(expr, doc, variables = {}) {
 	if (operator === '$convert') {
 		const input = read(value.input);
 		if (input == null) return value.onNull;
+		if (value.to === 'date') {
+			const date = new Date(input);
+			return Number.isNaN(date.getTime()) ? value.onError : date;
+		}
 		return typeof input === 'object' ? value.onError : String(input);
+	}
+	if (operator === '$dateToString') {
+		const date = read(value.date);
+		return date == null
+			? value.onNull
+			: new Intl.DateTimeFormat('de-DE', {
+					timeZone: value.timezone,
+					day: '2-digit',
+					month: '2-digit',
+					year: 'numeric'
+			  }).format(date);
 	}
 	if (operator === '$isArray') return Array.isArray(read(value));
 	if (operator === '$type') return Array.isArray(read(value)) ? 'array' : typeof read(value);
 	if (operator === '$cond') return read(read(value[0]) ? value[1] : value[2]);
 	if (operator === '$eq') return read(value[0]) === read(value[1]);
+	if (operator === '$in') return read(value[1]).includes(read(value[0]));
 	if (operator === '$ne') return read(value[0]) !== read(value[1]);
 	if (operator === '$and') return value.every((item) => read(item));
 	if (operator === '$ifNull') return read(value[0]) ?? read(value[1]);
@@ -138,6 +154,165 @@ test('missing arrays are safe and scalar or dot-path search remains unchanged', 
 	assert.equal(search('ICD.ICD10', 'C34.', { ICD: { ICD10: 'C34.1' } }, 'diagnosis'), true);
 	assert.equal(search('number', '12', { number: 123 }), false);
 	assert.deepEqual(columnFilterStages([{ field: 'ops', value: '   ' }], 'therapy'), []);
+});
+
+test('server searches match displayed dates, numbers and booleans', () => {
+	const timeZone = 'America/New_York';
+	const date = new Date('2024-02-01T01:00:00.000Z');
+	for (const stored of [date, date.getTime()]) {
+		const [stage] = columnFilterStages(
+			[{ field: 'recruitmentDate', value: '31.01.2024', timeZone }],
+			'studyPatient'
+		);
+		assert.ok(matches({ recruitmentDate: stored }, stage.$match));
+		assert.ok(!matches({ recruitmentDate: null }, stage.$match));
+	}
+	assert.ok(search('ageAtDiagnosis', '0', { ageAtDiagnosis: 0 }, 'diagnosis'));
+	assert.ok(search('ICDO_mixedTumor', 'FALSE', { ICDO_mixedTumor: false }, 'histology'));
+	assert.ok(search('therapyID', '20', { therapyID: 1203 }));
+	assert.ok(search('postalCode', '031', { postalCode: 60311 }, 'patient'));
+	assert.ok(search('status', 'alse', { status: false }, 'consultation'));
+});
+
+test('suggestions cross duplicate windows, narrow literally and keep the cohort and other columns', async () => {
+	const therapy = [
+		...Array.from({ length: 620 }, () => ({
+			tumorID: 'allowed',
+			generalType: 'operation',
+			ops: [{ code: '5-5.1' }]
+		})),
+		{ tumorID: 'allowed', generalType: 'operation', ops: [{ code: '5-5.2' }] },
+		{ tumorID: 'allowed', generalType: 'operation', ops: [{ code: '5-5X1' }] },
+		{ tumorID: 'outside', generalType: 'operation', ops: [{ code: '5-5.private' }] },
+		{ tumorID: 'allowed', generalType: 'systemic', ops: [{ code: '5-5.wrong' }] }
+	];
+	const calls = [];
+	const context = {
+		collections: { therapy: 'therapy' },
+		db: {
+			collection: () => ({
+				distinct: async () => ['allowed', 'outside'],
+				aggregate(pipeline, { maxTimeMS }) {
+					assert.ok(maxTimeMS > 0 && maxTimeMS <= 3000);
+					calls.push(pipeline);
+					const rows = pipeline.reduce((rows, stage) => {
+						if (stage.$match?.value) {
+							const { $regex, $options, $nin = [] } = stage.$match.value;
+							return rows.filter(
+								({ value }) => new RegExp($regex, $options).test(value) && !$nin.includes(value)
+							);
+						}
+						if (stage.$match) return rows.filter((row) => matches(row, stage.$match));
+						if (stage.$project)
+							return rows.map((row) => ({ value: evaluate(stage.$project.value, row) }));
+						if (stage.$limit) return rows.slice(0, stage.$limit);
+						if (stage.$group) {
+							const counts = new Map();
+							for (const { value } of rows) counts.set(value, (counts.get(value) ?? 0) + 1);
+							return Array.from(counts, ([_id, occurrences]) => ({ _id, occurrences }));
+						}
+						if (stage.$sort) return rows.toSorted((a, b) => a._id.localeCompare(b._id));
+						assert.fail(`Unsupported synthetic stage ${JSON.stringify(stage)}`);
+					}, therapy);
+					return { toArray: async () => rows };
+				}
+			})
+		}
+	};
+	const args = {
+		collection: 'therapy',
+		field: 'ops',
+		search: '5-5.',
+		columnFilters: [{ field: 'generalType', value: 'oper' }],
+		filter: JSON.stringify({
+			operand: 'AND',
+			children: [{ system: 'therapy', key: 'tumorID', type: 'EQUALS', value: 'allowed' }]
+		})
+	};
+	assert.deepEqual(await Query.getTableColumnSuggestions(null, args, context), ['5-5.1', '5-5.2']);
+	assert.equal(calls.length, 2);
+	for (const pipeline of calls)
+		assert.ok(
+			pipeline.findIndex((stage) => stage.$limit === 256) <
+				pipeline.findIndex((stage) => stage.$group)
+		);
+	therapy.push(
+		...Array.from({ length: 100 }, (_, i) => ({
+			tumorID: 'allowed',
+			generalType: 'operation',
+			ops: [{ code: `code-${i}` }]
+		}))
+	);
+	const many = await Query.getTableColumnSuggestions(null, { ...args, search: 'CODE-' }, context);
+	assert.equal(many.length, 30);
+	assert.equal(new Set(many).size, 30);
+	const overlapping = await Query.getTableColumnSuggestions(
+		null,
+		{
+			...args,
+			columnFilters: [...args.columnFilters, { field: 'ops', value: '.2' }]
+		},
+		context
+	);
+	assert.deepEqual(overlapping, ['5-5.2']);
+	await assert.rejects(
+		Query.getTableColumnSuggestions(null, { ...args, field: 'ops.text' }, context),
+		/not available/
+	);
+	await assert.rejects(
+		Query.getTableColumnSuggestions(
+			null,
+			{ ...args, columnFilters: [{ field: 'ops.text', value: 'x' }] },
+			context
+		),
+		/not available/
+	);
+});
+
+test('suggestions query the same logical study and radiation rows as the tables', async () => {
+	let pipeline;
+	let source;
+	const collections = { therapy: 'therapy', study: 'study', studyPatient: 'studyPatient' };
+	const context = {
+		collections,
+		db: {
+			collection: (name) => ({
+				aggregate(stages) {
+					source = name;
+					pipeline = stages;
+					return { toArray: async () => [] };
+				}
+			})
+		}
+	};
+	const run = (collection, field, columnFilters = []) =>
+		Query.getTableColumnSuggestions(
+			null,
+			{ collection, field, search: '', columnFilters },
+			context
+		);
+	await run('study', 'studyPatients');
+	assert.equal(source, 'study');
+	assert.ok(pipeline.some((stage) => stage.$lookup?.from === 'studyPatient'));
+	assert.equal(
+		evaluate(pipeline.find((stage) => stage.$project?.value).$project.value, {
+			studyPatients: [{}, {}]
+		}),
+		'2'
+	);
+	await run('study', 'shortname');
+	assert.ok(!pipeline.some((stage) => stage.$lookup));
+	await run('studyPatient', 'shortname');
+	assert.equal(source, 'studyPatient');
+	assert.equal(pipeline[0].$project.shortname, 1);
+	await run('radiation', 'radiation_type', [{ field: 'radiation_radioNuclid', value: 'Iod' }]);
+	assert.equal(source, 'therapy');
+	assert.deepEqual(pipeline[0], { $match: { generalType: 'radiation' } });
+	assert.ok(pipeline.some((stage) => stage.$unwind?.path === '$radiation'));
+	assert.ok(pipeline.some((stage) => stage.$match?.$expr?.$regexMatch?.regex === 'Iod'));
+	const projection = pipeline.find((stage) => stage.$project?.value).$project.value;
+	assert.equal(evaluate(projection, { type: 'A' }), 'A');
+	assert.equal(evaluate(projection, { type: ['A', { internal: 'secret' }] }), '');
 });
 
 function createContext() {

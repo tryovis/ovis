@@ -5,6 +5,9 @@ import vm from 'node:vm';
 import ts from 'typescript';
 import moment from 'moment';
 import { createLensHarness } from './testhelpers/lensHarness.mjs';
+import { datePickerParts, datePickerRange } from './lib/datePickerRange.js';
+import { formatDateForInput } from './lib/filterDateInput.js';
+import { createFieldIndex, parseEditorField } from './lib/filterEditorModel.js';
 import { build } from 'esbuild';
 import { fileURLToPath } from 'node:url';
 
@@ -146,11 +149,17 @@ function fixture(restricted = true) {
 			criteria: []
 		});
 	lens.setCatalogue(catalogue);
+	const copied = [];
 	const c = vm.createContext({
 		...helpers,
+		copyFilterValue: (value) => copied.push(value),
 		fixedFilter: null,
 		applyFixedFilterSelection,
 		$datePickerStore: {},
+		readCatalogue: () => catalogue,
+		formatDateForInput,
+		createFieldIndex,
+		parseEditorField,
 		$numberPickerStore: {},
 		moment,
 		get: (s) => s,
@@ -179,6 +188,7 @@ function fixture(restricted = true) {
 	return {
 		lens,
 		c,
+		copied,
 		picker,
 		reloads,
 		run: (script) => vm.runInContext(script, c),
@@ -308,7 +318,7 @@ for (const restricted of [true, false]) {
 		const click = (system, key, value, row = {}) => {
 			const cell = { closest: () => ({}) };
 			const dt = {
-				settings: () => [{ aoColumns: [{ data: key }] }],
+				settings: () => [{ aoColumns: [{ data: key, nTh: { textContent: 'Column title' } }] }],
 				row: () => ({ data: () => row })
 			};
 			h.c.bindCellClickHandler(() => dt, cell, value, 0, system, true);
@@ -332,8 +342,13 @@ for (const restricted of [true, false]) {
 		click('diagnosis', 'ageAtDiagnosis', 65);
 		click('tnm', 'T', '2');
 		assert.equal(h.picker[0].typeOfDate, 'diagnosisDate');
+		assert.equal(h.picker[0].fieldLabel, 'Column title');
 		assert.equal(h.picker[1].fieldName, 'ageAtDiagnosis');
 		assert.equal(h.picker[2].typeOfTNM, 'T');
+		assert.deepEqual(h.copied, [
+			'm', 'C34', '8140/3', ['5-123', '5-456'], ['Drug A', 'Drug B'],
+			['SYNTH-A', 'SYNTH-B'], ['R1', 'R2'], '1', 'positive', '15.06.2026', 65, '2'
+		]);
 	});
 }
 test('number intervals stay disjoint and do not modify another editable OR branch', () => {
@@ -377,39 +392,33 @@ test('date dialog day, year and interval clicks retain inclusive calendar bounds
 	const h = fixture();
 	h.run(datePicker);
 	h.c.toggleDatePicker = () => {};
-	h.c.collection = 'histology';
-	h.c.typeOfDate = 'diagnosisDate';
-	Object.assign(h.c, {
-		selectedOption: 'datum',
-		selectedUpperDay: '15',
-		selectedUpperMonth: '06',
-		selectedUpperYear: '2026',
-		lowerDay: '15',
-		lowerMonth: '06',
-		lowerYear: '2026'
-	});
-	h.c.addDate();
-	Object.assign(h.c, { selectedOption: 'jahr', selectedUpperYear: '2025', lowerYear: '2025' });
-	h.c.addDate();
-	Object.assign(h.c, {
-		selectedOption: 'datum',
-		selectedUpperDay: '01',
-		selectedUpperMonth: '02',
-		selectedUpperYear: '2024',
-		lowerDay: '29',
-		lowerMonth: '02',
-		lowerYear: '2024'
-	});
-	h.c.addDate();
+	h.c.ready = true;
+	h.c.$locale = 'de';
+	h.c.$datePickerStore = { collection: 'histology', typeOfDate: 'diagnosisDate' };
+	const select = (operator, yearsOnly, start, end = start) => {
+		h.c.range = datePickerRange(operator, yearsOnly, datePickerParts(start), datePickerParts(end));
+		h.c.addDate();
+	};
+	select('=', false, '15.6.2026');
+	select('=', true, '1.1.2025');
+	select('[]', false, '1.2.2024', '29.2.2024');
+	select('>', false, '29.2.2024');
+	select('<=', true, '1.1.2023');
+	h.c.$datePickerStore.onConfirm = () => false;
+	select('=', false, '31.12.2025');
 	assert.deepEqual(
-		h.row('diagnosisDate', 'diagnosis').values.map((v) => v.value),
+		h.row('diagnosisDate', 'diagnosis').values.map(({ value: { min, max } }) => [
+			formatDateForInput(min), formatDateForInput(max)
+		]),
 		[
-			{ min: new Date(2026, 5, 15).getTime(), max: new Date(2026, 5, 15).getTime() },
-			{ min: new Date(2025, 0, 1).getTime(), max: new Date(2025, 11, 31).getTime() },
-			{ min: new Date(2024, 1, 1).getTime(), max: new Date(2024, 1, 29).getTime() }
+			['2026-06-15', '2026-06-15'],
+			['2025-01-01', '2025-12-31'],
+			['2024-02-01', '2024-02-29'],
+			['2024-03-01', ''],
+			['', '2023-12-31']
 		]
 	);
-	assert.equal(h.reloads.length, 3);
+	assert.equal(h.reloads.length, 5);
 });
 test('native Lens insertion never merges same labels across collections or operators', () => {
 	const h = fixture(false);
@@ -446,6 +455,9 @@ for (const collection of ['therapy', 'supplementary', 'molecularMarker'])
 		const status = collection === 'therapy' ? 'complication_grade' : 'status';
 		assert.equal(h.row(status).values[0].value, '1');
 		h.c.click(null, [{ index: 0, datasetIndex: 1 }]);
+		assert.deepEqual(Array.from(h.copied, (pair) => Array.from(pair)), [
+			['Synthetic type', '1'], ['Synthetic type', 'Other']
+		]);
 		assert.equal(h.row('!' + status).type, 'NEQUALS');
 	});
 test('category raw null/numeric/string values remain typed in the query', () => {

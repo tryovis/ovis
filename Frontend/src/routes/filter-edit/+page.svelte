@@ -11,7 +11,7 @@
 	import { t } from '../../store/languageStore';
 	import { appPath, iconPath, apiPath } from '$lib/path-utils';
 	import { authenticatedFetch } from '$lib/request-auth';
-	import { formatDateForInput, parseDateInput } from '$lib/filterDateInput';
+	import { dateFilterBound, formatDateForInput, parseDateInput } from '$lib/filterDateInput';
 	import { createFilterEditorOptions } from '$lib/filterEditorOptions';
 	import {
 		createFieldIndex,
@@ -115,7 +115,7 @@
 			input.value === ''
 				? null
 				: isDateField(child, fieldIndex)
-				? parseDateInput(input.value)
+				? dateFilterBound(parseDateInput(input.value))
 				: Number(input.value);
 		changed();
 	}
@@ -229,7 +229,7 @@
 		invalidKeyGroups = new Set(invalidKeyGroups);
 		const first = group.children[0];
 		if (first.key !== field.key || first.system !== field.system) {
-			const now = parseDateInput(formatDateForInput(Date.now()));
+			const now = dateFilterBound(parseDateInput(formatDateForInput(Date.now())));
 			group.children = [
 				{
 					key: field.key,

@@ -30,6 +30,7 @@
 		toggleDiagnosisLegendItemVisibility
 	} from './diagnosisBarChartLegendState';
 	import { addChartQueryItem } from '../../tableFilterItems';
+	import { copyFilterValue } from '$lib/copy-filter-value';
 	import { getDiagnosisChartDateRange } from './diagnosisDateRange.js';
 	let filterActive = true;
 
@@ -439,6 +440,9 @@
 						type: 'linear',
 						beginAtZero: true,
 						stacked: true, // Balken stapeln
+						ticks: {
+							precision: 0
+						},
 						title: {
 							display: true,
 							text: $t('numOfTumorCases')
@@ -495,6 +499,7 @@
 						const elementIndex = elements[0].index;
 						const datasetIndex = elements[0].datasetIndex;
 						const label = chartConfig.data.datasets[datasetIndex].label;
+						const clickedValues = [label];
 						const gender = chartConfig.data.datasets[datasetIndex]?.stack || 'unknown';
 						const category = chartConfig.data.labels[elementIndex];
 						const clickFilterTarget = getDiagnosisBarChartClickFilterTarget(
@@ -552,6 +557,7 @@
 								};
 								console.log('Click2', queryItem2);
 								addItem(queryItem2);
+								clickedValues.push(gender);
 							}
 						} else {
 							console.log(
@@ -587,9 +593,11 @@
 							} else {
 								addItem(queryItem3);
 							}
+							clickedValues.push(category);
 						} else {
 							console.log('No bar clicked');
 						}
+						void copyFilterValue(clickedValues);
 						reloadOnly();
 					}
 				}

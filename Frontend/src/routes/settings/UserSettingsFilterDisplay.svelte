@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { formatFilterDateRange } from '$lib/filterDateInput.js';
     import { userStore } from '../../store/userStore';
     import { updateUser } from '../../graphQl/gql-userManagement';
     import { onMount } from 'svelte';
@@ -50,19 +51,11 @@
             return truncateValue(node.value);
         } else if (node.type === "BETWEEN" && node.value?.min !== undefined && node.value?.max !== undefined) {
             if (node.key?.toLowerCase().includes("date")) {
-                return `${formatMillisecondsToDate(node.value.min)} - ${formatMillisecondsToDate(node.value.max)}`;
+                return formatFilterDateRange(node.value, ' – ');
             }
             return `${truncateValue(node.value.min)} - ${truncateValue(node.value.max)}`;
         }
         return "";
-    }
-
-    function formatMillisecondsToDate(milliseconds) {
-        const date = new Date(milliseconds);
-        const day = String(date.getDate()).padStart(2, '0');
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const year = date.getFullYear();
-        return `${day}.${month}.${year}`;
     }
 
     function truncateValue(value) {

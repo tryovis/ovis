@@ -124,6 +124,7 @@ function runYearClick(assignedFilter, initialQuery = []) {
 	const reloadedQueries = [];
 	const context = vm.createContext({
 		addChartQueryItem,
+		copyFilterValue() {},
 		getDiagnosisBarChartClickFilterTarget,
 		getDiagnosisChartDateRange,
 		get: (store) => store,

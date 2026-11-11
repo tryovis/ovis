@@ -473,7 +473,7 @@
 			'kaplanMeier',
 			dataPasser,
 			'survivalKaplanMeierTable',
-			[],
+			tableData,
 			columns,
 			tableShownRows,
 			sortingIndex,

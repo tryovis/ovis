@@ -75,6 +75,7 @@ test(
 				assert.equal(await fresh.listCollections({ name }).hasNext(), false, name);
 			}
 			await runImporter(fresh);
+			assert.ok((await fresh.collection('patient').indexes()).some(({ key }) => key.patID === 1));
 			const names = (await fresh.listCollections({}, { nameOnly: true }).toArray())
 				.map(({ name }) => name)
 				.filter((name) => !['metaData', 'usageEvent'].includes(name));

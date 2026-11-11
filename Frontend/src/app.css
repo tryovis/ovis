@@ -1,7 +1,6 @@
 :root {
 	--bg-color: rgb(245, 245, 245);
 	--ovis-layout-min-width: 1600px;
-	--ovis-layout-max-width: 1903px;
 	--ovis-content-height: clamp(540px, calc(100dvh - 130px), 820px);
 	--ovis-active-filter-height: clamp(110px, calc(100dvh - 760px), 194px);
 	--level1-bg: rgb(235, 235, 235);
@@ -189,7 +188,8 @@ body {
 }
 
 .outer-div {
-	width: clamp(var(--ovis-layout-min-width), 100%, var(--ovis-layout-max-width));
+	/* Use the available width on large screens and when zooming out. */
+	width: 100%;
 	min-height: 100vh; /* Mindesthöhe des äußeren Divs entspricht der Bildschirmhöhe */
 	margin-inline: auto;
 	box-sizing: border-box;
@@ -873,6 +873,78 @@ html[data-ovis-mobile-layout='landscape'] .outer-div {
 	overflow-x: auto;
 }
 
+.ovis-column-filter {
+	display: inline-block;
+	position: relative;
+	width: 100%;
+	min-width: 0;
+}
+
+.ovis-column-filter input {
+	box-sizing: border-box;
+	min-width: 0;
+	width: 100%;
+	padding-inline-end: 1em;
+}
+
+.ovis-column-filter::after {
+	content: '';
+	position: absolute;
+	right: 0.35em;
+	top: 50%;
+	margin-top: -0.1em;
+	border: 0.26em solid transparent;
+	border-top-color: var(--muted-font-color);
+	pointer-events: none;
+}
+
+.ovis-column-suggestions {
+	position: fixed;
+	z-index: 10001;
+	inset: auto;
+	margin: 0;
+	padding: 3px;
+	box-sizing: border-box;
+	overflow-y: auto;
+	scrollbar-gutter: stable;
+	overscroll-behavior: contain;
+	border: 1px solid var(--border-color);
+	border-radius: 4px;
+	background: var(--dropdown-bg);
+	color: var(--font-color);
+	box-shadow: 0 3px 12px rgb(0 0 0 / 18%);
+	font: 13px/1.35 Roboto, Helvetica, Arial, sans-serif;
+	text-align: start;
+}
+
+.ovis-column-suggestions::-webkit-scrollbar {
+	width: 9px;
+}
+
+.ovis-column-suggestions::-webkit-scrollbar-thumb {
+	border: 2px solid var(--dropdown-bg);
+	border-radius: 6px;
+	background: var(--muted-font-color);
+}
+
+.ovis-column-suggestions [role='option'] {
+	padding: 4px 6px;
+	border-radius: 2px;
+	white-space: normal;
+	overflow-wrap: anywhere;
+	cursor: pointer;
+}
+
+.ovis-column-suggestions [data-index]:hover,
+.ovis-column-suggestions [aria-selected='true'] {
+	background: var(--dropdown-hover);
+}
+
+.ovis-column-suggestions [aria-disabled='true'] {
+	color: var(--muted-font-color);
+	cursor: default;
+}
+
 .data-table table {
 	width: 100%;
 	white-space: nowrap;
@@ -1020,7 +1092,7 @@ html[data-ovis-mobile-layout='landscape'] .outer-div {
 	opacity: 1; /* Tooltip wird sichtbar mit Fade-In-Effekt */
 }
 
-/* Popovers render in the browser's top layer, so headline tooltips are not
+/* Popovers render in the browser's top layer, so headline and table tooltips are not
    clipped by chart roots, dashboard cells, or nested overflow containers. */
 .tooltip .tooltiptext:popover-open {
 	display: block;

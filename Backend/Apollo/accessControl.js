@@ -1,5 +1,6 @@
 const { GraphQLError } = require('graphql');
 const { filter2match } = require('./astTranslator');
+const { compactPatientIdGroup } = require('./astUtils');
 
 const PUBLIC_QUERIES = new Set(['getPlatformConfiguration', 'getPlatformDocument']);
 const MANAGEMENT_QUERIES = new Set([
@@ -66,7 +67,10 @@ function clinicalCollections(context) {
 
 function parseClinicalFilter(raw, context) {
 	if (raw == null || raw === '') return null;
-	if (typeof raw !== 'string' || raw.length > 250000) throw securityError('Invalid data filter');
+	// Bound parsing even for expanded Lens uploads. The existing clinical filter
+	// limits below apply to the actual predicates and their compact ID lists.
+	if (typeof raw !== 'string' || raw.length > 4 * 1024 * 1024)
+		throw securityError('Invalid data filter');
 	let ast;
 	try {
 		ast = JSON.parse(raw);
@@ -76,15 +80,23 @@ function parseClinicalFilter(raw, context) {
 	const collections = clinicalCollections(context);
 	let nodes = 0;
 	let leaves = 0;
+	let compacted = false;
 	function visit(node, depth = 0) {
 		if (!node || typeof node !== 'object' || Array.isArray(node) || ++nodes > 2000 || depth > 20) {
 			throw securityError('Invalid data filter');
 		}
+		if (node.type === 'PATIENT_IDS') throw securityError('Invalid data filter');
 		if ('children' in node) {
 			if (!['AND', 'OR', 'NOR', 'XOR'].includes(node.operand) || !Array.isArray(node.children)) {
 				throw securityError('Invalid data filter');
 			}
-			node.children.forEach((child) => visit(child, depth + 1));
+			const membership = collections.has('patient') && compactPatientIdGroup(node);
+			if (membership) {
+				compacted = true;
+				leaves++;
+				return membership;
+			}
+			node.children = node.children.map((child) => visit(child, depth + 1));
 		} else {
 			if (
 				!collections.has(node.system) ||
@@ -105,8 +117,11 @@ function parseClinicalFilter(raw, context) {
 			}
 			leaves++;
 		}
+		return node;
 	}
-	visit(ast);
+	ast = visit(ast);
+	if (raw.length > 250000 && (!compacted || JSON.stringify(ast).length > 250000))
+		throw securityError('Invalid data filter');
 	return leaves ? ast : null;
 }
 
@@ -213,7 +228,8 @@ function createAccessControl({ env = process.env, fetchImpl = globalThis.fetch }
 	async function clinicalArguments(field, args, context, info) {
 		if (
 			context.security?.user?.pseudonymization &&
-			(IDENTITY_FIELDS.has(args.sortField) ||
+			((field === 'getTableColumnSuggestions' && IDENTITY_FIELDS.has(args.field)) ||
+				IDENTITY_FIELDS.has(args.sortField) ||
 				args.columnFilters?.some((entry) => IDENTITY_FIELDS.has(entry.field)))
 		)
 			throw securityError('Patient names are not available to this account');

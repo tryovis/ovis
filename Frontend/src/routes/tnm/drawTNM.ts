@@ -5,6 +5,7 @@ import type { Selection } from 'd3-selection';
 import { userStore } from '../../store/userStore';
 import { get } from 'svelte/store';
 import { addChartQueryItem } from '../../tableFilterItems';
+import { copyFilterValue } from '../../lib/copy-filter-value';
 import { calculateCubesPlotArea, calculateTNMValues, isTNMVisible } from './cubesGridData';
 import { reloadOnly } from '../../store/reloadStore';
 import { configStore } from '../../store/configStore';
@@ -459,6 +460,7 @@ function handleCubeClick(event: MouseEvent, dataPasser: DataPasser, cubeDataInpu
 	if (TNM3DChartSelectedTType?.value !== 'hide') addItem(queryItemT);
 	if (TNM3DChartSelectedNType?.value !== 'hide') addItem(queryItemN);
 	if (TNM3DChartSelectedMType?.value !== 'hide') addItem(queryItemM);
+	if (tnm.trim()) void copyFilterValue(tnm.trim());
 	reloadOnly();
 }
 

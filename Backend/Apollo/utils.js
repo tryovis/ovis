@@ -30,14 +30,12 @@ const aggregationArry = async (
 	{ limit, continueFromID: skip, filter, project, offset, sortField, sortDirection, columnFilters },
 	colname,
 	db,
-	{ rowStages = [], stableSortFields = {} } = {}
+	{ rowStages = [], stableSortFields = {}, columnFilterCollection = colname } = {}
 ) => {
-	//console.log("things:",limit, skip, filter, colname)
-	let aggArry = [];
-	if (filter) aggArry.push(...(await filter2match({ value: filter, column: colname, db })));
-	if (project) aggArry.push(...project);
-	aggArry.push(...rowStages);
-	aggArry.push(...columnFilterStages(columnFilters, colname));
+	const aggArry = await filteredTableStages({ filter, project, columnFilters }, colname, db, {
+		rowStages,
+		columnFilterCollection
+	});
 	aggArry.push(sortStage({ sortField, sortDirection }, stableSortFields));
 	if (skip) aggArry.push(Skip(skip));
 	if (offset) aggArry.push(Offset(offset));
@@ -46,20 +44,24 @@ const aggregationArry = async (
 	return aggArry;
 };
 
-const countAggregationArry = async (
+const filteredTableStages = async (
 	{ filter, project, columnFilters },
 	colname,
 	db,
-	{ rowStages = [] } = {}
+	{ rowStages = [], columnFilterCollection = colname } = {}
 ) => {
 	const aggArry = [];
 	if (filter) aggArry.push(...(await filter2match({ value: filter, column: colname, db })));
 	if (project) aggArry.push(...project);
 	aggArry.push(...rowStages);
-	aggArry.push(...columnFilterStages(columnFilters, colname));
-	aggArry.push({ $count: 'count' });
+	aggArry.push(...columnFilterStages(columnFilters, columnFilterCollection));
 	return aggArry;
 };
+
+const countAggregationArry = async (...args) => [
+	...(await filteredTableStages(...args)),
+	{ $count: 'count' }
+];
 
 module.exports = {
 	Skip,
@@ -69,5 +71,6 @@ module.exports = {
 	SORT,
 	sortOrder,
 	aggregationArry,
+	filteredTableStages,
 	countAggregationArry
 };

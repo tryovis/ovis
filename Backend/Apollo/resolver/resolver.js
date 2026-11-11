@@ -1,6 +1,7 @@
 const { aggregationArry, countAggregationArry } = require('../utils');
 const { filter2match } = require('../astTranslator');
 const { getTherapyRadiationCount } = require('./therapyRadiationTable');
+const { getTableColumnSuggestions } = require('./tableColumnSuggestions');
 const {
 	getStudyCategoryChart,
 	getStudyOverview,
@@ -61,7 +62,6 @@ const genericCount = async (collection, selectedType, flaten, filter) => {
 		}
 	});
 
-	console.dir(agg, { depth: null });
 	const res = await collection.aggregate(agg).toArray();
 	const formattedResult = { label: [], count: [] };
 	res.forEach((item) => {
@@ -75,6 +75,8 @@ module.exports = {
 	Query: {
 		getAllPatient: (_parent, input, context) =>
 			genericGetAll(context.db, context.collections.patient, input),
+
+		getTableColumnSuggestions: (_parent, input, context) => getTableColumnSuggestions(input, context),
 
 		getTableCount: (_parent, input, context) =>
 			input.collection === 'studyPatient'
@@ -136,7 +138,6 @@ module.exports = {
 						...(await filter2match({ value: input.filter, column: col, db: context.db }))
 					);
 				dbCalls.push(db.aggregate(agg).next());
-				console.dir(agg, { depth: null });
 			}
 			return Promise.all(dbCalls);
 		},

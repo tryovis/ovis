@@ -123,9 +123,10 @@ function fields(restricted) {
 	];
 }
 function context(h, currentFilter, extra = {}) {
-	const state = { reloads: 0 };
+	const state = { reloads: 0, copied: [] };
 	const ctx = vm.createContext({
 		addChartQueryItem,
+		copyFilterValue: (value) => state.copied.push(value),
 		get: (store) => store,
 		userStore: { currentFilter },
 		dataPasser: h.dataPasser,
@@ -164,6 +165,7 @@ function clickDiagnosis({
 
 test('diagnosis categorical x-axis refines fixed C30-C39 to C34 immediately', () => {
 	const h = clickDiagnosis();
+	assert.deepEqual(Array.from(h.state.copied[0]), ['C30-C39', 'C34']);
 	assert.deepEqual(
 		h.query()[0].map(({ key }) => key),
 		['ICD_ICD10_3']
@@ -344,6 +346,7 @@ test('TNM cube inserts detailed suffixes and skips a mandatory T value', () => {
 });
 test('TNM cube does not constrain axes hidden from its aggregation', () => {
 	const h = clickTNM({ hidden: ['T', 'N'], tnm: 'M0' });
+	assert.deepEqual(h.state.copied, ['M0']);
 	assert.deepEqual(
 		h.query()[0].map(({ key, values }) => [key, values[0].value]),
 		[['MGroup', '0']]

@@ -6,7 +6,7 @@
 	import { getTherapyRadiationMap } from '../graphQl/gql-therapy-radiation';
 	import { userStore } from '../store/userStore';
 	import Headline from '../components/Headline.svelte';
-	import { createEventDispatcher, onMount } from 'svelte';
+	import { createEventDispatcher, onDestroy, onMount } from 'svelte';
 	import { createTable, changeRowCount } from '../tableBuilder.js';
 	import * as d3 from 'd3';
 	import { get } from 'svelte/store';
@@ -21,6 +21,7 @@
 	import { trackUsageEvent } from '$lib/usage-tracking';
 	import { createPointerTooltipStyle } from '$lib/tooltip-popover';
 	import { addChartQueryItem } from '../tableFilterItems';
+	import { copyFilterValue } from '$lib/copy-filter-value';
 	import type { ExportContext } from '$lib/export-context';
 
 	let filterActive = true;
@@ -65,6 +66,7 @@
 	let svgHost: HTMLDivElement | null = null;
 	let svgRoot: SVGSVGElement | null = null;
 	let mapTable: import('datatables.net').Api<unknown> | null = null;
+	let tableElement: HTMLTableElement | null = null;
 	let tableShownRows = tableShownRowsMin;
 	let sortingIndex = 1;
 	let tableName = SVGType + 'MapTable';
@@ -104,7 +106,9 @@
 	let filter = JSON.stringify({ operand: 'OR', children: [] });
 
 	onMount(async () => {
+		const token = ++loadToken;
 		await import('@samply/lens');
+		if (token !== loadToken) return;
 
 		if (filterActive) {
 			filter = JSON.stringify(dataPasser.getAstAPI());
@@ -112,15 +116,19 @@
 		filter = JSON.stringify(await addUserFilter(JSON.parse(filter)));
 
 		await dynamicSVG();
-
-		// Tabelle früh laden
-		await loadDataForTableOnly();
-
+		if (token !== loadToken) return;
+		await loadDataForTableOnly(token);
+		if (token !== loadToken) return;
 		mounted = true;
 		await tick();
 
 		// SVG selbst lädt danach über on:load
 		setMaxLevel();
+	});
+
+	onDestroy(() => {
+		loadToken++;
+		mapTable?.destroy();
 	});
 
 	async function dynamicSVG() {
@@ -520,17 +528,8 @@
 
 		await tick();
 
-		let tries = 0;
-		let tableEl: HTMLElement | null = document.getElementById(tableName);
-		while (!tableEl && tries < 30) {
-			await new Promise((r) => setTimeout(r, 50));
-			tableEl = document.getElementById(tableName);
-			tries++;
-		}
-
-		if (!tableEl) {
-			console.warn('Table element not found for', tableName);
-		} else {
+		if (token && token !== loadToken) return;
+		if (tableElement?.isConnected) {
 			mapTable = createTable(
 				SVGType,
 				dataPasser,
@@ -753,6 +752,7 @@
 		};
 
 		addItem(queryItem);
+		void copyFilterValue(lensLabel);
 		reloadOnly();
 
 		if (currentLevel < maxLevel) {
@@ -1041,7 +1041,7 @@
 	{#if currentCatalog.startsWith('ICD') || currentCatalog === 'countryCode' || currentCatalog === 'postalCode' || currentCatalog.startsWith('radiation')}
 		<div class="data-table bodymap-table" style={!showMap ? '' : 'display: none;'}>
 			<div class="data-table bodymap-table">
-				<table id={tableName} class="display" style="width:100%">
+				<table bind:this={tableElement} id={tableName} class="display" style="width:100%">
 					<thead>
 						<tr>
 							<th>Label</th>
@@ -1055,7 +1055,7 @@
 	{:else}
 		<div class="data-table bodymap-table" style={!showMap ? '' : 'display: none;'}>
 			<div class="data-table bodymap-table">
-				<table id={tableName} class="display" style="width:100%">
+				<table bind:this={tableElement} id={tableName} class="display" style="width:100%">
 					<thead>
 						<tr>
 							<th>Label</th>

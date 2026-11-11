@@ -134,7 +134,7 @@ async function exportAggregation(input, context, paged) {
 	if (input.collection === 'radiation') {
 		return {
 			collection,
-			stages: await buildTherapyRadiationAggregation(args, context, false, { allFields: true })
+			stages: await buildTherapyRadiationAggregation(args, context, { allFields: true })
 		};
 	}
 	let stages;

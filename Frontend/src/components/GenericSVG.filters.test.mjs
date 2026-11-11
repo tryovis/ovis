@@ -104,6 +104,7 @@ function createMap({
 	];
 	const context = vm.createContext({
 		addChartQueryItem,
+		copyFilterValue() {},
 		get: (store) => store,
 		userStore: { currentFilter: assignedFilter },
 		SVGType: type,
@@ -118,7 +119,7 @@ function createMap({
 		sortingIndex: 1,
 		svgRoot: null,
 		tick: async () => {},
-		document: { getElementById: () => ({}) },
+		tableElement: { isConnected: true },
 		t: (key) => key,
 		createTable: (...args) => ({ args }),
 		dataPasser: {

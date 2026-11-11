@@ -239,25 +239,24 @@ const studyPatientProjection = {
 };
 
 async function buildStudyPatientTableAggregation(input, collections, db) {
-	const agg = [];
-	const match = await globalParticipationMatch(input, collections, db);
-	if (match) agg.push({ $match: match });
-	agg.push(studyPatientProjection);
-	agg.push(...columnFilterStages(input?.columnFilters));
+	const agg = await studyPatientFilteredStages(input, collections, db);
 	agg.push(sortStage(input ?? {}));
 	if (input?.offset) agg.push({ $skip: input.offset });
 	if (input?.limit) agg.push({ $limit: input.limit });
 	return agg;
 }
 
-async function buildStudyPatientCountAggregation(input, collections, db) {
+async function studyPatientFilteredStages(input, collections, db) {
 	const agg = [];
 	const match = await globalParticipationMatch(input, collections, db);
 	if (match) agg.push({ $match: match });
 	agg.push(studyPatientProjection);
-	agg.push(...columnFilterStages(input?.columnFilters));
-	agg.push({ $count: 'count' });
+	agg.push(...columnFilterStages(input?.columnFilters, collections.studyPatient));
 	return agg;
+}
+
+async function buildStudyPatientCountAggregation(input, collections, db) {
+	return [...(await studyPatientFilteredStages(input, collections, db)), { $count: 'count' }];
 }
 
 async function studyOverviewMembership(input, collections, db) {
@@ -368,8 +367,9 @@ async function buildStudyOverviewAggregation(input, collections, db) {
 	return stages;
 }
 
-async function buildStudyOverviewCountAggregation(input, collections, db) {
+async function studyOverviewFilteredStages(input, collections, db) {
 	const needsParticipationData =
+		input?.field === 'studyPatients' ||
 		(input?.project ?? []).some((stage) => JSON.stringify(stage).includes('$studyPatients')) ||
 		normalizeColumnFilters(input?.columnFilters).some(({ field }) =>
 			field.startsWith('studyPatients')
@@ -379,8 +379,11 @@ async function buildStudyOverviewCountAggregation(input, collections, db) {
 		: (await studyOverviewMembership(input, collections, db)).stages;
 	stages.push(...(input?.project ?? []));
 	stages.push(...columnFilterStages(input?.columnFilters, collections.study));
-	stages.push({ $count: 'count' });
 	return stages;
+}
+
+async function buildStudyOverviewCountAggregation(input, collections, db) {
+	return [...(await studyOverviewFilteredStages(input, collections, db)), { $count: 'count' }];
 }
 
 async function getStudyPatientTable(input, context) {
@@ -453,6 +456,8 @@ module.exports = {
 	buildStudyOverviewCountAggregation,
 	buildStudyPatientCountAggregation,
 	buildStudyPatientTableAggregation,
+	studyOverviewFilteredStages,
+	studyPatientFilteredStages,
 	filterAstToParticipationMatch,
 	globalParticipationMatch,
 	getStudyCategoryChart,

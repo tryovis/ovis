@@ -148,6 +148,14 @@ const readExpr = (doc, expr, variables = {}) => {
 	}
 	if (expr && typeof expr === 'object' && '$isArray' in expr)
 		return Array.isArray(readExpr(doc, expr.$isArray, variables));
+	if (expr && typeof expr === 'object' && '$type' in expr) {
+		const value = readExpr(doc, expr.$type, variables);
+		return Array.isArray(value) ? 'array' : typeof value;
+	}
+	if (expr && typeof expr === 'object' && '$in' in expr) {
+		const [item, values] = expr.$in;
+		return values.includes(readExpr(doc, item, variables));
+	}
 	if (expr && typeof expr === 'object' && '$convert' in expr) {
 		assert.equal(expr.$convert.to, 'string');
 		const value = readExpr(doc, expr.$convert.input, variables);
@@ -328,7 +336,9 @@ test('buildStudyPatientTableAggregation pages the materialized participation col
 
 	const unwindIndex = stages.findIndex((stage) => stage.$unwind);
 	const projectIndex = stages.findIndex((stage) => stage.$project?.patID === 1);
-	const matchIndex = stages.findIndex((stage) => stage.$match?.patID);
+	const matchIndex = stages.findIndex(
+		(stage) => stage.$match?.$expr?.$regexMatch?.regex === '0022'
+	);
 	const sortIndex = stages.findIndex((stage) => stage.$sort?.recruitmentDate);
 	const skipIndex = stages.findIndex((stage) => stage.$skip === 20);
 	const limitIndex = stages.findIndex((stage) => stage.$limit === 10);
@@ -352,7 +362,9 @@ test('buildStudyPatientCountAggregation counts materialized participation rows',
 
 	const unwindIndex = stages.findIndex((stage) => stage.$unwind);
 	const projectIndex = stages.findIndex((stage) => stage.$project?.shortname === 1);
-	const matchIndex = stages.findIndex((stage) => stage.$match?.shortname);
+	const matchIndex = stages.findIndex(
+		(stage) => stage.$match?.$expr?.$regexMatch?.regex === 'HOLOSURGE'
+	);
 	const countIndex = stages.findIndex((stage) => stage.$count === 'count');
 
 	assert.equal(unwindIndex, -1);
@@ -371,7 +383,7 @@ test('study overview count skips the participation lookup when no patient data i
 		stages.some((stage) => stage.$lookup),
 		false
 	);
-	assert.ok(stages.some((stage) => stage.$match?.shortname));
+	assert.ok(stages.some((stage) => stage.$match?.$expr?.$regexMatch?.regex === 'HOLO'));
 	assert.ok(stages.some((stage) => stage.$count === 'count'));
 });
 

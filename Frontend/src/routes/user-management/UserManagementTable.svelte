@@ -1,5 +1,6 @@
 <script lang="ts">
 	// @ts-nocheck
+	import { formatFilterDateRange } from '$lib/filterDateInput.js';
 	import Headline from '../../components/Headline.svelte';
 	import { get } from 'svelte/store';
 	import { t } from '../../store/languageStore';
@@ -235,15 +236,7 @@
 		if (node.type === 'BETWEEN' && node.value?.min !== undefined && node.value?.max !== undefined) {
 			// Überprüfen, ob der Feldname "date" enthält
 			if (node.key?.toLowerCase().includes('date')) {
-				const formattedMin = formatMillisecondsToDate(node.value.min);
-				const formattedMax = formatMillisecondsToDate(node.value.max);
-
-				// Überprüfen, ob min und max gleich sind
-				if (node.value.min === node.value.max) {
-					return formattedMin; // Nur den min-Wert anzeigen
-				}
-
-				return `${formattedMin}<br>${formattedMax}`; // Beide Werte anzeigen
+				return formatFilterDateRange(node.value, '<br>');
 			} else {
 				// Wenn kein "date" im Namen, Originalwerte belassen
 				const originalMin = node.value.min;
@@ -259,14 +252,6 @@
 			return truncateValue(String(node.value ?? ''));
 		}
 		return '';
-	}
-
-	function formatMillisecondsToDate(milliseconds: number | string) {
-		const date = new Date(milliseconds);
-		const day = String(date.getDate()).padStart(2, '0');
-		const month = String(date.getMonth() + 1).padStart(2, '0'); // Monate sind 0-basiert
-		const year = date.getFullYear();
-		return `${day}.${month}.${year}`;
 	}
 
 	function truncateLabel(label: string) {

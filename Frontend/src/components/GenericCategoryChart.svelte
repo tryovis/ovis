@@ -21,6 +21,7 @@
 	import { reloadOnly } from '../store/reloadStore';
 	import { userStore } from '../store/userStore';
 	import { addChartQueryItem } from '../tableFilterItems';
+	import { copyFilterValue } from '$lib/copy-filter-value';
 
 	const emptyIcon = iconPath('null-off.svg');
 	type LegendPosition = 'top' | 'left' | 'bottom' | 'right' | 'center' | 'chartArea';
@@ -244,6 +245,7 @@
 					} else {
 						addItem(initialDropdownValue, 'EQUALS', label === '-' ? null : label);
 					}
+					void copyFilterValue(chartConfig.data.labels?.[selectedIndex] ?? label);
 					reloadOnly();
 				}
 			}

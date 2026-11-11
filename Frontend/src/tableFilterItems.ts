@@ -1,8 +1,10 @@
 import type { AggregatedValue } from './types/query';
 
+type RangeValue = { min: number | null; max: number | null };
+
 export type QueryValue = {
 	name: string;
-	value: string | { min: number; max: number } | AggregatedValue[][] | number | boolean | null;
+	value: string | RangeValue | AggregatedValue[][] | number | boolean | null;
 	queryBindId: string;
 	description?: string;
 };
@@ -120,6 +122,29 @@ type ChartQueryPasser = {
 
 let chartSelectionId = 0;
 
+export function addRangeQueryItem(
+	dataPasser: ChartQueryPasser,
+	field: Pick<QueryItem, 'key' | 'system' | 'type' | 'name' | 'description'>,
+	selected: { name: string; value: RangeValue; description?: string }
+): void {
+	const query = dataPasser.getQueryAPI();
+	const existing = query[0]?.find(
+		(item) => item.key === field.key && item.system === field.system && item.type === field.type
+	);
+	const id = `ovis-chart-${Date.now()}-${++chartSelectionId}`;
+	dataPasser.setQueryStoreAPI(
+		appendQueryItemToFirstGroup(query, {
+			id: existing?.id ?? id,
+			key: field.key,
+			type: field.type,
+			system: field.system,
+			name: existing?.name ?? field.name,
+			description: field.description,
+			values: [{ ...selected, queryBindId: id }]
+		})
+	);
+}
+
 /** Add a value already returned by a scoped chart, even if global suggestions are hidden. */
 export function addChartQueryItem(
 	dataPasser: ChartQueryPasser,
@@ -152,21 +177,10 @@ export function addChartQueryItem(
 		) {
 			const { min, max } = selected.value;
 			if (!Number.isFinite(min) || !Number.isFinite(max) || min > max) continue;
-			const query = dataPasser.getQueryAPI();
-			const existing = query[0]?.find(
-				(item) =>
-					item.key === queryItem.key &&
-					item.system === queryItem.system &&
-					item.type === queryItem.type
-			);
-			const id = `ovis-chart-${Date.now()}-${++chartSelectionId}`;
-			dataPasser.setQueryStoreAPI(
-				appendQueryItemToFirstGroup(query, {
-					...queryItem,
-					id: existing?.id ?? id,
-					name: existing?.name ?? `${queryItem.system}:${queryItem.key}:${queryItem.type}`,
-					values: [{ ...selected, name: `${min} - ${max}`, queryBindId: id }]
-				})
+			addRangeQueryItem(
+				dataPasser,
+				{ ...queryItem, name: `${queryItem.system}:${queryItem.key}:${queryItem.type}` },
+				{ ...selected, value: selected.value, name: `${min} - ${max}` }
 			);
 			continue;
 		}

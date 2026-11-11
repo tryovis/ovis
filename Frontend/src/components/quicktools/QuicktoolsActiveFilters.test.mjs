@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import test from 'node:test';
 import vm from 'node:vm';
 import ts from 'typescript';
+import { formatFilterDateRange } from '../../lib/filterDateInput.js';
 import { get, writable } from 'svelte/store';
 import {
 	addChartQueryItem,
@@ -135,6 +136,7 @@ async function mount(harness, history = historyStore(), { deferredUpgrade = fals
 		iconPath: (value) => value,
 		appPath: (value) => value,
 		escapeHtml,
+		formatFilterDateRange,
 		console
 	});
 	vm.runInContext(executable, context);
@@ -366,6 +368,10 @@ test('labels safely render numeric, boolean, null, string and range values as HT
 		'&lt;b&gt;<br>&amp;'
 	);
 	assert.equal(ui.api.parseNode({ type: 'BETWEEN', key: 'value', value: { min: 0, max: 0 } }), '0');
+	const day = new Date(2024, 1, 29).getTime();
+	for (const [min, max, label] of [[null, day, '≤ 29.02.2024'], [day, null, '≥ 29.02.2024']]) {
+		assert.equal(ui.api.parseNode({ type: 'BETWEEN', key: 'diagnosisDate', value: { min, max } }), label);
+	}
 	ui.dispose();
 });
 

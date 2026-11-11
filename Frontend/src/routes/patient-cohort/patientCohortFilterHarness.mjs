@@ -222,6 +222,7 @@ export function chartHandler(fileName, harness, values = []) {
 	assert.ok(insertion && handler, `missing real click handler in ${fileName}`);
 	const context = vm.createContext({
 		addChartQueryItem,
+		copyFilterValue() {},
 		dataPasser: harness.dataPasser,
 		get: (store) => store,
 		userStore: { currentFilter: harness.assignedFilter },
@@ -266,6 +267,7 @@ export function mapHandler(harness, level) {
 	assert.equal(statements.length, 3);
 	const context = vm.createContext({
 		addChartQueryItem,
+		copyFilterValue() {},
 		dataPasser: harness.dataPasser,
 		get: (store) => store,
 		userStore: { currentFilter: harness.assignedFilter },

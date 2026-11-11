@@ -20,6 +20,7 @@
 	import { reloadOnly } from '../../store/reloadStore';
 	import { userStore } from '../../store/userStore';
 	import { addChartQueryItem } from '../../tableFilterItems';
+	import { copyFilterValue } from '$lib/copy-filter-value';
 	import { buildStudyChartRows, createStudyShortnameQueryItem } from './studyPatientChartModel.js';
 	import '../../nouislider.css';
 
@@ -172,6 +173,7 @@
 					const selectedStudy = zoomedRows[elements[0].index];
 					if (!selectedStudy) return;
 					addItem(createStudyShortnameQueryItem(selectedStudy));
+					void copyFilterValue(selectedStudy.shortname);
 					reloadOnly();
 				}
 			}

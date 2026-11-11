@@ -18,8 +18,10 @@
 	import {
 		fetchAllTableRows,
 		fetchTableRows,
+		getTableColumnSuggestions,
 		getTableCount,
 		loadTablePageInParallel,
+		type TableColumnFilter,
 		type TablePage,
 		type TablePageRequest
 	} from '../graphQl/table-page';
@@ -204,6 +206,23 @@
 		return withFixedFilter(JSON.stringify(await addUserFilter(JSON.parse(filter))), fixedFilter);
 	}
 
+	async function fetchSuggestions(
+		field: string,
+		search: string,
+		columnFilters: TableColumnFilter[],
+		signal: AbortSignal
+	) {
+		const activeFilter = await getActiveFilter();
+		return getTableColumnSuggestions(
+			countCollection ?? collection,
+			field,
+			search,
+			activeFilter,
+			columnFilters,
+			signal
+		);
+	}
+
 	function prepareTableRows(rows: any[], rowColumns = columns) {
 		stringifyArray(rows);
 
@@ -340,7 +359,7 @@
 			sortingIndex,
 			null,
 			true,
-			{ fetchPage: fetchServerPage, fixedFilter }
+			{ fetchPage: fetchServerPage, fetchSuggestions, fixedFilter }
 		);
 		genericTable.on('draw.dt.genericTableFit', scheduleTableFit);
 		scheduleTableFit();

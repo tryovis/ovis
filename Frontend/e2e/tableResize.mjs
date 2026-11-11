@@ -15,6 +15,7 @@ const out = path.resolve(process.env.OVIS_TEST_OUTPUT || 'table-resize-results')
 fs.mkdirSync(out, { recursive: true });
 const mobile = process.argv.includes('--mobile');
 const diagnosisChart = process.argv.includes('--diagnosis-chart');
+const suggestions = process.argv.includes('--suggestions');
 const browser = await chromium.launch({
 	headless: true,
 	...(process.env.OVIS_CHROMIUM ? { executablePath: process.env.OVIS_CHROMIUM } : {})
@@ -149,6 +150,12 @@ function respond(name, args) {
 			count: total
 		}));
 	if (name === 'getTableCount') return matchingRows(args).length;
+	if (name === 'getTableColumnSuggestions') {
+		const values = matchingRows(args).map((row) => String(row[args.field] ?? ''));
+		return [...new Set(values)]
+			.filter((value) => value && value.toLowerCase().includes(args.search.toLowerCase()))
+			.slice(0, 30);
+	}
 	if (name === 'getPatientCohortGenderChart') return { label: ['m'], count: [total] };
 	if (name === 'getPatientCohortDeathChart') return { label: ['alive'], count: [total] };
 	if (name === 'getPatientCohortAgeChart') return [{ ageAtDiagnosis: 60, count: total }];
@@ -156,8 +163,8 @@ function respond(name, args) {
 		return [{ label: 'Deutschland', description: 'Deutschland', count: total }];
 	if (name === 'getTumors')
 		return {
-			category: diagnosisChart ? Array.from({ length: 35 }, (_, i) => String(1990 + i)) : ['2024'],
-			groups: diagnosisChart
+			category: diagnosisChart || suggestions ? Array.from({ length: 35 }, (_, i) => String(1990 + i)) : ['2024'],
+			groups: diagnosisChart || suggestions
 				? Array.from({ length: 17 }, (_, i) => ({
 						label: `SYN-${String(i).padStart(2, '0')}`,
 						description: `Synthetic diagnosis group ${i}`,
@@ -461,6 +468,83 @@ async function run(target, viewport, count) {
 		throw error;
 	}
 }
+async function runColumnSuggestions() {
+	const target = targets[0];
+	await page.goto(base + target.route);
+	const table = page.locator(`#${target.id}`);
+	await page.locator(`#${target.id}_info`).waitFor();
+	const accept = page.getByRole('button', { name: 'Accept', exact: true });
+	if (await accept.count()) await accept.click();
+	const input = table.getByRole('combobox').first();
+	const list = page.getByRole('listbox');
+	const options = list.getByRole('option');
+	assert.equal(requests.filter(({ name }) => name === 'getTableColumnSuggestions').length, 0);
+	await input.click();
+	await options.nth(29).waitFor({ state: 'attached' });
+	assert.equal(await options.count(), 30);
+	assert.ok(await list.evaluate((node) => node.scrollHeight > node.clientHeight));
+	await page.screenshot({ path: path.join(out, 'column-suggestions.png') });
+
+	// The 101st record is on neither the current page nor the initial list of 30.
+	await input.fill('h100');
+	await list.getByRole('option', { name: 'SYNTHETIC-H100', exact: true }).waitFor();
+	assert.equal(await options.count(), 1);
+	await input.press('ArrowDown');
+	await input.press('Enter');
+	assert.equal(await input.inputValue(), 'SYNTHETIC-H100');
+	await list.waitFor({ state: 'hidden' });
+	await table.locator('tbody tr').filter({ hasText: 'SYNTHETIC-P100' }).waitFor();
+
+	const patient = table.getByRole('combobox').nth(1);
+	await patient.click();
+	await list.getByRole('option', { name: 'SYNTHETIC-P100', exact: true }).waitFor();
+	assert.equal(await options.count(), 1);
+	assert.deepEqual(
+		requests.filter(({ name }) => name === 'getTableColumnSuggestions').at(-1).args.columnFilters,
+		[{ field: 'therapyID', value: 'SYNTHETIC-H100' }]
+	);
+	const lookups = requests.filter(({ name }) => name === 'getTableColumnSuggestions').length;
+	await patient.fill('p10');
+	await list.getByRole('option', { name: 'SYNTHETIC-P100', exact: true }).waitFor();
+	await page.waitForTimeout(300);
+	assert.equal(requests.filter(({ name }) => name === 'getTableColumnSuggestions').length, lookups);
+	await options.first().click();
+	assert.equal(await patient.inputValue(), 'SYNTHETIC-P100');
+	await list.waitFor({ state: 'hidden' });
+	await patient.fill('');
+	await patient.press('Escape');
+	await list.waitFor({ state: 'hidden' });
+	assert.equal(await patient.inputValue(), '');
+	await input.fill('NO-SYNTHETIC-MATCH');
+	await table.locator('td.dataTables_empty').waitFor();
+	const freeTextLookup = requests.find(({ name, args }) =>
+		name === 'getTableColumnSuggestions' && args.search === 'NO-SYNTHETIC-MATCH'
+	);
+	assert.deepEqual(freeTextLookup?.args.columnFilters, [], 'The cleared sibling filter takes effect on blur');
+	await input.fill('');
+	await table.locator('tbody tr').filter({ hasText: 'SYNTHETIC-P0' }).waitFor();
+	cases.push({ name: 'server-column-suggestions', passed: true });
+
+	await page.goto(base + '/diagnosis');
+	await page.locator('#diagnosisBarChartTable_info').waitFor({ state: 'attached' });
+	if (await accept.count()) await accept.click();
+	await page.locator('.diagnosis-bar-control-panel button').filter({
+		has: page.locator('img[src*="table.svg"]')
+	}).click();
+	const chartTable = page.locator('#diagnosisBarChartTable');
+	const group = chartTable.getByRole('combobox').nth(2);
+	const before = requests.filter(({ name }) => name === 'getTableColumnSuggestions').length;
+	await group.click();
+	await list.getByRole('option', { name: 'SYN-16', exact: true }).waitFor();
+	assert.equal(await options.count(), 17);
+	await group.fill('-09');
+	await list.getByRole('option', { name: 'SYN-09', exact: true }).click();
+	await page.waitForFunction(() => document.querySelector('#diagnosisBarChartTable_info')?.textContent.includes('of 35 entries'));
+	assert.equal(await group.inputValue(), 'SYN-09');
+	assert.equal(requests.filter(({ name }) => name === 'getTableColumnSuggestions').length, before);
+	cases.push({ name: 'local-column-suggestions', passed: true });
+}
+
 async function runDiagnosisChart() {
 	await page.goto(base + '/diagnosis');
 	await page.locator('#diagnosisBarChartTable_info').waitFor({ state: 'attached' });
@@ -537,7 +621,9 @@ async function runDiagnosisChart() {
 let failure;
 try {
 	const baseline = process.argv.includes('--baseline');
-	if (diagnosisChart) {
+	if (suggestions) {
+		await runColumnSuggestions();
+	} else if (diagnosisChart) {
 		await runDiagnosisChart();
 	} else if (mobile) {
 		await run(targets[0], { width: 1280, height: 700 }, 101);
@@ -551,7 +637,7 @@ try {
 			await run(target, { width: 1900, height: 1050 }, 101);
 			if (!baseline) await run(target, { width: 1900, height: 760 }, 101);
 		}
-	if (!baseline && !mobile && !diagnosisChart)
+	if (!baseline && !mobile && !diagnosisChart && !suggestions)
 		for (const count of [0, 1, 3]) await run(targets[0], { width: 1900, height: 1050 }, count);
 	assert.deepEqual(
 		errors,

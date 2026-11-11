@@ -2,12 +2,20 @@
 // @ts-nocheck
 import jQuery from 'jquery';
 import { escapeHtml } from './lib/escape-html';
+import { copyFilterValue } from './lib/copy-filter-value';
+import { showViewportTooltip } from './lib/tooltip-popover';
+import {
+	bindColumnFilter,
+	collectColumnSuggestions,
+	createColumnFilterInput
+} from './lib/table-column-suggestions';
 import DataTable from 'datatables.net';
 import 'datatables.net';
 import type { LensDataPasser } from '@samply/lens';
 
 import { get } from 'svelte/store';
 import { userStore } from './store/userStore';
+import { t } from './store/languageStore';
 import type { ConfigColumns, Api } from 'datatables.net';
 import moment from 'moment';
 import { reloadOnly } from '../src/store/reloadStore';
@@ -44,6 +52,7 @@ type DatePickerState = {
 	selectedDate: string | null;
 	collection: string | null;
 	typeOfDate: string | null;
+	fieldLabel?: string;
 	onConfirm?: () => boolean | void;
 };
 
@@ -56,6 +65,7 @@ const dateStore = datePickerStore as unknown as WritableSet<DatePickerState>;
 type TableColumnFilter = {
 	field: string;
 	value: string;
+	timeZone?: string;
 };
 
 type TablePageRequest = {
@@ -76,13 +86,16 @@ type TableCellClickHandlers = Record<string, (row: Record<string, unknown>) => v
 
 type ServerSideTableOptions = {
 	fetchPage?: (request: TablePageRequest) => Promise<TablePageResult>;
+	fetchSuggestions?: (
+		field: string,
+		search: string,
+		columnFilters: TableColumnFilter[],
+		signal: AbortSignal
+	) => Promise<string[]>;
 	fixedFilter?: string | null;
 	// When supplied, only these columns select rows; display-only columns stay inert.
 	cellClickHandlers?: TableCellClickHandlers;
 };
-
-const normalizeColumnSearch = (value: string): string =>
-	value.replace(/^\(+/, '').replace(/\)+$/, '');
 
 const addItem = (queryObject: QueryItem): void => {
 	if (!currentDataPasser) {
@@ -173,6 +186,12 @@ export function createTable(
 			? enableCellClick
 			: serverSideOptions
 		: serverSideOptions ?? (typeof enableCellClick === 'object' ? enableCellClick : null);
+	const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+	const columnFilter = (index: number, value: string): TableColumnFilter => ({
+		field: columns[index].data,
+		value,
+		...(columns[index].date ? { timeZone } : {})
+	});
 	const applySelectionScope = () => {
 		currentDataPasser = dataPasser;
 		return applyFixedFilterSelection(dataPasser, effectiveServerSideOptions?.fixedFilter ?? null, get(userStore).currentFilter);
@@ -201,8 +220,7 @@ export function createTable(
 		// Remove sorting icons from cloned header
 		clonedHeader.find('th').removeClass('sorting_asc sorting_desc sorting');
 		clonedHeader.find('th').each(function (this: HTMLTableCellElement) {
-			const title = jQuery(this).text();
-			jQuery(this).html('<input style="width: 80%" type="text" placeholder="' + escapeHtml(title) + '" />');
+			createColumnFilterInput(this, this.textContent ?? '');
 		});
 	}
 
@@ -287,49 +305,51 @@ export function createTable(
 
 		initComplete: function (this: { api: () => Api<unknown> }) {
 			const api = this.api();
-
-			getColumnIndexes(api).forEach((colIdx) => {
-				const cell = jQuery(`.${tableID}-filters th`).eq(
-					jQuery(api.column(colIdx).header()).index()
-				);
-				let input = jQuery('input', cell);
-				if (!input.length) {
-					const title = jQuery(api.column(colIdx).header()).text();
-					jQuery(cell).html(
-						'<input style="width: 80%" type="text" placeholder="' + escapeHtml(title) + '" />'
-					);
-					input = jQuery('input', cell);
-				}
-
-				let filterTimer: ReturnType<typeof setTimeout> | null = null;
-				const applySearch = (inputElement: HTMLInputElement) => {
-					const searchValue = inputElement.value;
-					inputElement.setAttribute('title', searchValue);
-					const regexr = '({search})';
-					api
-						.column(colIdx)
-						.search(
-							searchValue !== '' ? regexr.replace('{search}', '(((' + searchValue + ')))') : '',
-							searchValue !== '',
-							searchValue === ''
-						)
-						.draw();
-				};
-
-				input
-					.off('keyup change')
-					.on('change', function (e) {
-						applySearch(e.target as HTMLInputElement);
-					})
-					.on('keyup', function (e) {
-						e.stopPropagation();
-						const inputElement = e.target as HTMLInputElement;
-						if (filterTimer) {
-							clearTimeout(filterTimer);
+			if (api.settings()[0].bDestroying || !api.table().node().isConnected) return;
+			const indexes = getColumnIndexes(api);
+			const translate = get(t);
+			const filterRow = api.table().header().rows[1];
+			const unbind = indexes.map((colIdx) => {
+				const header = api.column(colIdx).header();
+				const cell = filterRow.cells[header.cellIndex];
+				const input =
+					cell.querySelector('input') ?? createColumnFilterInput(cell, header.textContent ?? '');
+				return bindColumnFilter(input, {
+					id: tableID + '-suggestions-' + colIdx,
+					loadingMessage: translate('tableFilterValuesLoading'),
+					emptyMessage: translate('tableFilterNoMatches'),
+					errorMessage: translate('tableFilterValuesUnavailable'),
+					load: (query, signal) => {
+						const siblings = indexes
+							.filter((index) => index !== colIdx)
+							.map((column) => ({ column, value: api.column(column).search() }))
+							.filter(({ value }) => value.trim() !== '');
+						if (effectiveServerSideOptions?.fetchSuggestions) {
+							return effectiveServerSideOptions.fetchSuggestions(
+								columns[colIdx].data,
+								query,
+								siblings.map(({ column, value }) => columnFilter(column, value)),
+								signal
+							);
 						}
-						filterTimer = setTimeout(() => applySearch(inputElement), 500);
-					});
+						// Locally paged result sets (Kaplan-Meier) keep their complete rows outside DataTables.
+						if (effectiveServerSideOptions?.fetchPage) {
+							const read = (row: number, index: number) =>
+								String(tableData[row][columns[index].data] ?? '');
+							return collectColumnSuggestions(tableData.length, read, colIdx, query, siblings, signal);
+						}
+						// Reuse DataTables' orthogonal search data, including formatted cells and off-page rows.
+						const rows = api.settings()[0].aoData;
+						const read = (row: number, index: number) => rows[row]._aFilterData?.[index] ?? '';
+						return collectColumnSuggestions(rows.length, read, colIdx, query, siblings, signal);
+					},
+					apply: (value) => {
+						const column = api.column(colIdx);
+						if (column.search() !== value) column.search(value, false, false).draw();
+					}
+				});
 			});
+			api.one('destroy.dt.columnFilters', () => unbind.forEach((dispose) => dispose()));
 		},
 		drawCallback: function (this: { api: () => Api<unknown> }) {
 			const api = this.api();
@@ -377,10 +397,7 @@ export function createTable(
 			const sortField = typeof orderedColumn?.data === 'string' ? orderedColumn.data : null;
 			const sortDirection = order?.dir === 'asc' ? 'asc' : 'desc';
 			const columnFilters = (request.columns ?? [])
-				.map((column: any) => ({
-					field: column.data,
-					value: normalizeColumnSearch(column.search?.value ?? '')
-				}))
+				.map((column: any, index: number) => columnFilter(index, column.search?.value ?? ''))
 				.filter(
 					(columnFilter: TableColumnFilter) =>
 						columnFilter.field && columnFilter.value.trim() !== ''
@@ -404,6 +421,13 @@ export function createTable(
 	}
 
 	const dataTable: Api<unknown> = new DataTable(`#${tableID}`, dataTableConfig);
+	// Delegation also covers cells replaced by sorting, filtering, or pagination.
+	// Use the top layer so clipped cells and scroll containers cannot hide the tooltip.
+	jQuery(dataTable.table().node())
+		.off('mouseenter.ovisTooltip')
+		.on('mouseenter.ovisTooltip', 'tbody .tooltip', function (this: HTMLElement) {
+			showViewportTooltip(this);
+		});
 	if (['generic_diagnosisHistologyTable', 'generic_diagnosisDiagnosticTable'].includes(tableID)) {
 		const table = jQuery(dataTable.table().node());
 		table.wrap('<div class="table-scroll-container"></div>');
@@ -625,11 +649,13 @@ function bindCellClickHandler(
 			if (settings && settings.aoColumns) {
 				const columnName = settings.aoColumns[colIndex].data as string;
 				console.log('DATUMSKLICK', cellData, columnName);
+				void copyFilterValue(cellData);
 				dateStore.set({
 					show: true,
-					selectedDate: cellData as string | null,
+					selectedDate: String(cellData),
 					collection,
 					typeOfDate: columnName,
+					fieldLabel: settings.aoColumns[colIndex].nTh?.textContent?.trim(),
 					onConfirm: beforeSelect
 				});
 			}
@@ -650,6 +676,7 @@ function bindCellClickHandler(
 				const v = String(processedCellData ?? '').trim();
 
 				if (v === '1' || v === '2' || v === '3' || v === '4') {
+					void copyFilterValue(v);
 					tnmPickerStore.set({
 						show: true,
 						selectedTNM: v,
@@ -666,6 +693,7 @@ function bindCellClickHandler(
 				!/DaysSinceDiagnosis$/.test(columnName)
 			) {
 				if (beforeSelect?.() === false) return;
+				void copyFilterValue(cellData);
 				if (
 					columnName === 'ops' ||
 					columnName === 'surgeon' ||
@@ -709,6 +737,7 @@ function bindCellClickHandler(
 					reloadOnly();
 				}
 			} else {
+				void copyFilterValue(cellData);
 				numberStore.set({
 					show: true,
 					selectedNumber: processedCellData as string | number,

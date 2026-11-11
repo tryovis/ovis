@@ -44,8 +44,52 @@ const genAggregatedRes = (raw) => {
 	return { label, count };
 };
 
+// Return one canonical ID (or null) per input, within the same authorized
+// patient cohort as getAllPatient. Prefer exact matches, including leading zeros.
+async function resolvePatientImportIds(_parent, { ids, filter }, context) {
+	if (!ids.length) return [];
+	if (JSON.stringify(ids).length > 250000) throw new Error('Patient ID list is too large');
+	const column = context.collections.patient;
+	const patients = context.db.collection(column);
+	const scope = filter ? await filter2match({ value: filter, column, db: context.db }) : [];
+	const requested = [...new Set(ids)];
+	const projection = { $project: { _id: 0, patID: 1 } };
+	const exact = new Set(
+		(
+			await patients
+				.aggregate([{ $match: { patID: { $in: requested } } }, ...scope, projection])
+				.toArray()
+		).map((row) => row.patID)
+	);
+	const stripped = (id) => id.replace(/^0+/, '');
+	const missing = requested.filter((id) => id && !exact.has(id));
+	const canonical = new Map();
+	if (missing.length) {
+		const textId = { $convert: { input: '$patID', to: 'string', onError: '', onNull: '' } };
+		const candidates = patients.aggregate([
+			...scope,
+			{ $project: { _id: 0, patID: { $trim: { input: textId } } } },
+			{ $set: { stripped: { $ltrim: { input: '$patID', chars: '0' } } } },
+			{ $match: { patID: { $ne: '' }, stripped: { $in: [...new Set(missing.map(stripped))] } } }
+		]);
+		for await (const row of candidates) {
+			exact.add(row.patID);
+			const previous = canonical.get(row.stripped);
+			canonical.set(
+				row.stripped,
+				previous === undefined || previous === row.patID ? row.patID : null
+			);
+		}
+	}
+	return ids.map((id) => {
+		if (!id) return null;
+		return exact.has(id) ? id : canonical.get(stripped(id)) ?? null;
+	});
+}
+
 module.exports = {
 	Query: {
+		resolvePatientImportIds,
 		getPatientCohortGenderChart: async (_parent, { filter }, context) => {
 			const colname = context.collections.patient;
 			let agg = [];

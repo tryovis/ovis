@@ -89,6 +89,12 @@ const equals = (value, expected) =>
 
 function matches(doc, query) {
 	return Object.entries(query).every(([field, condition]) => {
+		if (field === '$expr' && condition.$regexMatch) {
+			const { input, regex, options } = condition.$regexMatch;
+			const path = input.$convert.input.$cond[2];
+			const value = getValue(doc, path.slice(1));
+			return new RegExp(regex, options).test(String(value ?? ''));
+		}
 		if (field === '$and') return condition.every((item) => matches(doc, item));
 		if (field === '$or') return condition.some((item) => matches(doc, item));
 		if (field === '$nor') return !condition.some((item) => matches(doc, item));

@@ -3,9 +3,41 @@ import { createRequire } from 'node:module';
 import test from 'node:test';
 
 import { formatDateForInput, parseDateInput } from './filterDateInput.js';
+import { datePickerParts, datePickerRange } from './datePickerRange.js';
 
 const require = createRequire(import.meta.url);
 const { internal } = require('../../../Backend/Apollo/astTranslator.js');
+
+for (const zone of ['Europe/Berlin', 'UTC', 'America/New_York']) {
+	test(`date picker comparisons preserve calendar boundaries in ${zone}`, () => inTimezone(zone, () => {
+		const cases = /** @type {const} */ ([
+			['=', false, '1.2.2024', null, '2024-02-01', '2024-02-01'],
+			['>=', false, '29.2.2024', null, '2024-02-29', null],
+			['>', false, '31.3.2024', null, '2024-04-01', null],
+			['<=', false, '29.2.2024', null, null, '2024-02-29'],
+			['<', false, '1.3.2024', null, null, '2024-02-29'],
+			['[]', false, '27.10.2024', '28.10.2024', '2024-10-27', '2024-10-28'],
+			['=', true, '15.6.2024', null, '2024-01-01', '2024-12-31'],
+			['>=', true, '15.6.2024', null, '2024-01-01', null],
+			['>', true, '15.6.2024', null, '2025-01-01', null],
+			['<=', true, '15.6.2024', null, null, '2024-12-31'],
+			['<', true, '15.6.2024', null, null, '2023-12-31'],
+			['[]', true, '31.12.2024', '1.1.2024', '2024-01-01', '2024-12-31']
+		]);
+		for (const [op, years, start, end, min, max] of cases) {
+			const value = datePickerRange(op, years, datePickerParts(start), datePickerParts(end));
+			assert.equal(formatDateForInput(value.min), min ?? '');
+			assert.equal(formatDateForInput(value.max), max ?? '');
+			const query = internal.localQuery({ key: 'diagnosisDate', system: 'diagnosis', type: 'BETWEEN', value }, 'diagnosis');
+			assert.deepEqual(query.diagnosisDate, {
+				...(min && { $gte: new Date(min) }),
+				...(max && { $lte: new Date(max) })
+			});
+		}
+		assert.equal(datePickerRange('=', false, datePickerParts('29.2.2025')), null);
+		assert.equal(datePickerRange('[]', false, datePickerParts('1.4.2025'), datePickerParts('31.3.2025')), null);
+	}));
+}
 
 const dates = [
 	'2014-01-01',

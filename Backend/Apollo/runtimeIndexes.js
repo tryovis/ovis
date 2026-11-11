@@ -12,6 +12,7 @@ async function createRuntimeIndexes(database, collections) {
 		exportAudits.createIndex({ sha256: 1 })
 	]);
 	const analysisIndexes = [
+		[collections.patient ?? 'patient', { patID: 1 }],
 		[collections.diagnosis, { patID: 1, diagnosisDate: 1, tumorID: 1 }],
 		...['kaplanmeier', 'tnm', 'histology', 'status'].map((key) => [
 			collections[key],

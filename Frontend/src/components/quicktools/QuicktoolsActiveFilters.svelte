@@ -10,6 +10,7 @@
 	import { reloadOnly } from '../../store/reloadStore.js';
 	import { appPath, iconPath } from '$lib/path-utils';
 	import { escapeHtml } from '$lib/escape-html';
+	import { formatFilterDateRange } from '$lib/filterDateInput.js';
 	import { saveExportBlob, ExportAuditError } from '$lib/export-workflow';
 	import { showToast } from '../../store/toastStore';
 	let exportingFilter = false;
@@ -37,6 +38,11 @@
 	});
 
 	let currentAst: any = createNullFilter();
+	const patientPageSize = 25;
+	let patientPages = new WeakMap<object, number>();
+	function setPatientPage(group: object, page: number) {
+		patientPages = patientPages.set(group, page);
+	}
 	function isLensReady(): boolean {
 		return typeof dataPasser?.getAstAPI === 'function' &&
 			typeof dataPasser?.getQueryAPI === 'function' &&
@@ -229,10 +235,7 @@
 
 			// Datumsfelder besonders formatieren
 			if (node.key?.toLowerCase().includes('date')) {
-				const formattedMin = formatMillisecondsToDate(min);
-				const formattedMax = formatMillisecondsToDate(max);
-				if (formattedMin === formattedMax) return formattedMin; // nur einen Wert zeigen
-				return `${formattedMin}<br>${formattedMax}`;
+				return formatFilterDateRange(node.value, '<br>');
 			}
 
 			// Nicht-Date-Felder
@@ -242,16 +245,6 @@
 			return escapeHtml(truncateValue(node.value));
 		}
 		return '';
-	}
-
-	function formatMillisecondsToDate(milliseconds) {
-		if (milliseconds == null) return '-';
-		const d = new Date(milliseconds);
-		if (isNaN(d.getTime())) return '-';
-		const day = String(d.getDate()).padStart(2, '0');
-		const month = String(d.getMonth() + 1).padStart(2, '0');
-		const year = d.getFullYear();
-		return `${day}.${month}.${year}`;
 	}
 
 	function deleteAst() {
@@ -360,6 +353,9 @@
             {#each andNode?.children ?? [] as orNode, orIndex}
                 <div class="filter-entry-grid">
                     {#if orNode.children[0] && orNode.children[0].key !=="isTumor"}
+                    {@const paged = orNode.children[0].key === 'patID' && orNode.children.length > patientPageSize}
+                    {@const page = patientPages.get(orNode) ?? 0}
+                    {@const start = paged ? page * patientPageSize : 0}
                     <button class="label-item" on:click={() => handleRemoveChildrenByKey(andIndex, orIndex, orNode.children[0])}>
                         <img src={removeIcon} alt="x" class="remove-icon-label" />
                         <strong>{truncateLabel(orNode.children[0].key)}</strong>
@@ -371,8 +367,15 @@
 
 
                     <div class="value" class:patient-values={orNode.children[0].key === "patID"}>
-                        {#each orNode.children as child, childIndex}
-                        <button class="value-item" on:click={() => handleRemoveInnerOr(andIndex, orIndex, childIndex, child)}>
+                        {#if paged}
+                        <div class="patient-paging">
+                            <button type="button" aria-label={$t('exportAuditPrevious')} disabled={page === 0} on:click={() => setPatientPage(orNode, page - 1)}>‹</button>
+                            <span>{start + 1}–{Math.min(start + patientPageSize, orNode.children.length)} / {orNode.children.length}</span>
+                            <button type="button" aria-label={$t('exportAuditNext')} disabled={start + patientPageSize >= orNode.children.length} on:click={() => setPatientPage(orNode, page + 1)}>›</button>
+                        </div>
+                        {/if}
+                        {#each (paged ? orNode.children.slice(start, start + patientPageSize) : orNode.children) as child, childIndex}
+                        <button class="value-item" on:click={() => handleRemoveInnerOr(andIndex, orIndex, start + childIndex, child)}>
                             {@html parseNode(child)}
                             <img src={removeIcon} alt="x" class="remove-icon-value" />
                         </button>
@@ -536,6 +539,13 @@
         display: flex;
         flex-direction: column;
         align-items: flex-start;
+    }
+
+    .patient-paging {
+        display: flex;
+        align-items: center;
+        gap: 0.25rem;
+        white-space: nowrap;
     }
 
     .label-item:hover, .value-item:hover {

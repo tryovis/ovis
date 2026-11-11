@@ -1,6 +1,6 @@
 import { writable } from 'svelte/store';
 
-/** @typedef {{ show: boolean; selectedDate: string | null; collection: string | null; typeOfDate: string | null; onConfirm?: () => boolean | void; }} DatePickerState */
+/** @typedef {{ show: boolean; selectedDate: string | null; collection: string | null; typeOfDate: string | null; fieldLabel?: string; onConfirm?: () => boolean | void; }} DatePickerState */
 
 /** @type {import('svelte/store').Writable<DatePickerState>} */
 export const datePickerStore = writable({

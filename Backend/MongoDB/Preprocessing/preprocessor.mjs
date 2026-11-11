@@ -2203,6 +2203,7 @@ const runPreprocessor = async () => {
 	// Recreate analysis indexes after imports that rebuild the materialized collections.
 	await Promise.all(
 		[
+			['patient', { patID: 1 }],
 			['diagnosis', { patID: 1, diagnosisDate: 1, tumorID: 1 }],
 			...['kaplanMeier', 'tnm', 'histology', 'status'].map((name) => [name, { tumorID: 1 }])
 		].map(async ([name, specification]) => {
